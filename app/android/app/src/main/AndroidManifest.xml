@@ -20,9 +20,45 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!--
+              Sem isto o Flutter NÃO entrega o link ao roteador: os intent-filters abaixo
+              fazem o sistema abrir o app, mas ele sobe na rota inicial e o endereço é
+              descartado em silêncio. Foi exatamente o que aconteceu no primeiro teste —
+              o link abria o app e caía na home.
+            -->
+            <meta-data
+              android:name="flutter_deeplinking_enabled"
+              android:value="true"
+              />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+
+            <!--
+              App Links: abre o app direto no link https do e-mail, sem passar pelo
+              navegador. O autoVerify exige que https://myotrack.app/.well-known/assetlinks.json
+              exista e contenha o fingerprint SHA-256 do certificado de RELEASE — enquanto
+              isso não estiver publicado, o Android trata como link comum e o sistema
+              pergunta ao usuário o que abrir. O app funciona nos dois casos.
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="myotrack.app"/>
+            </intent-filter>
+
+            <!--
+              Esquema próprio: o caminho que NÃO depende de infraestrutura nenhuma. Serve de
+              alternativa enquanto o assetlinks não está no ar, e é o que a SPA pode usar para
+              devolver quem abriu o link no navegador para dentro do app.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="myotrack"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

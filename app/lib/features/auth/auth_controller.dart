@@ -86,6 +86,31 @@ class AuthController extends StateNotifier<AuthState> {
     }
   }
 
+  /// Troca a senha usando o link do e-mail. Devolve se deu certo.
+  ///
+  /// Não autentica em seguida de propósito: o link chega por e-mail, e uma caixa de entrada
+  /// aberta em outro aparelho abriria a sessão sem que ninguém digitasse a senha nova. O
+  /// backend responde a mesma coisa e a SPA faz igual — manda para o login.
+  Future<bool> resetPassword({
+    required String userId,
+    required String token,
+    required String password,
+  }) async {
+    state = const AuthState(loading: true);
+    try {
+      final message = await _repo.resetPassword(
+        userId: userId,
+        token: token,
+        password: password,
+      );
+      state = AuthState(info: message);
+      return true;
+    } on ApiException catch (e) {
+      state = AuthState(error: e.message);
+      return false;
+    }
+  }
+
   void clearMessages() => state = AuthState(loading: state.loading);
 
   /// Executa e converte o resultado em estado de tela; devolve se autenticou.
