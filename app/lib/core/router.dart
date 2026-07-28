@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/forgot_password_page.dart';
 import '../features/auth/login_page.dart';
 import '../features/billing/billing_page.dart';
+import '../features/coach/coach_page.dart';
 import '../features/diary/diary_page.dart';
 import '../features/diet/diet_plan_page.dart';
 import '../features/home/home_page.dart';
@@ -38,6 +39,11 @@ class Routes {
   static const diary = '/diario';
   static const videoAnalysis = '/videos';
   static const review = '/revisao';
+
+  /// Chat com o coach. Não existe na SPA — lá o coach é um componente do dashboard; aqui
+  /// vira tela própria porque conversa em celular precisa da altura inteira.
+  static const coach = '/coach';
+
   static const billing = '/assinatura';
 
   /// Conta e privacidade (LGPD). Não existe na SPA — lá a exclusão vive dentro do perfil.
@@ -75,6 +81,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: Routes.logSession,
         builder: (_, _) => const LogSessionPage(),
       ),
+      GoRoute(path: Routes.coach, builder: (_, _) => const CoachPage()),
       GoRoute(path: Routes.billing, builder: (_, _) => const BillingPage()),
       GoRoute(path: Routes.account, builder: (_, _) => const AccountPage()),
       GoRoute(path: Routes.home, builder: (_, _) => const HomePage()),

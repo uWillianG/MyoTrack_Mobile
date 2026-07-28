@@ -165,6 +165,12 @@ class _Navigation extends StatelessWidget {
       route: Routes.videoAnalysis,
     ),
     _Destination(
+      icon: Icons.chat_bubble_outline,
+      title: 'Coach',
+      subtitle: 'Tire dúvidas com quem conhece seu treino e sua dieta',
+      route: Routes.coach,
+    ),
+    _Destination(
       icon: Icons.edit_note_outlined,
       title: 'Registrar treino',
       subtitle: 'Séries, cargas e peso corporal — funciona offline',
