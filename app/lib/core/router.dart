@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/forgot_password_page.dart';
 import '../features/auth/login_page.dart';
 import '../features/billing/billing_page.dart';
+import '../features/diary/diary_page.dart';
 import '../features/diet/diet_plan_page.dart';
 import '../features/home/home_page.dart';
 import '../features/logging/log_session_page.dart';
@@ -61,6 +62,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const WorkoutPlanPage(),
       ),
       GoRoute(path: Routes.dietPlan, builder: (_, _) => const DietPlanPage()),
+      GoRoute(path: Routes.diary, builder: (_, _) => const DiaryPage()),
       GoRoute(
         path: Routes.mealAnalysis,
         builder: (_, _) => const MealAnalysisPage(),
