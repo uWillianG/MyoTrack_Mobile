@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/router.dart';
 import '../dashboard/dashboard_controller.dart';
 import '../dashboard/dashboard_view.dart';
+import '../reports/weekly_report_card.dart';
 
 /// Tela inicial: o que aconteceu até agora, e como chegar ao resto.
 ///
@@ -41,6 +42,13 @@ class HomePage extends ConsumerWidget {
               data: (data) => data.isEmpty
                   ? const _FirstSteps()
                   : DashboardView(stats: data),
+            ),
+            // O card do relatório fica acima dos gráficos porque é leitura, não consulta:
+            // ele já diz o que a semana foi, e os gráficos existem para quem quer conferir.
+            // Some sozinho quando ainda não há relatório.
+            const Padding(
+              padding: EdgeInsets.only(top: 16),
+              child: WeeklyReportCard(),
             ),
             const SizedBox(height: 24),
             const _Navigation(),
