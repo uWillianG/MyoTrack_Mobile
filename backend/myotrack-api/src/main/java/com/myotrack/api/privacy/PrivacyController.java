@@ -15,6 +15,10 @@ import com.myotrack.infrastructure.repository.UserSubscriptionRepository;
 import com.myotrack.infrastructure.repository.WeeklyReportRepository;
 import com.myotrack.infrastructure.repository.WorkoutPlanRepository;
 import com.myotrack.infrastructure.repository.WorkoutSessionRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.myotrack.infrastructure.email.EmailSender;
+import com.myotrack.infrastructure.email.EmailTemplates;
 import com.myotrack.infrastructure.storage.MediaStorage;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -32,6 +36,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Limit;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +44,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -53,6 +59,10 @@ public class PrivacyController {
     private static final Logger log = LoggerFactory.getLogger(PrivacyController.class);
 
     private static final Limit ALL = Limit.unlimited();
+
+    /** Mapper próprio: o export leva OffsetDateTime, que o Jackson cru não sabe escrever. */
+    private static final ObjectMapper EXPORT_MAPPER =
+            new ObjectMapper().registerModule(new JavaTimeModule());
 
     private final ApplicationUserRepository users;
     private final UserProfileRepository profiles;
@@ -70,6 +80,7 @@ public class PrivacyController {
     private final AccountPurgeService purgeService;
     private final MediaStorage storage;
     private final PasswordEncoder passwordEncoder;
+    private final EmailSender emailSender;
 
     public PrivacyController(
             ApplicationUserRepository users,
@@ -87,7 +98,8 @@ public class PrivacyController {
             UserSubscriptionRepository subscriptions,
             AccountPurgeService purgeService,
             MediaStorage storage,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder,
+            EmailSender emailSender) {
         this.users = users;
         this.profiles = profiles;
         this.consents = consents;
@@ -104,6 +116,7 @@ public class PrivacyController {
         this.purgeService = purgeService;
         this.storage = storage;
         this.passwordEncoder = passwordEncoder;
+        this.emailSender = emailSender;
     }
 
     /** Export completo dos dados do titular em JSON (art. 18, LGPD). */
@@ -143,6 +156,57 @@ public class PrivacyController {
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename=\"%s\"".formatted(filename))
                 .body(body);
+    }
+
+    /**
+     * Manda o mesmo export por e-mail, em anexo.
+     *
+     * <p>Vai <b>sempre para o endereço da própria conta</b>, nunca para um informado no
+     * pedido: aceitar destinatário arbitrário transformaria este endpoint numa forma de
+     * exfiltrar os dados de quem tivesse a sessão aberta por um minuto.
+     */
+    @PostMapping("/export/email")
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> emailExport() {
+        final UUID userId = CurrentUser.id();
+
+        final String address = users.findById(userId)
+                .map(ApplicationUser::getEmail)
+                .orElse(null);
+        if (address == null || address.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Sua conta não tem e-mail cadastrado."));
+        }
+
+        // Sem SMTP o EmailSender só escreve no log. Responder 202 nesse caso faria a tela
+        // dizer "enviado" para um e-mail que nunca sai — e este é um direito do titular,
+        // não um aviso qualquer.
+        if (!emailSender.isConfigured()) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of(
+                    "error", "O envio por e-mail não está disponível neste ambiente."));
+        }
+
+        final ResponseEntity<Map<String, Object>> payload = export();
+        final byte[] json;
+        try {
+            json = EXPORT_MAPPER.writeValueAsBytes(payload.getBody());
+        } catch (Exception e) {
+            log.error("Falha ao serializar o export do usuário {}.", userId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Não foi possível preparar seus dados."));
+        }
+
+        final String filename = "myotrack-dados-%s.json".formatted(
+                LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd", Locale.ROOT)));
+
+        emailSender.send(
+                address,
+                EmailTemplates.dataExport(filename),
+                new EmailSender.Attachment(filename, json, "application/json"));
+
+        // O endereço não volta na resposta: a tela já sabe qual é, e ecoá-lo aqui só criaria
+        // mais um lugar por onde ele vaza em log de proxy.
+        return ResponseEntity.accepted().build();
     }
 
     /**

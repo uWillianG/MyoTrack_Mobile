@@ -5,6 +5,7 @@ import jakarta.mail.internet.MimeMessage;
 import java.io.UnsupportedEncodingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -34,6 +35,16 @@ public class EmailSender {
     }
 
     public void send(String to, EmailContent content) {
+        send(to, content, null);
+    }
+
+    /**
+     * Envia com um anexo opcional.
+     *
+     * <p>O anexo existe para o export de dados (LGPD): o arquivo vai junto do e-mail em vez
+     * de virar um link, que precisaria de uma URL pública para dados pessoais.
+     */
+    public void send(String to, EmailContent content, Attachment attachment) {
         if (!isConfigured()) {
             log.info("SMTP não configurado — e-mail não enviado.\nPara: {}\nAssunto: {}\n{}",
                     to, content.subject(), content.textBody());
@@ -58,6 +69,10 @@ public class EmailSender {
             // cliente é sempre a mesma, exista ou não a conta, e vazar a falha revelaria o cadastro.
             log.error("Falha ao enviar e-mail para {}: {}", to, e.getMessage(), e);
         }
+    }
+
+    /** Arquivo anexado à mensagem. */
+    public record Attachment(String filename, byte[] bytes, String contentType) {
     }
 
     private JavaMailSenderImpl buildSender() {

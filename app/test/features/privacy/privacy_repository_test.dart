@@ -83,6 +83,41 @@ void main() {
     await repo.deleteAccount('willian@exemplo.com');
   });
 
+  group('export de dados', () {
+    test('o pedido não leva destinatário', () async {
+      // O servidor manda sempre para o e-mail da própria conta. Aceitar um endereço aqui
+      // transformaria isto numa forma de exfiltrar os dados de quem deixasse a sessão aberta.
+      adapter.onPost(
+        '/api/privacy/export/email',
+        (server) => server.reply(202, null),
+        data: null,
+      );
+
+      await repo.emailExport();
+    });
+
+    test('ambiente sem SMTP responde 503 em vez de fingir que enviou', () async {
+      // Este é um direito do titular: dizer "enviado" para um e-mail que nunca sai seria
+      // pior que recusar.
+      adapter.onPost(
+        '/api/privacy/export/email',
+        (server) => server.reply(503, {
+          'error': 'O envio por e-mail não está disponível neste ambiente.',
+        }),
+        data: null,
+      );
+
+      await expectLater(
+        repo.emailExport(),
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.statusCode, 'statusCode', 503)
+              .having((e) => e.isRetryable, 'isRetryable', isTrue),
+        ),
+      );
+    });
+  });
+
   test('confirmação errada em conta social explica o que digitar', () async {
     adapter.onDelete(
       '/api/privacy/account',

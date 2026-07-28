@@ -65,6 +65,10 @@ class AccountPage extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
+          // O export vem antes do aviso da assinatura e depois da exclusão: são os dois
+          // direitos do titular na LGPD, e ficam juntos.
+          _ExportCard(),
+          const SizedBox(height: 12),
           Text(
             'Se você tem assinatura ativa, cancele-a também nos ajustes de assinaturas do '
             'seu aparelho: excluir a conta aqui não cancela a cobrança da loja.',
@@ -203,5 +207,59 @@ class _ConfirmDialogState extends ConsumerState<_ConfirmDialog> {
         ),
       ],
     );
+  }
+}
+
+/// Pedido do export de dados (LGPD).
+class _ExportCard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final sending = ref.watch(exportProvider).sending;
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Baixar meus dados', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 8),
+            Text(
+              'Enviamos um arquivo com tudo que temos sobre você — perfil, planos, treinos, '
+              'medidas e análises — para o e-mail da sua conta.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.tonalIcon(
+              onPressed: sending ? null : () => _request(context, ref),
+              icon: sending
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.mail_outline),
+              label: const Text('Enviar por e-mail'),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(48),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _request(BuildContext context, WidgetRef ref) async {
+    final message = await ref.read(exportProvider.notifier).request();
+    if (message.isNotEmpty && context.mounted) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 }
