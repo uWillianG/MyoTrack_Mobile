@@ -107,7 +107,7 @@ public class MealPhotoHandler implements JobHandler {
                                 + "Tente enquadrar o prato inteiro, com boa luz."));
 
         final MealPhotoAnalysis entity = persist(userId, job, mediaKey, meal);
-        return "{\"mealPhotoAnalysisId\":\"%s\"}".formatted(entity.getId());
+        return "{\"mealAnalysisId\":\"%s\"}".formatted(entity.getId());
     }
 
     private byte[] download(String mediaKey) {

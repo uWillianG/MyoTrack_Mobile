@@ -3,7 +3,7 @@ import 'dart:io';
 import '../../../core/network/api_client.dart';
 import 'video_models.dart';
 
-/// Fala com `/api/videos`.
+/// Fala com `/api/video-analyses`.
 ///
 /// O envio é em dois passos — pedir a URL assinada e subir direto no storage — porque vídeo de
 /// série passa de dezenas de MB: atravessá-lo pela API ocuparia uma thread do servidor por
@@ -14,7 +14,9 @@ class VideoRepository {
   final ApiClient _api;
 
   Future<List<VideoExerciseOption>> exercises() async {
-    final json = await _api.get<List<dynamic>>('/api/videos/exercises');
+    final json = await _api.get<List<dynamic>>(
+      '/api/video-analyses/supported-exercises',
+    );
     return json
         .map((e) => VideoExerciseOption.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -22,7 +24,7 @@ class VideoRepository {
 
   Future<VideoUploadTicket> requestUpload(String contentType) async {
     final json = await _api.post<Map<String, dynamic>>(
-      '/api/videos/upload-url',
+      '/api/video-analyses/presign',
       body: {'contentType': contentType},
     );
     return VideoUploadTicket.fromJson(json);
@@ -53,7 +55,7 @@ class VideoRepository {
     required String exercise,
   }) async {
     final json = await _api.post<Map<String, dynamic>>(
-      '/api/videos/analyze',
+      '/api/video-analyses',
       body: {'mediaKey': mediaKey, 'exercise': exercise},
     );
     return json['jobId'] as String;
@@ -61,7 +63,7 @@ class VideoRepository {
 
   Future<List<VideoAnalysis>> recent({int limit = 20}) async {
     final json = await _api.get<List<dynamic>>(
-      '/api/videos',
+      '/api/video-analyses',
       query: {'limit': limit},
     );
     return json

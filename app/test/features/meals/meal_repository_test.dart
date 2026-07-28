@@ -81,7 +81,7 @@ void main() {
   group('envio da foto', () {
     test('devolve o jobId que a tela vai acompanhar', () async {
       adapter.onPost(
-        '/api/meals/analyze',
+        '/api/meal-analyses',
         (server) => server.reply(202, {'jobId': 'job-1'}),
         data: Matchers.any,
       );
@@ -98,7 +98,7 @@ void main() {
     test('limite diário vira ApiException com a mensagem do servidor', () async {
       // O backend responde 429 para o app poder oferecer o Pro em vez de só mostrar erro.
       adapter.onPost(
-        '/api/meals/analyze',
+        '/api/meal-analyses',
         (server) => server.reply(429, {
           'error':
               'Limite diário de 10 análises de refeição atingido. Assine o Pro para ampliar.',
@@ -124,7 +124,7 @@ void main() {
   group('leitura', () {
     test('histórico traz itens e totais', () async {
       adapter.onGet(
-        '/api/meals',
+        '/api/meal-analyses',
         (server) => server.reply(200, [analysisJson()]),
         queryParameters: {'limit': 30},
       );
@@ -144,7 +144,7 @@ void main() {
       // A LGPD manda apagar a imagem; os macros continuam valendo, e a tela só esconde a
       // foto em vez de sumir com o registro.
       adapter.onGet(
-        '/api/meals',
+        '/api/meal-analyses',
         (server) => server.reply(200, [analysisJson(photoUrl: null)]),
         queryParameters: {'limit': 30},
       );
@@ -158,7 +158,7 @@ void main() {
     test('inteiro e decimal são aceitos no mesmo campo', () async {
       // O backend serializa BigDecimal: o mesmo campo vem "42" ou "42.0" conforme o valor.
       adapter.onGet(
-        '/api/meals',
+        '/api/meal-analyses',
         (server) => server.reply(200, [
           {...analysisJson(), 'totalKcal': 393.0, 'totalCarbsG': 42},
         ]),
@@ -174,8 +174,8 @@ void main() {
 
   group('correção manual', () {
     test('tirar do diário manda só o campo que mudou', () async {
-      adapter.onPatch(
-        '/api/meals/a1',
+      adapter.onPut(
+        '/api/meal-analyses/a1',
         (server) => server.reply(200, analysisJson(excludedFromDiary: true)),
         data: {'items': null, 'excludedFromDiary': true},
       );
@@ -191,8 +191,8 @@ void main() {
     test('o total recalculado vem do servidor, não do cliente', () async {
       // O cliente manda itens; quem soma é o backend. Aqui a resposta traz 500 kcal e é
       // esse número que a tela passa a mostrar.
-      adapter.onPatch(
-        '/api/meals/a1',
+      adapter.onPut(
+        '/api/meal-analyses/a1',
         (server) => server.reply(200, {
           ...analysisJson(userAdjusted: true),
           'totalKcal': 500,

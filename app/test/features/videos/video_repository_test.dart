@@ -42,7 +42,7 @@ void main() {
     test('vêm do servidor, não embutidos no app', () async {
       // Um exercício novo no serviço de visão passa a aparecer sem publicar versão nova.
       adapter.onGet(
-        '/api/videos/exercises',
+        '/api/video-analyses/supported-exercises',
         (server) => server.reply(200, [
           {'slug': 'squat', 'label': 'Agachamento'},
           {'slug': 'bench_press', 'label': 'Supino'},
@@ -60,7 +60,7 @@ void main() {
   group('envio em dois passos', () {
     test('a URL assinada vem com a chave que o passo 2 confirma', () async {
       adapter.onPost(
-        '/api/videos/upload-url',
+        '/api/video-analyses/presign',
         (server) => server.reply(200, {
           'mediaKey': 'videos/u1/v1.mp4',
           'uploadUrl': 'https://storage/put?sig=abc',
@@ -79,7 +79,7 @@ void main() {
       'analyze devolve o jobId depois de o arquivo já estar no storage',
       () async {
         adapter.onPost(
-          '/api/videos/analyze',
+          '/api/video-analyses',
           (server) => server.reply(202, {'jobId': 'job-9'}),
           data: {'mediaKey': 'videos/u1/v1.mp4', 'exercise': 'squat'},
         );
@@ -94,7 +94,7 @@ void main() {
     test('limite diário vira ApiException já no pedido da URL', () async {
       // Recusar antes do upload é o ponto: o usuário não sobe 80 MB para descobrir depois.
       adapter.onPost(
-        '/api/videos/upload-url',
+        '/api/video-analyses/presign',
         (server) => server.reply(429, {
           'error':
               'Limite diário de 5 análises de vídeo atingido. Assine o Pro para ampliar.',
@@ -150,7 +150,7 @@ void main() {
 
     test('erros trazem os instantes para achar o trecho no vídeo', () async {
       adapter.onGet(
-        '/api/videos',
+        '/api/video-analyses',
         (server) => server.reply(200, [analysisJson()]),
         queryParameters: {'limit': 20},
       );
@@ -166,7 +166,7 @@ void main() {
     test('score nulo é "não avaliado", e não zero', () async {
       // A diferença importa: zero afirma execução péssima, nulo afirma que não deu para ver.
       adapter.onGet(
-        '/api/videos',
+        '/api/video-analyses',
         (server) => server.reply(200, [
           analysisJson(
             score: null,
@@ -187,7 +187,7 @@ void main() {
     test('métricas novas do serviço não quebram o app', () async {
       // As heurísticas evoluem; um campo novo em metrics não pode exigir versão nova.
       adapter.onGet(
-        '/api/videos',
+        '/api/video-analyses',
         (server) => server.reply(200, [
           {
             ...analysisJson(),

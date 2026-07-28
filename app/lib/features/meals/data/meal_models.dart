@@ -3,7 +3,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'meal_models.freezed.dart';
 part 'meal_models.g.dart';
 
-/// Um alimento identificado na foto — `GET /api/meals`.
+/// Um alimento identificado na foto — `GET /api/meal-analyses`.
 ///
 /// Os números chegam como `num` porque o backend os serializa como `BigDecimal`: dependendo
 /// do valor o JSON traz `195` ou `195.0`, e tipar como `double` faria o primeiro caso
@@ -54,7 +54,7 @@ abstract class MealAnalysis with _$MealAnalysis {
       _$MealAnalysisFromJson(json);
 }
 
-/// Correção manual — corpo de `PATCH /api/meals/{id}`.
+/// Correção manual — corpo de `PUT /api/meal-analyses/{id}`.
 ///
 /// Os totais não vão aqui: quem soma é o servidor, a partir dos itens.
 @freezed
