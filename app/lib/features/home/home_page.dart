@@ -59,6 +59,15 @@ class HomePage extends StatelessWidget {
             onTap: () => context.push(Routes.logSession),
           ),
           ListTile(
+            leading: const Icon(Icons.videocam_outlined),
+            title: const Text('Analisar execução'),
+            subtitle: const Text(
+              'Grave uma série e veja onde a técnica sai do lugar',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push(Routes.videoAnalysis),
+          ),
+          ListTile(
             leading: const Icon(Icons.person_outline),
             title: const Text('Perfil'),
             subtitle: const Text(

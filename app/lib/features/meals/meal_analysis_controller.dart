@@ -19,8 +19,6 @@ final mealHistoryProvider = FutureProvider<List<MealAnalysis>>(
   (ref) => ref.watch(mealRepositoryProvider).recent(),
 );
 
-final imagePickerProvider = Provider<ImagePicker>((ref) => ImagePicker());
-
 /// Prepara a foto para envio: reduz e recomprime.
 ///
 /// Fica fora do controller para poder ser testado sem plugin de câmera.

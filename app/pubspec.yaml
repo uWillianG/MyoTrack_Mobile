@@ -86,6 +86,11 @@ dependencies:
   # antes de subir é a diferença entre subir na hora e travar no Wi-Fi da academia.
   flutter_image_compress: ^2.5.1
 
+  # --- Análise de vídeo (B9) ---
+  # Reproduz o vídeo com o esqueleto desenhado que o serviço de visão devolve. O envio reusa o
+  # image_picker do B7 (`pickVideo`), sem plugin novo para isso.
+  video_player: ^2.9.2
+
   # --- Links externos (B3) ---
   # Abre o vídeo do exercício no TikTok. Exige <queries> no AndroidManifest: do Android 11
   # em diante o app não enxerga quem trata https sem declarar. No iOS o link https vai por
