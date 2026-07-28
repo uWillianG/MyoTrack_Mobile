@@ -9,6 +9,7 @@ import '../features/diet/diet_plan_page.dart';
 import '../features/home/home_page.dart';
 import '../features/logging/log_session_page.dart';
 import '../features/meals/meal_analysis_page.dart';
+import '../features/privacy/account_page.dart';
 import '../features/profile/onboarding_page.dart';
 import '../features/splash/splash_page.dart';
 import '../features/videos/video_analysis_page.dart';
@@ -37,6 +38,11 @@ class Routes {
   static const videoAnalysis = '/videos';
   static const review = '/revisao';
   static const billing = '/assinatura';
+
+  /// Conta e privacidade (LGPD). Não existe na SPA — lá a exclusão vive dentro do perfil.
+  /// No app ela é tela própria porque as lojas exigem que o caminho para apagar a conta
+  /// seja fácil de achar, e um submenu é motivo de recusa na revisão.
+  static const account = '/conta';
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -68,6 +74,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const LogSessionPage(),
       ),
       GoRoute(path: Routes.billing, builder: (_, _) => const BillingPage()),
+      GoRoute(path: Routes.account, builder: (_, _) => const AccountPage()),
       GoRoute(path: Routes.home, builder: (_, _) => const HomePage()),
     ],
     redirect: (context, state) {

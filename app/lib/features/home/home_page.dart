@@ -176,6 +176,12 @@ class _Navigation extends StatelessWidget {
       subtitle: 'Objetivo, experiência, equipamentos e lesões',
       route: Routes.profile,
     ),
+    _Destination(
+      icon: Icons.shield_outlined,
+      title: 'Conta e privacidade',
+      subtitle: 'Excluir sua conta e todos os seus dados',
+      route: Routes.account,
+    ),
   ];
 
   @override
