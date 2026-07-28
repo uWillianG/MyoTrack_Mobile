@@ -13,6 +13,7 @@ import '../features/logging/log_session_page.dart';
 import '../features/meals/meal_analysis_page.dart';
 import '../features/privacy/account_page.dart';
 import '../features/profile/onboarding_page.dart';
+import '../features/reviews/review_page.dart';
 import '../features/splash/splash_page.dart';
 import '../features/videos/video_analysis_page.dart';
 import '../features/workout/workout_plan_page.dart';
@@ -82,6 +83,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const LogSessionPage(),
       ),
       GoRoute(path: Routes.coach, builder: (_, _) => const CoachPage()),
+      GoRoute(path: Routes.review, builder: (_, _) => const ReviewPage()),
       GoRoute(path: Routes.billing, builder: (_, _) => const BillingPage()),
       GoRoute(path: Routes.account, builder: (_, _) => const AccountPage()),
       GoRoute(path: Routes.home, builder: (_, _) => const HomePage()),
