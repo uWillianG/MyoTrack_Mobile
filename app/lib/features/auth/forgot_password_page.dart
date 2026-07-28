@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'auth_controller.dart';
+import 'widgets/auth_message.dart';
 import 'widgets/auth_scaffold.dart';
 
 /// Pede o link de redefinição por e-mail. Porte de `ForgotPasswordPage.tsx`.
@@ -46,9 +47,11 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
             // A resposta é sempre a mesma, exista ou não a conta — é o que impede
             // usar esta tela para descobrir quem tem cadastro.
             if (state.info != null)
-              _Message(state.info!, icon: Icons.mark_email_read_outlined),
-            if (state.error != null)
-              _Message(state.error!, icon: Icons.error_outline, isError: true),
+              AuthMessage.info(
+                state.info!,
+                icon: Icons.mark_email_read_outlined,
+              ),
+            if (state.error != null) AuthMessage.error(state.error!),
 
             TextFormField(
               controller: _email,
@@ -89,47 +92,6 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _Message extends StatelessWidget {
-  const _Message(this.text, {required this.icon, this.isError = false});
-
-  final String text;
-  final IconData icon;
-  final bool isError;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final background = isError
-        ? scheme.errorContainer
-        : scheme.primaryContainer;
-    final foreground = isError
-        ? scheme.onErrorContainer
-        : scheme.onPrimaryContainer;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 20, color: foreground),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(color: foreground, fontSize: 13),
-            ),
-          ),
-        ],
       ),
     );
   }

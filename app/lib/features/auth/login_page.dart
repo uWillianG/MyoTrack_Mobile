@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/router.dart';
 import 'auth_controller.dart';
 import 'data/social_sign_in.dart';
+import 'widgets/auth_message.dart';
 import 'widgets/auth_scaffold.dart';
 import 'widgets/password_rules.dart';
 
@@ -100,8 +101,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (state.error != null) _Banner.error(state.error!),
-            if (state.info != null) _Banner.info(state.info!),
+            if (state.error != null) AuthMessage.error(state.error!),
+            if (state.info != null) AuthMessage.info(state.info!),
 
             if (_isRegister) ...[
               TextFormField(
@@ -281,57 +282,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// Faixa de mensagem acima do formulário.
-class _Banner extends StatelessWidget {
-  const _Banner._({required this.message, required this.isError});
-
-  factory _Banner.error(String message) =>
-      _Banner._(message: message, isError: true);
-
-  factory _Banner.info(String message) =>
-      _Banner._(message: message, isError: false);
-
-  final String message;
-  final bool isError;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final background = isError
-        ? scheme.errorContainer
-        : scheme.primaryContainer;
-    final foreground = isError
-        ? scheme.onErrorContainer
-        : scheme.onPrimaryContainer;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            isError ? Icons.error_outline : Icons.info_outline,
-            size: 20,
-            color: foreground,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message,
-              style: TextStyle(color: foreground, fontSize: 13),
-            ),
-          ),
-        ],
       ),
     );
   }

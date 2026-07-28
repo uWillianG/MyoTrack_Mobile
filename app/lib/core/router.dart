@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../features/auth/forgot_password_page.dart';
 import '../features/auth/login_page.dart';
+import '../features/auth/reset_password_page.dart';
 import '../features/diet/diet_plan_page.dart';
 import '../features/home/home_page.dart';
 import '../features/logging/log_session_page.dart';
@@ -46,6 +47,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: Routes.forgotPassword,
         builder: (_, _) => const ForgotPasswordPage(),
       ),
+      GoRoute(
+        path: Routes.resetPassword,
+        builder: (_, state) => ResetPasswordPage(
+          userId: state.uri.queryParameters['uid'] ?? '',
+          token: state.uri.queryParameters['token'] ?? '',
+        ),
+      ),
       GoRoute(path: Routes.profile, builder: (_, _) => const OnboardingPage()),
       GoRoute(
         path: Routes.workoutPlan,
@@ -59,6 +67,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.home, builder: (_, _) => const HomePage()),
     ],
     redirect: (context, state) {
+      // Redefinir senha passa em qualquer estado de sessão, e por isso é decidido antes
+      // de olhar para ela. Com sessão aberta: o link do e-mail é de uso único e expira, e
+      // quem esqueceu a senha pode muito bem ainda estar logado — mandar para a home faria
+      // o link parecer quebrado. Durante o carregamento: segurar no splash perderia o
+      // destino, porque o redirect só é reavaliado depois, já em outra rota.
+      if (state.matchedLocation == Routes.resetPassword) {
+        return null;
+      }
+
       final auth = ref.read(authStateProvider);
 
       // Enquanto a leitura do armazenamento seguro não termina, fica no splash:
