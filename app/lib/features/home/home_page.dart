@@ -151,6 +151,12 @@ class _Navigation extends StatelessWidget {
       route: Routes.dietPlan,
     ),
     _Destination(
+      icon: Icons.menu_book_outlined,
+      title: 'Diário',
+      subtitle: 'O que você comeu no dia, comparado às suas metas',
+      route: Routes.diary,
+    ),
+    _Destination(
       icon: Icons.photo_camera_outlined,
       title: 'Analisar refeição',
       subtitle: 'Fotografe o prato e a IA estima calorias e macros',
