@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.myotrack.infrastructure.ai.GeminiJsonClientTest" tests="10" skipped="0" failures="0" errors="0" timestamp="2026-07-28T02:38:57" hostname="NITROV" time="0.873">
+  <properties/>
+  <testcase name="sanitizeSchema aceita um Map, que é como os serviços montam o schema" classname="com.myotrack.infrastructure.ai.GeminiJsonClientTest" time="0.191"/>
+  <testcase name="[1] provider=gemini, anthropicKey=chave-a, geminiKey=chave-g, expected=gemini" classname="com.myotrack.infrastructure.ai.GeminiJsonClientTest" time="0.01"/>
+  <testcase name="[2] provider=Anthropic, anthropicKey=null, geminiKey=chave-g, expected=anthropic" classname="com.myotrack.infrastructure.ai.GeminiJsonClientTest" time="0.001"/>
+  <testcase name="[3] provider=null, anthropicKey=chave-a, geminiKey=null, expected=anthropic" classname="com.myotrack.infrastructure.ai.GeminiJsonClientTest" time="0.001"/>
+  <testcase name="[4] provider=null, anthropicKey=null, geminiKey=chave-g, expected=gemini" classname="com.myotrack.infrastructure.ai.GeminiJsonClientTest" time="0.001"/>
+  <testcase name="[5] provider=null, anthropicKey=chave-a, geminiKey=chave-g, expected=anthropic" classname="com.myotrack.infrastructure.ai.GeminiJsonClientTest" time="0.001"/>
+  <testcase name="[6] provider=null, anthropicKey=null, geminiKey=null, expected=anthropic" classname="com.myotrack.infrastructure.ai.GeminiJsonClientTest" time="0.001"/>
+  <testcase name="sanitizeSchema remove palavras-chave não suportadas e preserva a estrutura" classname="com.myotrack.infrastructure.ai.GeminiJsonClientTest" time="0.02"/>
+  <testcase name="Os defaults dos modelos batem com os do appsettings.json do .NET" classname="com.myotrack.infrastructure.ai.GeminiJsonClientTest" time="0.001"/>
+  <testcase name="Sem chave, o cliente se declara não configurado em vez de falhar" classname="com.myotrack.infrastructure.ai.GeminiJsonClientTest" time="0.591"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

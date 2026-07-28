@@ -1,0 +1,97 @@
+spring:
+  application:
+    name: myotrack-api
+  config:
+    import: classpath:myotrack-shared.yml
+  # Só a API migra. Isto mora aqui, e não no myotrack-shared.yml, porque o que vem por
+  # spring.config.import tem precedência sobre o arquivo que importa: no compartilhado,
+  # este bloco sobrescrevia o "enabled: false" do Worker e os dois processos disputavam
+  # o lock de migração na subida.
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # O banco de produção já existe (criado pelas migrations do EF Core): o Flyway
+    # o adota no ponto V1 em vez de tentar recriar tudo.
+    baseline-on-migrate: true
+    baseline-version: 1
+    baseline-description: Schema herdado do EF Core
+
+  servlet:
+    multipart:
+      # Foto de refeição: 10 MB + folga para o envelope multipart.
+      max-file-size: 11MB
+      max-request-size: 12MB
+
+server:
+  port: ${MYOTRACK_API_PORT:8080}
+  forward-headers-strategy: framework   # atrás do Caddy, o IP real vem no X-Forwarded-For
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+myotrack:
+  app:
+    # Base dos links enviados por e-mail e do redirect do OAuth do Google.
+    public-base-url: ${MYOTRACK_PUBLIC_BASE_URL:http://localhost:5173}
+
+  jwt:
+    issuer: MyoTrack
+    audience: MyoTrack
+    signing-key: ${MYOTRACK_JWT_SIGNING_KEY:dev-only-signing-key-change-me-in-production-0123456789}
+    access-token-minutes: 15
+    refresh-token-days: 30
+
+  cors:
+    allowed-origins: ${MYOTRACK_CORS_ORIGINS:http://localhost:5173}
+
+  email:
+    # Sem user/password o envio fica desligado e a mensagem só vai para o log.
+    host: ${MYOTRACK_EMAIL_HOST:smtp.gmail.com}
+    port: ${MYOTRACK_EMAIL_PORT:587}
+    use-start-tls: true
+    user: ${MYOTRACK_EMAIL_USER:}
+    password: ${MYOTRACK_EMAIL_PASSWORD:}
+    from: ${MYOTRACK_EMAIL_FROM:}
+    from-name: MyoTrack
+
+  auth:
+    google:
+      # Sem client-id/secret o botão do Google não aparece no app.
+      client-id: ${MYOTRACK_GOOGLE_CLIENT_ID:}
+      client-secret: ${MYOTRACK_GOOGLE_CLIENT_SECRET:}
+      # Client ids do tipo Android/Web que o app usa no Credential Manager.
+      android-client-ids: ${MYOTRACK_GOOGLE_ANDROID_CLIENT_IDS:}
+    apple:
+      # Bundle id do app iOS (e o Services ID, se o login com Apple for à web um dia).
+      # Vazio = botão da Apple não aparece. Sem client secret: o app manda um token já
+      # assinado pela Apple e o backend só valida contra o JWKS público.
+      audiences: ${MYOTRACK_APPLE_AUDIENCES:}
+
+  limits:
+    free:
+      max-meal-analyses-per-day: 10
+      max-video-analyses-per-day: 5
+      max-coach-messages-per-day: 10
+    pro:
+      max-meal-analyses-per-day: 50
+      max-video-analyses-per-day: 20
+      max-coach-messages-per-day: 50
+
+  billing:
+    # Sem secret-key os pagamentos ficam desabilitados e todos usam o plano gratuito.
+    secret-key: ${MYOTRACK_STRIPE_SECRET_KEY:}
+    webhook-secret: ${MYOTRACK_STRIPE_WEBHOOK_SECRET:}
+    pro-price-id: ${MYOTRACK_STRIPE_PRO_PRICE_ID:}
+    public-base-url: ${MYOTRACK_PUBLIC_BASE_URL:http://localhost:5173}
+
+logging:
+  level:
+    root: INFO
+    org.springframework.web: WARN

@@ -1,0 +1,2 @@
+¥23:38:59.889 [Test worker] WARN com.myotrack.infrastructure.identity.password.AspNetIdentityPasswordEncoder -- PasswordHash n√£o √© Base64 v√°lido; tratando como senha incorreta.
+®23:38:59.894 [Test worker] WARN com.myotrack.infrastructure.identity.password.AspNetIdentityPasswordEncoder -- Marcador de formato desconhecido (0x2) no PasswordHash.

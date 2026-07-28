@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.myotrack.domain.service.TdeeCalculatorTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-07-28T02:38:57" hostname="NITROV" time="0.027">
+  <properties/>
+  <testcase name="TMB feminina por Mifflin-St Jeor" classname="com.myotrack.domain.service.TdeeCalculatorTest" time="0.002"/>
+  <testcase name="Soma dos macros fica a ±3% das kcal alvo" classname="com.myotrack.domain.service.TdeeCalculatorTest" time="0.005"/>
+  <testcase name="deficitReduces20Percent()" classname="com.myotrack.domain.service.TdeeCalculatorTest" time="0.001"/>
+  <testcase name="Déficit nunca prescreve abaixo da TMB" classname="com.myotrack.domain.service.TdeeCalculatorTest" time="0.004"/>
+  <testcase name="[1] days=0, expected=1.2" classname="com.myotrack.domain.service.TdeeCalculatorTest" time="0.001"/>
+  <testcase name="[2] days=3, expected=1.375" classname="com.myotrack.domain.service.TdeeCalculatorTest" time="0.0"/>
+  <testcase name="[3] days=5, expected=1.55" classname="com.myotrack.domain.service.TdeeCalculatorTest" time="0.001"/>
+  <testcase name="[4] days=6, expected=1.725" classname="com.myotrack.domain.service.TdeeCalculatorTest" time="0.001"/>
+  <testcase name="Idade desconta o aniversário ainda não ocorrido no ano" classname="com.myotrack.domain.service.TdeeCalculatorTest" time="0.002"/>
+  <testcase name="TMB masculina por Mifflin-St Jeor" classname="com.myotrack.domain.service.TdeeCalculatorTest" time="0.001"/>
+  <testcase name="deficitProteinIs2gPerKg()" classname="com.myotrack.domain.service.TdeeCalculatorTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

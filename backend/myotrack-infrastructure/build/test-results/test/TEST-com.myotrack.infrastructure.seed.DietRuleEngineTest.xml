@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.myotrack.infrastructure.seed.DietRuleEngineTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-07-28T02:39:00" hostname="NITROV" time="0.026">
+  <properties/>
+  <testcase name="Restrições impossíveis falham em vez de gerar um plano vazio" classname="com.myotrack.infrastructure.seed.DietRuleEngineTest" time="0.011"/>
+  <testcase name="Totais ficam próximos das metas" classname="com.myotrack.infrastructure.seed.DietRuleEngineTest" time="0.007"/>
+  <testcase name="generates4MealsWithItems()" classname="com.myotrack.infrastructure.seed.DietRuleEngineTest" time="0.004"/>
+  <testcase name="restrictionsExcludeMatchingFoods()" classname="com.myotrack.infrastructure.seed.DietRuleEngineTest" time="0.003"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

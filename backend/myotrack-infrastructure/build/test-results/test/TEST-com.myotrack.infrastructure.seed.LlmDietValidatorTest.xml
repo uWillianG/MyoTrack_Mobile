@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.myotrack.infrastructure.seed.LlmDietValidatorTest" tests="18" skipped="0" failures="0" errors="0" timestamp="2026-07-28T02:39:00" hostname="NITROV" time="0.043">
+  <properties/>
+  <testcase name="[1] grams=9" classname="com.myotrack.infrastructure.seed.LlmDietValidatorTest" time="0.006"/>
+  <testcase name="[2] grams=501" classname="com.myotrack.infrastructure.seed.LlmDietValidatorTest" time="0.002"/>
+  <testcase name="[3] grams=0" classname="com.myotrack.infrastructure.seed.LlmDietValidatorTest" time="0.001"/>
+  <testcase name="O reescalonamento respeita o teto de 500 g por item" classname="com.myotrack.infrastructure.seed.LlmDietValidatorTest" time="0.005"/>
+  <testcase name="Refeição sem nome ganha um padrão em vez de ir vazia para a tela" classname="com.myotrack.infrastructure.seed.LlmDietValidatorTest" time="0.002"/>
+  <testcase name="Proposta válida é aceita e mantém as refeições" classname="com.myotrack.infrastructure.seed.LlmDietValidatorTest" time="0.001"/>
+  <testcase name="A restrição casa por trecho do nome, como no motor de regras" classname="com.myotrack.infrastructure.seed.LlmDietValidatorTest" time="0.001"/>
+  <testcase name="rejectsEmptyMeal()" classname="com.myotrack.infrastructure.seed.LlmDietValidatorTest" time="0.001"/>
+  <testcase name="foodItemId inexistente reprova — o modelo inventou um alimento" classname="com.myotrack.infrastructure.seed.LlmDietValidatorTest" time="0.001"/>
+  <testcase name="acceptsBoundaryQuantities()" classname="com.myotrack.infrastructure.seed.LlmDietValidatorTest" time="0.002"/>
+  <testcase name="rejectsNullProposalOrMeals()" classname="com.myotrack.infrastructure.seed.LlmDietValidatorTest" time="0.001"/>
+  <testcase name="Menos de 3 ou mais de 6 refeições reprova" classname="com.myotrack.infrastructure.seed.LlmDietValidatorTest" time="0.001"/>
+  <testcase name="As quantidades reescaladas ficam em múltiplos de 5 g" classname="com.myotrack.infrastructure.seed.LlmDietValidatorTest" time="0.002"/>
+  <testcase name="Refeições fora de ordem são renumeradas em sequência" classname="com.myotrack.infrastructure.seed.LlmDietValidatorTest" time="0.002"/>
+  <testcase name="O nome do alimento vem do catálogo, não do modelo" classname="com.myotrack.infrastructure.seed.LlmDietValidatorTest" time="0.001"/>
+  <testcase name="Dieta já próxima da meta não é mexida" classname="com.myotrack.infrastructure.seed.LlmDietValidatorTest" time="0.004"/>
+  <testcase name="Alimento restrito reprova a proposta inteira" classname="com.myotrack.infrastructure.seed.LlmDietValidatorTest" time="0.001"/>
+  <testcase name="Dieta muito abaixo da meta é reescalada para perto das calorias alvo" classname="com.myotrack.infrastructure.seed.LlmDietValidatorTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

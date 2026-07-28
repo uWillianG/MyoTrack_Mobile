@@ -1,0 +1,8 @@
+// Entidades, enums e regras determinísticas. Sem Spring — porte de MyoTrack.Domain.
+dependencies {
+    api 'jakarta.persistence:jakarta.persistence-api'
+    api 'com.fasterxml.jackson.core:jackson-annotations'
+
+    // @JdbcTypeCode/SqlTypes para as colunas jsonb e os arrays nativos do Postgres.
+    api 'org.hibernate.orm:hibernate-core'
+}

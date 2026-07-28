@@ -1,0 +1,28 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  plugins:
+    - custom_lint
+
+  exclude:
+    # Código gerado por freezed/json_serializable/riverpod_generator/drift.
+    - "**/*.freezed.dart"
+    - "**/*.g.dart"
+
+  errors:
+    # freezed e json_serializable põem anotações em alvos que o analisador
+    # considera inválidos; é ruído conhecido do código gerado.
+    invalid_annotation_target: ignore
+
+linter:
+  rules:
+    # Tipos de retorno explícitos: com várias camadas, inferência silenciosa em
+    # fronteira de API é onde os erros de tipo se escondem.
+    always_declare_return_types: true
+    prefer_final_locals: true
+    prefer_single_quotes: true
+    require_trailing_commas: true
+    unawaited_futures: true
+    use_super_parameters: true
+    # Sem print em produção — o app registra pelo logger de core/.
+    avoid_print: true

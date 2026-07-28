@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<meta http-equiv="x-ua-compatible" content="IE=edge"/>
+<title>Test results - LlmDietValidatorTest</title>
+<link href="../css/base-style.css" rel="stylesheet" type="text/css"/>
+<link href="../css/style.css" rel="stylesheet" type="text/css"/>
+<script src="../js/report.js" type="text/javascript"></script>
+</head>
+<body>
+<div id="content">
+<h1>LlmDietValidatorTest</h1>
+<div class="breadcrumbs">
+<a href="../index.html">all</a> &gt; 
+<a href="../packages/com.myotrack.infrastructure.seed.html">com.myotrack.infrastructure.seed</a> &gt; LlmDietValidatorTest</div>
+<div id="summary">
+<table>
+<tr>
+<td>
+<div class="summaryGroup">
+<table>
+<tr>
+<td>
+<div class="infoBox" id="tests">
+<div class="counter">18</div>
+<p>tests</p>
+</div>
+</td>
+<td>
+<div class="infoBox" id="failures">
+<div class="counter">0</div>
+<p>failures</p>
+</div>
+</td>
+<td>
+<div class="infoBox" id="ignored">
+<div class="counter">0</div>
+<p>ignored</p>
+</div>
+</td>
+<td>
+<div class="infoBox" id="duration">
+<div class="counter">0.036s</div>
+<p>duration</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</td>
+<td>
+<div class="infoBox success" id="successRate">
+<div class="percent">100%</div>
+<p>successful</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div id="tabs">
+<ul class="tabLinks">
+<li>
+<a href="#tab0">Tests</a>
+</li>
+</ul>
+<div id="tab0" class="tab">
+<h2>Tests</h2>
+<table>
+<thead>
+<tr>
+<th>Test</th>
+<th>Method name</th>
+<th>Duration</th>
+<th>Result</th>
+</tr>
+</thead>
+<tr>
+<td class="success">acceptsBoundaryQuantities()</td>
+<td class="success">acceptsBoundaryQuantities()</td>
+<td class="success">0.002s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">Proposta válida é aceita e mantém as refeições</td>
+<td class="success">acceptsValidProposal()</td>
+<td class="success">0.001s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">Refeição sem nome ganha um padrão em vez de ir vazia para a tela</td>
+<td class="success">blankNameGetsDefault()</td>
+<td class="success">0.002s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">O nome do alimento vem do catálogo, não do modelo</td>
+<td class="success">foodNameComesFromCatalog()</td>
+<td class="success">0.001s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">Dieta já próxima da meta não é mexida</td>
+<td class="success">keepsQuantitiesWhenCloseEnough()</td>
+<td class="success">0.004s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">Refeições fora de ordem são renumeradas em sequência</td>
+<td class="success">mealsAreSortedAndRenumbered()</td>
+<td class="success">0.002s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">Menos de 3 ou mais de 6 refeições reprova</td>
+<td class="success">rejectsBadMealCount()</td>
+<td class="success">0.001s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">rejectsEmptyMeal()</td>
+<td class="success">rejectsEmptyMeal()</td>
+<td class="success">0.001s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">rejectsNullProposalOrMeals()</td>
+<td class="success">rejectsNullProposalOrMeals()</td>
+<td class="success">0.001s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">[1] grams=9</td>
+<td class="success">rejectsOutOfRangeQuantity(int)[1]</td>
+<td class="success">0.006s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">[2] grams=501</td>
+<td class="success">rejectsOutOfRangeQuantity(int)[2]</td>
+<td class="success">0.002s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">[3] grams=0</td>
+<td class="success">rejectsOutOfRangeQuantity(int)[3]</td>
+<td class="success">0.001s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">Alimento restrito reprova a proposta inteira</td>
+<td class="success">rejectsRestrictedFood()</td>
+<td class="success">0.001s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">foodItemId inexistente reprova — o modelo inventou um alimento</td>
+<td class="success">rejectsUnknownFood()</td>
+<td class="success">0.001s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">As quantidades reescaladas ficam em múltiplos de 5 g</td>
+<td class="success">rescaledQuantitiesAreRoundNumbers()</td>
+<td class="success">0.002s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">Dieta muito abaixo da meta é reescalada para perto das calorias alvo</td>
+<td class="success">rescalesUnderTargetDiet()</td>
+<td class="success">0.002s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">O reescalonamento respeita o teto de 500 g por item</td>
+<td class="success">rescalingRespectsMaxQuantity()</td>
+<td class="success">0.005s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">A restrição casa por trecho do nome, como no motor de regras</td>
+<td class="success">restrictionMatchesSubstring()</td>
+<td class="success">0.001s</td>
+<td class="success">passed</td>
+</tr>
+</table>
+</div>
+</div>
+<div id="footer">
+<p>
+<div>
+<label class="hidden" id="label-for-line-wrapping-toggle" for="line-wrapping-toggle">Wrap lines
+<input id="line-wrapping-toggle" type="checkbox" autocomplete="off"/>
+</label>
+</div>Generated by 
+<a href="http://www.gradle.org">Gradle 8.6</a> at 27 de jul. de 2026 23:39:00</p>
+</div>
+</div>
+</body>
+</html>

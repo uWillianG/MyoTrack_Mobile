@@ -1,0 +1,29 @@
+// Repositórios, storage, e-mail e clientes de IA. Porte de MyoTrack.Infrastructure.
+dependencies {
+    api project(':myotrack-domain')
+
+    api 'org.springframework.boot:spring-boot-starter-data-jpa'
+    api 'org.springframework.boot:spring-boot-starter-validation'
+    api 'org.springframework.boot:spring-boot-starter-mail'
+
+    // RestClient para as APIs REST do Gemini. Só o spring-web, não o starter-web inteiro:
+    // o Worker consome este módulo e não deve subir um servidor Tomcat.
+    api 'org.springframework:spring-web'
+
+    // PasswordEncoder — o encoder do formato do ASP.NET Identity mora aqui, não na API.
+    api 'org.springframework.security:spring-security-crypto'
+
+    api 'org.flywaydb:flyway-core'
+    runtimeOnly 'org.flywaydb:flyway-database-postgresql'
+    runtimeOnly 'org.postgresql:postgresql'
+
+    api 'io.minio:minio:8.5.17'
+    api 'com.stripe:stripe-java:28.2.0'
+
+    // SDK oficial da Anthropic. O backend .NET usava o SDK equivalente em C#; manter um SDK
+    // oficial (em vez de HTTP na mão) é o que garante que structured output e contagem de
+    // tokens continuem batendo com o comportamento atual.
+    api 'com.anthropic:anthropic-java:2.34.0'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}

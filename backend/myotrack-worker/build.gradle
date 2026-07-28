@@ -1,0 +1,14 @@
+apply plugin: 'org.springframework.boot'
+
+// Fila de jobs de IA, retenção de mídia e scheduler semanal. Porte de MyoTrack.Worker.
+dependencies {
+    implementation project(':myotrack-infrastructure')
+
+    implementation 'org.springframework.boot:spring-boot-starter'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+tasks.named('bootJar') {
+    archiveFileName = 'myotrack-worker.jar'
+}

@@ -1,0 +1,23 @@
+apply plugin: 'org.springframework.boot'
+
+// API REST + segurança + SSE. Porte de MyoTrack.Api.
+dependencies {
+    implementation project(':myotrack-infrastructure')
+
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+    // Validação do ID token do Google no login nativo do Android.
+    implementation 'com.google.api-client:google-api-client:2.7.1'
+
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.7.0'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+}
+
+tasks.named('bootJar') {
+    archiveFileName = 'myotrack-api.jar'
+}

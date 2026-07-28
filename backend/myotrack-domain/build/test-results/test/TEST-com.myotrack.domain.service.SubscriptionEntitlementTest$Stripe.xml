@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.myotrack.domain.service.SubscriptionEntitlementTest$Stripe" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-07-28T02:38:57" hostname="NITROV" time="0.02">
+  <properties/>
+  <testcase name="past_due mantém o acesso, mas sinalizado como falha de cobrança" classname="com.myotrack.domain.service.SubscriptionEntitlementTest$Stripe" time="0.001"/>
+  <testcase name="[1] status=canceled" classname="com.myotrack.domain.service.SubscriptionEntitlementTest$Stripe" time="0.001"/>
+  <testcase name="[2] status=unpaid" classname="com.myotrack.domain.service.SubscriptionEntitlementTest$Stripe" time="0.001"/>
+  <testcase name="[3] status=incomplete" classname="com.myotrack.domain.service.SubscriptionEntitlementTest$Stripe" time="0.001"/>
+  <testcase name="[4] status=incomplete_expired" classname="com.myotrack.domain.service.SubscriptionEntitlementTest$Stripe" time="0.001"/>
+  <testcase name="[5] status=paused" classname="com.myotrack.domain.service.SubscriptionEntitlementTest$Stripe" time="0.0"/>
+  <testcase name="[1] status=active" classname="com.myotrack.domain.service.SubscriptionEntitlementTest$Stripe" time="0.002"/>
+  <testcase name="[2] status=trialing" classname="com.myotrack.domain.service.SubscriptionEntitlementTest$Stripe" time="0.0"/>
+  <testcase name="[3] status=past_due" classname="com.myotrack.domain.service.SubscriptionEntitlementTest$Stripe" time="0.0"/>
+  <testcase name="[4] status=ACTIVE" classname="com.myotrack.domain.service.SubscriptionEntitlementTest$Stripe" time="0.001"/>
+  <testcase name="[5] status= active " classname="com.myotrack.domain.service.SubscriptionEntitlementTest$Stripe" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

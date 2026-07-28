@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="App Store" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-07-28T02:38:57" hostname="NITROV" time="0.004">
+  <properties/>
+  <testcase name="Expired(2) e Revoked(5) cortam o acesso" classname="com.myotrack.domain.service.SubscriptionEntitlementTest$AppStore" time="0.001"/>
+  <testcase name="Active(1), Billing Retry(3) e Grace Period(4) dão acesso" classname="com.myotrack.domain.service.SubscriptionEntitlementTest$AppStore" time="0.0"/>
+  <testcase name="billingRetryAndGraceAreFlaggedAsGrace()" classname="com.myotrack.domain.service.SubscriptionEntitlementTest$AppStore" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

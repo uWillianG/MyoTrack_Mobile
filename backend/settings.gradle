@@ -1,0 +1,6 @@
+rootProject.name = 'myotrack'
+
+include 'myotrack-domain'
+include 'myotrack-infrastructure'
+include 'myotrack-api'
+include 'myotrack-worker'

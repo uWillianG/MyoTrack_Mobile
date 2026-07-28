@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.myotrack.api.security.TokenServiceTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-07-28T02:58:47" hostname="NITROV" time="0.034">
+  <properties/>
+  <testcase name="Token para outro audience é recusado" classname="com.myotrack.api.security.TokenServiceTest" time="0.014"/>
+  <testcase name="Token de outro issuer é recusado" classname="com.myotrack.api.security.TokenServiceTest" time="0.002"/>
+  <testcase name="Token assinado com outra chave é recusado" classname="com.myotrack.api.security.TokenServiceTest" time="0.001"/>
+  <testcase name="Os papéis saem nos dois claims: o curto e o do .NET" classname="com.myotrack.api.security.TokenServiceTest" time="0.002"/>
+  <testcase name="O access token emitido é aceito pelo próprio resource server" classname="com.myotrack.api.security.TokenServiceTest" time="0.002"/>
+  <testcase name="refreshTokenIsOpaqueRandomAndDated()" classname="com.myotrack.api.security.TokenServiceTest" time="0.004"/>
+  <testcase name="accessTokenExpiresWithinTheConfiguredWindow()" classname="com.myotrack.api.security.TokenServiceTest" time="0.003"/>
+  <testcase name="O hash do refresh token é SHA-256 em hex MAIÚSCULO, como o Convert.ToHexString do .NET" classname="com.myotrack.api.security.TokenServiceTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

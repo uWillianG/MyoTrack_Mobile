@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.myotrack.infrastructure.ai.TikTokVideoServiceTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-07-28T02:38:58" hostname="NITROV" time="0.008">
+  <properties/>
+  <testcase name="Reconhece a URL com as barras escapadas como \u002F" classname="com.myotrack.infrastructure.ai.TikTokVideoServiceTest" time="0.002"/>
+  <testcase name="Sem vídeo no HTML devolve null — o cliente cai para a URL de busca" classname="com.myotrack.infrastructure.ai.TikTokVideoServiceTest" time="0.001"/>
+  <testcase name="extractFirstVideoUrlFromPlainHtml()" classname="com.myotrack.infrastructure.ai.TikTokVideoServiceTest" time="0.0"/>
+  <testcase name="A busca codifica acentos e espaços como %20, não como '+'" classname="com.myotrack.infrastructure.ai.TikTokVideoServiceTest" time="0.001"/>
+  <testcase name="Reconhece a URL com as barras escapadas como \/" classname="com.myotrack.infrastructure.ai.TikTokVideoServiceTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

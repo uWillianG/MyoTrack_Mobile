@@ -1,0 +1,102 @@
+name: myotrack
+description: "MyoTrack - personal trainer e nutricionista digital"
+# Pacote privado: nunca vai para o pub.dev.
+publish_to: 'none'
+
+# build-name (1.0.0) vira versionName no Android e CFBundleShortVersionString no iOS;
+# build-number (+1) vira versionCode e CFBundleVersion. As lojas exigem que o build-number
+# aumente a cada envio.
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+# POLÍTICA DE DEPENDÊNCIAS
+# Cada pacote entra aqui na funcionalidade que o usa, não antes. Um plugin declarado cedo
+# demais é código nativo compilado a cada build sem entregar nada — e quando ele é
+# incompatível com o template Android atual, quebra o build inteiro por uma funcionalidade
+# que ainda nem começou (foi o que aconteceu com workmanager e jni).
+dependencies:
+  flutter:
+    sdk: flutter
+  # Traduções dos widgets do Material/Cupertino para pt-BR.
+  flutter_localizations:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # --- Estado e injeção (substitui ViewModel + Hilt do plano Android) ---
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+
+  # --- Navegação ---
+  go_router: ^14.6.2
+
+  # --- Rede ---
+  # dio: cliente HTTP com interceptors — é neles que mora a renovação de token no 401.
+  dio: ^5.7.0
+
+  # --- Modelos e JSON ---
+  freezed_annotation: ^3.0.0
+  json_annotation: ^4.9.0
+
+  # --- Sessão ---
+  # Keychain no iOS, EncryptedSharedPreferences no Android.
+  flutter_secure_storage: ^9.2.2
+
+  # --- Login social (B1) ---
+  google_sign_in: ^6.2.2
+  # A App Store exige esta opção em app que ofereça login social de terceiros (diretriz 4.8).
+  sign_in_with_apple: ^6.1.3
+
+  # --- Banco local e escrita offline (B6) ---
+  # A academia é o lugar onde o app mais é usado e onde menos há sinal: registrar série
+  # precisa funcionar sem rede. O que não subiu fica numa fila local até subir.
+  drift: ^2.22.0
+  sqlite3_flutter_libs: ^0.5.26
+  path_provider: ^2.1.5
+  # A implementação Android precisa ficar abaixo da 2.3.x: a partir dela o path_provider
+  # passa a depender do jni, cujo build.gradle não compila no AGP 9 / Gradle 9.1. O acento
+  # circunflexo não serve aqui — ele permitiria a 2.3.x.
+  path_provider_android: '>=2.2.17 <2.3.0'
+  path: ^1.9.0
+
+  # --- Links externos (B3) ---
+  # Abre o vídeo do exercício no TikTok. Exige <queries> no AndroidManifest: do Android 11
+  # em diante o app não enxerga quem trata https sem declarar. No iOS o link https vai por
+  # universal link e não precisa de entrada no Info.plist.
+  url_launcher: ^6.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+  # Geração de código: freezed/json_serializable/riverpod_generator.
+  # Nada disso é versionado — o CI roda build_runner antes de analisar.
+  build_runner: ^2.4.13
+  drift_dev: ^2.22.0
+  freezed: ^3.0.0
+  json_serializable: ^6.9.0
+  riverpod_generator: ^2.6.3
+  custom_lint: ^0.7.3
+  riverpod_lint: ^2.6.5
+
+  # Testes de rede sem tocar a rede.
+  http_mock_adapter: ^0.6.1
+  mocktail: ^1.0.4
+
+# A ENTRAR, por funcionalidade:
+#   B4  timer de descanso .... flutter_local_notifications, timezone, wakelock_plus
+#   B6  sincronização ........ workmanager (usar >=0.9: a 0.5.x usa a API v1 já removida)
+#   B7  foto de refeição ..... camera, image_picker, flutter_image_compress
+#   B9  vídeo ................ video_player
+#   B10 gráficos ............. fl_chart, intl
+#   B14 assinatura ........... in_app_purchase
+#   diversos ................. package_info_plus
+
+flutter:
+  uses-material-design: true

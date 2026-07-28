@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Sign in with Apple. A App Store exige esta opção em qualquer app que ofereça login
+	  social de terceiros (diretriz 4.8), e sem este entitlement a chamada falha em
+	  tempo de execução com um erro que não indica a causa.
+
+	  A capability também precisa estar habilitada no identificador do app no portal da
+	  Apple — o entitlement sozinho não basta para builds assinados.
+	-->
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
+	</array>
+</dict>
+</plist>

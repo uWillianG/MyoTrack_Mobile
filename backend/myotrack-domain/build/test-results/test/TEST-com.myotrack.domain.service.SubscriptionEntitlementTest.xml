@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.myotrack.domain.service.SubscriptionEntitlementTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-07-28T02:38:57" hostname="NITROV" time="0.017">
+  <properties/>
+  <testcase name="Assinatura de loja não oferece portal de cobrança — é gerida no aparelho" classname="com.myotrack.domain.service.SubscriptionEntitlementTest" time="0.001"/>
+  <testcase name="[1] status=null" classname="com.myotrack.domain.service.SubscriptionEntitlementTest" time="0.002"/>
+  <testcase name="[2] status=" classname="com.myotrack.domain.service.SubscriptionEntitlementTest" time="0.002"/>
+  <testcase name="[3] status=   " classname="com.myotrack.domain.service.SubscriptionEntitlementTest" time="0.0"/>
+  <testcase name="[4] status=estado_que_nao_existe" classname="com.myotrack.domain.service.SubscriptionEntitlementTest" time="0.001"/>
+  <testcase name="[5] status=ACTIVE_MAYBE" classname="com.myotrack.domain.service.SubscriptionEntitlementTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
