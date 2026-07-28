@@ -7,6 +7,7 @@ import '../../core/jobs/generation_controller.dart';
 import '../../core/router.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/review_badge.dart';
+import '../progress/progress_controller.dart';
 import 'data/workout_models.dart';
 import 'workout_plan_controller.dart';
 
@@ -174,15 +175,21 @@ class _DayCard extends StatelessWidget {
   }
 }
 
-class _ExerciseTile extends StatelessWidget {
+class _ExerciseTile extends ConsumerWidget {
   const _ExerciseTile({required this.exercise, required this.isLast});
 
   final WorkoutExercise exercise;
   final bool isLast;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    // A sugestão de progressão é complemento: se não vier, o exercício continua legível.
+    final suggestion = exercise.exerciseId == null
+        ? null
+        : ref
+              .watch(suggestionsByExerciseProvider)
+              .valueOrNull?[exercise.exerciseId!];
 
     return Container(
       decoration: isLast
@@ -217,6 +224,10 @@ class _ExerciseTile extends StatelessWidget {
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
+                ],
+                if (suggestion != null) ...[
+                  const SizedBox(height: 6),
+                  _NextLoad(suggestion: suggestion),
                 ],
               ],
             ),
@@ -253,4 +264,43 @@ class _ExerciseTile extends StatelessWidget {
       );
     }
   }
+}
+
+/// A carga da próxima sessão, calculada a partir do que foi registrado.
+///
+/// Fica junto do exercício, e não numa tela separada de "progressão": o número só é útil no
+/// momento em que a pessoa está olhando o que vai fazer.
+class _NextLoad extends StatelessWidget {
+  const _NextLoad({required this.suggestion});
+
+  final ProgressSuggestion suggestion;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final load = suggestion.nextLoadKg;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.trending_up, size: 14, color: theme.colorScheme.primary),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            load == null
+                ? suggestion.label
+                : '${_kg(load)} kg × ${suggestion.targetReps}  ·  ${suggestion.label}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.primary,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// "62,5" e não "62.5": o separador decimal em pt-BR é a vírgula.
+  static String _kg(num value) => value == value.roundToDouble()
+      ? value.round().toString()
+      : value.toStringAsFixed(1).replaceAll('.', ',');
 }
