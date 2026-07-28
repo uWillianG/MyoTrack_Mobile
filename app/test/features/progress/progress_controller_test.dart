@@ -139,4 +139,84 @@ void main() {
 
     expect(await repo.suggestions(), isEmpty);
   });
+
+  group('agregados do dashboard', () {
+    test('volume traz a semana, o total e quantos treinos houve', () async {
+      adapter.onGet(
+        '/api/progress/volume',
+        (server) => server.reply(200, [
+          {'weekStart': '2026-07-20', 'volumeKg': 12400.5, 'sessions': 3},
+          {'weekStart': '2026-07-27', 'volumeKg': 5000, 'sessions': 2},
+        ]),
+      );
+
+      final volume = await repo.weeklyVolume();
+
+      // A data vem sem fuso ("2026-07-20") e vira meia-noite local: um ISO com Z
+      // deslocaria a semana de quem treina à noite no Brasil.
+      expect(volume.first.weekStart, DateTime(2026, 7, 20));
+      expect(volume.first.volumeKg, 12400.5);
+      expect(volume.last.sessions, 2);
+    });
+
+    test('peso corporal vem em ordem crescente de data', () async {
+      adapter.onGet(
+        '/api/progress/weight',
+        (server) => server.reply(200, [
+          {'date': '2026-07-01', 'weightKg': 84},
+          {'date': '2026-07-28', 'weightKg': 82.4},
+        ]),
+      );
+
+      final points = await repo.weight();
+
+      expect(points.first.date, DateTime(2026, 7, 1));
+      expect(points.last.weightKg, 82.4);
+    });
+
+    test('recorde traz a carga máxima com as repetições daquela série', () async {
+      adapter.onGet(
+        '/api/progress/records',
+        (server) => server.reply(200, [
+          {
+            'exerciseId': 12,
+            'name': 'Supino reto',
+            'maxLoadKg': 100,
+            'maxLoadDate': '2026-07-27',
+            'maxLoadReps': 3,
+            'bestE1RmKg': 116.7,
+            'e1RmReps': 5,
+            'e1RmLoadKg': 100,
+            'e1RmDate': '2026-07-20',
+          },
+        ]),
+      );
+
+      final record = (await repo.records()).single;
+
+      // "100 kg" sozinho não diz se foram três repetições ou dez.
+      expect(record.maxLoadReps, 3);
+      expect(record.maxLoadDate, DateTime(2026, 7, 27));
+      // O melhor 1RM raramente é a série mais pesada: 5×100 estima mais que 3×100.
+      expect(record.bestE1RmKg, 116.7);
+      expect(record.e1RmDate, DateTime(2026, 7, 20));
+    });
+
+    test('recorde sem 1RM estimado ainda é uma carga válida', () async {
+      // Acontece quando as repetições não permitem estimativa; sumir com a linha seria
+      // esconder um recorde real.
+      adapter.onGet(
+        '/api/progress/records',
+        (server) => server.reply(200, [
+          {'exerciseId': 12, 'name': 'Supino reto', 'maxLoadKg': 100},
+        ]),
+      );
+
+      final record = (await repo.records()).single;
+
+      expect(record.maxLoadKg, 100);
+      expect(record.bestE1RmKg, isNull);
+      expect(record.maxLoadDate, isNull);
+    });
+  });
 }

@@ -105,20 +105,33 @@ public class ProgressController {
                 .toList();
     }
 
-    /** Volume total por semana (segunda a domingo). */
+    /**
+     * Volume total por semana (segunda a domingo), com quantos treinos houve nela.
+     *
+     * <p>Só aparecem semanas com registro. Preencher os buracos com zero é decisão de
+     * apresentação — depende de quantas semanas o gráfico mostra —, e quem sabe disso é a
+     * tela, não este endpoint.
+     */
     @GetMapping("/volume")
     @Transactional(readOnly = true)
     public List<WeeklyVolume> weeklyVolume() {
         final Map<LocalDate, BigDecimal> byWeek = new TreeMap<>();
+        // Contado por id de sessão, e não por série: um treino de vinte séries é um treino.
+        final Map<LocalDate, java.util.Set<UUID>> sessionsByWeek = new TreeMap<>();
 
         forEachSet(CurrentUser.id(), (session, set) -> {
             if (session.getDate() != null) {
-                byWeek.merge(weekStartOf(session.getDate()), volumeOf(set), BigDecimal::add);
+                final LocalDate week = weekStartOf(session.getDate());
+                byWeek.merge(week, volumeOf(set), BigDecimal::add);
+                sessionsByWeek
+                        .computeIfAbsent(week, k -> new java.util.LinkedHashSet<>())
+                        .add(session.getId());
             }
         });
 
         return byWeek.entrySet().stream()
-                .map(e -> new WeeklyVolume(e.getKey(), e.getValue()))
+                .map(e -> new WeeklyVolume(
+                        e.getKey(), e.getValue(), sessionsByWeek.get(e.getKey()).size()))
                 .toList();
     }
 
@@ -258,11 +271,11 @@ public class ProgressController {
                 .orElse(BigDecimal.ZERO);
 
         // Empate na carga máxima fica com a data mais antiga: foi ali que o recorde caiu.
-        final LocalDate maxLoadDate = attempts.stream()
+        final Attempt heaviest = attempts.stream()
                 .filter(a -> a.loadKg().compareTo(maxLoad) == 0)
-                .map(Attempt::date)
-                .min(Comparator.naturalOrder())
+                .min(Comparator.comparing(Attempt::date))
                 .orElse(null);
+        final LocalDate maxLoadDate = heaviest == null ? null : heaviest.date();
 
         // O melhor 1RM não costuma ser a série mais pesada: 5×100 estima mais que 1×105.
         final Attempt best = attempts.stream()
@@ -278,6 +291,9 @@ public class ProgressController {
                 name,
                 maxLoad,
                 maxLoadDate,
+                // As repetições daquela série: "120 kg" sozinho não diz se foi uma única ou
+                // oito, e é a diferença entre um pico e uma carga de trabalho.
+                heaviest == null ? null : heaviest.reps(),
                 best == null ? null
                         : ProgressionCalculator.estimateOneRepMax(best.reps(), best.loadKg()),
                 best == null ? null : best.reps(),
@@ -328,7 +344,7 @@ public class ProgressController {
     public record ExercisePoint(LocalDate date, BigDecimal maxLoadKg, BigDecimal volumeKg) {
     }
 
-    public record WeeklyVolume(LocalDate weekStart, BigDecimal volumeKg) {
+    public record WeeklyVolume(LocalDate weekStart, BigDecimal volumeKg, int sessions) {
     }
 
     public record WeightPoint(LocalDate date, BigDecimal weightKg) {
@@ -359,6 +375,7 @@ public class ProgressController {
             String name,
             BigDecimal maxLoadKg,
             LocalDate maxLoadDate,
+            Integer maxLoadReps,
             BigDecimal bestE1RmKg,
             Integer e1RmReps,
             BigDecimal e1RmLoadKg,

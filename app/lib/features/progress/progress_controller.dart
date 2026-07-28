@@ -64,6 +64,61 @@ abstract class ProgressSuggestion with _$ProgressSuggestion {
   bool get hasHistory => lastSessionDate != null;
 }
 
+/// Volume de uma semana — `GET /api/progress/volume`.
+///
+/// Só vêm semanas com registro: preencher os buracos com zero depende de quantas semanas o
+/// gráfico mostra, e isso quem sabe é a tela.
+@freezed
+abstract class WeeklyVolume with _$WeeklyVolume {
+  const factory WeeklyVolume({
+    /// Segunda-feira da semana.
+    required DateTime weekStart,
+    @Default(0) num volumeKg,
+
+    /// Treinos na semana, contados por sessão — vinte séries num dia são um treino.
+    @Default(0) int sessions,
+  }) = _WeeklyVolume;
+
+  factory WeeklyVolume.fromJson(Map<String, dynamic> json) =>
+      _$WeeklyVolumeFromJson(json);
+}
+
+/// Um ponto da curva de peso corporal — `GET /api/progress/weight`.
+@freezed
+abstract class WeightPoint with _$WeightPoint {
+  const factory WeightPoint({
+    required DateTime date,
+    @Default(0) num weightKg,
+  }) = _WeightPoint;
+
+  factory WeightPoint.fromJson(Map<String, dynamic> json) =>
+      _$WeightPointFromJson(json);
+}
+
+/// Recorde de um exercício — `GET /api/progress/records`.
+///
+/// Traz a maior carga e o melhor 1RM estimado, que raramente são a mesma série: 5×100
+/// estima mais que 1×105.
+@freezed
+abstract class ExerciseRecord with _$ExerciseRecord {
+  const factory ExerciseRecord({
+    int? exerciseId,
+    @Default('') String name,
+    @Default(0) num maxLoadKg,
+    DateTime? maxLoadDate,
+
+    /// Repetições daquela série. "120 kg" sozinho não diz se foi uma única ou oito.
+    int? maxLoadReps,
+    num? bestE1RmKg,
+    int? e1RmReps,
+    num? e1RmLoadKg,
+    DateTime? e1RmDate,
+  }) = _ExerciseRecord;
+
+  factory ExerciseRecord.fromJson(Map<String, dynamic> json) =>
+      _$ExerciseRecordFromJson(json);
+}
+
 class ProgressRepository {
   ProgressRepository(this._api);
 
@@ -73,6 +128,27 @@ class ProgressRepository {
     final json = await _api.get<List<dynamic>>('/api/progress/suggestions');
     return json
         .map((e) => ProgressSuggestion.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<WeeklyVolume>> weeklyVolume() async {
+    final json = await _api.get<List<dynamic>>('/api/progress/volume');
+    return json
+        .map((e) => WeeklyVolume.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<WeightPoint>> weight() async {
+    final json = await _api.get<List<dynamic>>('/api/progress/weight');
+    return json
+        .map((e) => WeightPoint.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<ExerciseRecord>> records() async {
+    final json = await _api.get<List<dynamic>>('/api/progress/records');
+    return json
+        .map((e) => ExerciseRecord.fromJson(e as Map<String, dynamic>))
         .toList();
   }
 }
