@@ -53,6 +53,14 @@
 		<string>fetch</string>
 		<string>processing</string>
 	</array>
+	  Foto de refeição (B7). O iOS encerra o app na hora se a câmera ou a galeria forem
+	  abertas sem a descrição correspondente — não é aviso, é crash. O texto aparece no
+	  diálogo de permissão, então diz para que serve, não o óbvio.
+	-->
+	<key>NSCameraUsageDescription</key>
+	<string>Para fotografar sua refeição e estimar as calorias e os macronutrientes.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Para escolher a foto de uma refeição já tirada e estimar as calorias.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -77,6 +77,15 @@ dependencies:
   # aparelho a cada 30 segundos só para ele não apagar.
   wakelock_plus: ^1.5.2
 
+  # --- Foto de refeição (B7) ---
+  # image_picker cobre câmera e galeria usando a do sistema. O pacote `camera` ficou de fora:
+  # ele serve para preview dentro do app, e aqui não há nada a fazer com o preview — a foto
+  # vai inteira para a IA. Um plugin nativo a mais custa build e não entrega nada.
+  image_picker: ^1.2.3
+  # A foto sai da câmera com vários MB; a IA analisa igual de bem com 1600 px. Comprimir
+  # antes de subir é a diferença entre subir na hora e travar no Wi-Fi da academia.
+  flutter_image_compress: ^2.5.1
+
   # --- Links externos (B3) ---
   # Abre o vídeo do exercício no TikTok. Exige <queries> no AndroidManifest: do Android 11
   # em diante o app não enxerga quem trata https sem declarar. No iOS o link https vai por
@@ -106,10 +115,6 @@ dev_dependencies:
   mocktail: ^1.0.4
 
 # A ENTRAR, por funcionalidade:
-#   B7  foto de refeição ..... camera, image_picker, flutter_image_compress
-#   B9  vídeo ................ video_player
-#   B10 gráficos ............. fl_chart, intl
-#   B14 assinatura ........... in_app_purchase
 #   diversos ................. package_info_plus
 
 flutter:

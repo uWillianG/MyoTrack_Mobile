@@ -59,6 +59,10 @@ class ApiClient {
   Future<T> put<T>(String path, {Object? body}) =>
       _run(() => _dio.put<T>(path, data: body));
 
+  /// Atualização parcial — usada nas correções em que o corpo traz só o que mudou.
+  Future<T> patch<T>(String path, {Object? body}) =>
+      _run(() => _dio.patch<T>(path, data: body));
+
   Future<T> delete<T>(String path) => _run(() => _dio.delete<T>(path));
 
   /// Upload multipart (foto de refeição). Timeout maior que o das chamadas comuns.
