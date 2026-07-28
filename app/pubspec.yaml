@@ -91,6 +91,14 @@ dependencies:
   # image_picker do B7 (`pickVideo`), sem plugin novo para isso.
   video_player: ^2.9.2
 
+  # --- Dashboard (B10) ---
+  # Gráficos de evolução. Todos de série única: as cores do tema reprovam como paleta
+  # categórica (ΔE 7,7 entre primary e tertiary na visão normal, contra um piso de 15 —
+  # indistinguíveis lado a lado), mas passam de sobra no contraste contra a superfície.
+  fl_chart: ^1.2.0
+  # Formatação de data e de número em pt-BR: "1.250 kg" e não "1250 kg".
+  intl: ^0.20.2
+
   # --- Links externos (B3) ---
   # Abre o vídeo do exercício no TikTok. Exige <queries> no AndroidManifest: do Android 11
   # em diante o app não enxerga quem trata https sem declarar. No iOS o link https vai por

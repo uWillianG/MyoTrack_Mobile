@@ -104,6 +104,34 @@ Map<String, dynamic> _$SetViewToJson(_SetView instance) => <String, dynamic>{
   'rpe': instance.rpe,
 };
 
+_MeasurementView _$MeasurementViewFromJson(Map<String, dynamic> json) =>
+    _MeasurementView(
+      id: json['id'] as String,
+      date: json['date'] as String,
+      weightKg: json['weightKg'] as num?,
+      bodyFatPercent: json['bodyFatPercent'] as num?,
+      waistCm: json['waistCm'] as num?,
+      chestCm: json['chestCm'] as num?,
+      hipCm: json['hipCm'] as num?,
+      armCm: json['armCm'] as num?,
+      thighCm: json['thighCm'] as num?,
+      calfCm: json['calfCm'] as num?,
+    );
+
+Map<String, dynamic> _$MeasurementViewToJson(_MeasurementView instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'date': instance.date,
+      'weightKg': instance.weightKg,
+      'bodyFatPercent': instance.bodyFatPercent,
+      'waistCm': instance.waistCm,
+      'chestCm': instance.chestCm,
+      'hipCm': instance.hipCm,
+      'armCm': instance.armCm,
+      'thighCm': instance.thighCm,
+      'calfCm': instance.calfCm,
+    };
+
 _MeasurementRequest _$MeasurementRequestFromJson(Map<String, dynamic> json) =>
     _MeasurementRequest(
       date: json['date'] as String,
