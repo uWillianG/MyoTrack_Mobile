@@ -5,13 +5,14 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/forgot_password_page.dart';
 import '../features/auth/login_page.dart';
 import '../features/auth/reset_password_page.dart';
+import '../features/billing/billing_page.dart';
 import '../features/diet/diet_plan_page.dart';
 import '../features/home/home_page.dart';
 import '../features/logging/log_session_page.dart';
 import '../features/meals/meal_analysis_page.dart';
-import '../features/videos/video_analysis_page.dart';
 import '../features/profile/onboarding_page.dart';
 import '../features/splash/splash_page.dart';
+import '../features/videos/video_analysis_page.dart';
 import '../features/workout/workout_mode_page.dart';
 import '../features/workout/workout_plan_page.dart';
 import 'providers.dart';
@@ -79,6 +80,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: Routes.logSession,
         builder: (_, _) => const LogSessionPage(),
       ),
+      GoRoute(path: Routes.billing, builder: (_, _) => const BillingPage()),
       GoRoute(path: Routes.home, builder: (_, _) => const HomePage()),
     ],
     redirect: (context, state) {

@@ -161,6 +161,12 @@ class _Navigation extends StatelessWidget {
       route: Routes.logSession,
     ),
     _Destination(
+      icon: Icons.workspace_premium_outlined,
+      title: 'Assinatura',
+      subtitle: 'Seu plano e os limites diários de análise',
+      route: Routes.billing,
+    ),
+    _Destination(
       icon: Icons.person_outline,
       title: 'Perfil',
       subtitle: 'Objetivo, experiência, equipamentos e lesões',

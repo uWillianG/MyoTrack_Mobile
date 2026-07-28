@@ -99,6 +99,12 @@ dependencies:
   # Formatação de data e de número em pt-BR: "1.250 kg" e não "1250 kg".
   intl: ^0.20.2
 
+  # --- Assinatura (B14) ---
+  # As duas lojas proíbem cobrar conteúdo digital por fora do sistema delas, então o Stripe
+  # que a web usa não serve aqui. Quem decide se o Pro vale é sempre o servidor: o app manda
+  # o recibo e o backend valida contra a loja.
+  in_app_purchase: ^3.3.0
+
   # --- Links externos (B3) ---
   # Abre o vídeo do exercício no TikTok. Exige <queries> no AndroidManifest: do Android 11
   # em diante o app não enxerga quem trata https sem declarar. No iOS o link https vai por
