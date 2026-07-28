@@ -60,6 +60,11 @@ dependencies:
   # circunflexo não serve aqui — ele permitiria a 2.3.x.
   path_provider_android: '>=2.2.17 <2.3.0'
   path: ^1.9.0
+  # Sincronização em background (B6). A fila só subia quando o usuário escrevia de novo —
+  # quem registrou o treino no subsolo e guardou o celular ficava com tudo parado no
+  # aparelho por tempo indeterminado. Aqui o sistema operacional acorda o app quando houver
+  # rede. A 0.5.x não serve: usa a API v1 do WorkManager, já removida.
+  workmanager: ^0.9.0+3
 
   # --- Links externos (B3) ---
   # Abre o vídeo do exercício no TikTok. Exige <queries> no AndroidManifest: do Android 11
@@ -91,7 +96,6 @@ dev_dependencies:
 
 # A ENTRAR, por funcionalidade:
 #   B4  timer de descanso .... flutter_local_notifications, timezone, wakelock_plus
-#   B6  sincronização ........ workmanager (usar >=0.9: a 0.5.x usa a API v1 já removida)
 #   B7  foto de refeição ..... camera, image_picker, flutter_image_compress
 #   B9  vídeo ................ video_player
 #   B10 gráficos ............. fl_chart, intl
