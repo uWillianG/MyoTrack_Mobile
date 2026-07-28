@@ -28,8 +28,12 @@ void main() {
         child: MaterialApp.router(routerConfig: router),
       ),
     );
-    // Deixa a sessão resolver e o splash sair da frente antes de abrir o link.
-    await tester.pumpAndSettle();
+    // Dois pumps em vez de pumpAndSettle: a home é o dashboard, que mostra um indicador de
+    // progresso enquanto busca os dados. Sem backend no teste ele gira para sempre, e
+    // pumpAndSettle — que espera TODAS as animações pararem — estoura o tempo. Aqui só
+    // interessa que o router resolva a rota.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
     return router;
   }
 
@@ -38,7 +42,8 @@ void main() {
       final router = await pumpApp(tester, loggedIn: false);
 
       router.go(link);
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
 
       final page = tester.widget<ResetPasswordPage>(
         find.byType(ResetPasswordPage),
@@ -54,7 +59,8 @@ void main() {
       final router = await pumpApp(tester, loggedIn: true);
 
       router.go(link);
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
 
       expect(find.byType(ResetPasswordPage), findsOneWidget);
     });
@@ -65,7 +71,8 @@ void main() {
       final router = await pumpApp(tester, loggedIn: false);
 
       router.go('/redefinir-senha');
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
 
       expect(find.text('Pedir novo link'), findsOneWidget);
       expect(find.text('Redefinir senha'), findsNothing);
