@@ -11,11 +11,11 @@ import com.myotrack.domain.entity.WorkoutSession;
 import com.myotrack.domain.service.ProgressionCalculator;
 import com.myotrack.domain.service.ProgressionSuggestion;
 import com.myotrack.domain.service.SetPerformance;
+import com.myotrack.domain.service.TrainingWeek;
 import com.myotrack.infrastructure.repository.BodyMeasurementRepository;
 import com.myotrack.infrastructure.repository.WorkoutPlanRepository;
 import com.myotrack.infrastructure.repository.WorkoutSessionRepository;
 import java.math.BigDecimal;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -121,7 +121,7 @@ public class ProgressController {
 
         forEachSet(CurrentUser.id(), (session, set) -> {
             if (session.getDate() != null) {
-                final LocalDate week = weekStartOf(session.getDate());
+                final LocalDate week = TrainingWeek.startOf(session.getDate());
                 byWeek.merge(week, volumeOf(set), BigDecimal::add);
                 sessionsByWeek
                         .computeIfAbsent(week, k -> new java.util.LinkedHashSet<>())
@@ -328,11 +328,6 @@ public class ProgressController {
 
     private static BigDecimal volumeOf(SetLog set) {
         return loadOf(set).multiply(BigDecimal.valueOf(set.getReps()));
-    }
-
-    /** Segunda-feira da semana da data. */
-    private static LocalDate weekStartOf(LocalDate date) {
-        return date.minusDays(date.getDayOfWeek().getValue() - DayOfWeek.MONDAY.getValue());
     }
 
     private record Attempt(LocalDate date, int reps, BigDecimal loadKg) {

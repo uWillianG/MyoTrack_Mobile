@@ -149,4 +149,53 @@ void main() {
 
     await expectLater(repo.latest(), throwsA(isA<ApiException>()));
   });
+
+  group('geração manual', () {
+    test('devolve o id do job que o worker vai processar', () async {
+      adapter.onPost(
+        '/api/reports/weekly/generate',
+        (server) => server.reply(202, {'jobId': 'job-1'}),
+      );
+
+      // 202 e não 200: quem gera é o worker, e a resposta não espera por ele.
+      expect(await repo.generate(), 'job-1');
+    });
+
+    test('o servidor recusa gerar duas vezes a mesma semana', () async {
+      // É onde mora o limite de uma chamada de LLM por usuário por semana. O cliente não o
+      // duplica — só repassa a recusa, que já vem escrita para o usuário.
+      adapter.onPost(
+        '/api/reports/weekly/generate',
+        (server) => server.reply(409, {
+          'error': 'O relatório da última semana já foi gerado.',
+        }),
+      );
+
+      await expectLater(
+        repo.generate(),
+        throwsA(
+          isA<ApiException>().having(
+            (e) => e.message,
+            'message',
+            'O relatório da última semana já foi gerado.',
+          ),
+        ),
+      );
+    });
+
+    test('tocar o botão duas vezes esbarra no job em aberto', () async {
+      adapter.onPost(
+        '/api/reports/weekly/generate',
+        (server) =>
+            server.reply(409, {'error': 'Já existe um relatório em geração.'}),
+      );
+
+      await expectLater(
+        repo.generate(),
+        throwsA(
+          isA<ApiException>().having((e) => e.statusCode, 'statusCode', 409),
+        ),
+      );
+    });
+  });
 }

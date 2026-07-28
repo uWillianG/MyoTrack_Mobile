@@ -46,10 +46,15 @@ class HomePage extends ConsumerWidget {
             ),
             // O card do relatório fica acima dos gráficos porque é leitura, não consulta:
             // ele já diz o que a semana foi, e os gráficos existem para quem quer conferir.
-            // Some sozinho quando ainda não há relatório.
-            const Padding(
-              padding: EdgeInsets.only(top: 16),
-              child: WeeklyReportCard(),
+            //
+            // `canGenerate` diz se vale oferecer a geração quando ainda não há relatório.
+            // Quem instalou o app hoje não tem semana fechada, e um botão prometendo um
+            // relatório que sairia vazio é pior que botão nenhum.
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: WeeklyReportCard(
+                canGenerate: stats.valueOrNull?.isEmpty == false,
+              ),
             ),
             const SizedBox(height: 24),
             const _Navigation(),

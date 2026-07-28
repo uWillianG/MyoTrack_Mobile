@@ -2,12 +2,12 @@ package com.myotrack.worker;
 
 import com.myotrack.domain.AnalysisJobType;
 import com.myotrack.domain.entity.AnalysisJob;
+import com.myotrack.domain.service.TrainingWeek;
 import com.myotrack.infrastructure.repository.AnalysisJobRepository;
 import com.myotrack.infrastructure.repository.BodyMeasurementRepository;
 import com.myotrack.infrastructure.repository.MealPhotoAnalysisRepository;
 import com.myotrack.infrastructure.repository.WeeklyReportRepository;
 import com.myotrack.infrastructure.repository.WorkoutSessionRepository;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -56,16 +56,11 @@ public class WeeklyReportScheduler {
         this.jobs = jobs;
     }
 
-    /** Segunda-feira (UTC) da semana que contém a data. */
-    public static LocalDate weekStartOf(LocalDate date) {
-        return date.minusDays(date.getDayOfWeek().getValue() - DayOfWeek.MONDAY.getValue());
-    }
-
     @Scheduled(fixedDelay = CHECK_INTERVAL_MS, initialDelay = 30_000)
     @Transactional
     public void enqueuePendingReports() {
         try {
-            LocalDate lastWeekStart = weekStartOf(LocalDate.now(ZoneOffset.UTC)).minusWeeks(1);
+            LocalDate lastWeekStart = TrainingWeek.startOf(LocalDate.now(ZoneOffset.UTC)).minusWeeks(1);
             LocalDate lastWeekEnd = lastWeekStart.plusWeeks(1);
             OffsetDateTime startUtc = lastWeekStart.atStartOfDay().atOffset(ZoneOffset.UTC);
             OffsetDateTime endUtc = lastWeekEnd.atStartOfDay().atOffset(ZoneOffset.UTC);

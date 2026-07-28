@@ -26,6 +26,18 @@ class ReportRepository {
       rethrow;
     }
   }
+
+  /// Pede o relatório da última semana completa. Devolve o id do job.
+  ///
+  /// O servidor recusa com 409 se a semana já tem relatório ou se já há um em geração — é lá
+  /// que mora o limite de uma chamada de LLM por usuário por semana, e este método não o
+  /// duplica: só repassa a recusa.
+  Future<String?> generate() async {
+    final json = await _api.post<Map<String, dynamic>>(
+      '/api/reports/weekly/generate',
+    );
+    return json['jobId'] as String?;
+  }
 }
 
 final reportRepositoryProvider = Provider<ReportRepository>(
