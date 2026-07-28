@@ -3,7 +3,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'video_models.freezed.dart';
 part 'video_models.g.dart';
 
-/// Exercício que o serviço de visão sabe avaliar — `GET /api/videos/exercises`.
+/// Exercício que o serviço de visão sabe avaliar — `GET /api/video-analyses/supported-exercises`.
 ///
 /// A lista vem do servidor em vez de embutida no app: um exercício novo no serviço passa a
 /// aparecer sem publicar versão nova nas lojas.
@@ -62,7 +62,7 @@ abstract class VideoResult with _$VideoResult {
       _$VideoResultFromJson(json);
 }
 
-/// Análise de execução por vídeo — `GET /api/videos`.
+/// Análise de execução por vídeo — `GET /api/video-analyses`.
 @freezed
 abstract class VideoAnalysis with _$VideoAnalysis {
   const factory VideoAnalysis({
@@ -86,7 +86,7 @@ abstract class VideoAnalysis with _$VideoAnalysis {
       _$VideoAnalysisFromJson(json);
 }
 
-/// Resposta de `POST /api/videos/upload-url`.
+/// Resposta de `POST /api/video-analyses/presign`.
 @freezed
 abstract class VideoUploadTicket with _$VideoUploadTicket {
   const factory VideoUploadTicket({

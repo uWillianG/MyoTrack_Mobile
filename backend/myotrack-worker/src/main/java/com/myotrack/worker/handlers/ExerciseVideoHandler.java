@@ -82,7 +82,7 @@ public class ExerciseVideoHandler implements JobHandler {
                         ? "{}"
                         : result.resultJson());
 
-        return "{\"exerciseVideoAnalysisId\":\"%s\"}".formatted(analyses.save(entity).getId());
+        return "{\"videoAnalysisId\":\"%s\"}".formatted(analyses.save(entity).getId());
     }
 
     /** O slug do exercício, gravado pelo controller no {@code inputJson} do job. */

@@ -59,10 +59,6 @@ class ApiClient {
   Future<T> put<T>(String path, {Object? body}) =>
       _run(() => _dio.put<T>(path, data: body));
 
-  /// Atualização parcial — usada nas correções em que o corpo traz só o que mudou.
-  Future<T> patch<T>(String path, {Object? body}) =>
-      _run(() => _dio.patch<T>(path, data: body));
-
   /// O corpo é opcional porque quase nenhum DELETE precisa dele — mas a exclusão de conta
   /// precisa: ela exige a confirmação do titular, e mandá-la na query a deixaria no log do
   /// servidor e no histórico de proxies.

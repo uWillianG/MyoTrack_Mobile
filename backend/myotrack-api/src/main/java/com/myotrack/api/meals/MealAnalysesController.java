@@ -31,7 +31,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -50,10 +50,10 @@ import org.springframework.web.multipart.MultipartFile;
  * reclamou" quando o app morre entre o upload e o enfileiramento.
  */
 @RestController
-@RequestMapping("/api/meals")
-public class MealsController {
+@RequestMapping("/api/meal-analyses")
+public class MealAnalysesController {
 
-    private static final Logger log = LoggerFactory.getLogger(MealsController.class);
+    private static final Logger log = LoggerFactory.getLogger(MealAnalysesController.class);
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -82,7 +82,7 @@ public class MealsController {
     private final MediaStorage storage;
     private final EntitlementService entitlements;
 
-    public MealsController(
+    public MealAnalysesController(
             MealPhotoAnalysisRepository analyses,
             AnalysisJobRepository jobs,
             MediaStorage storage,
@@ -96,9 +96,9 @@ public class MealsController {
     /**
      * Recebe a foto e enfileira a análise; o cliente acompanha por {@code /api/jobs/&#123;id&#125;}.
      */
-    @PostMapping("/analyze")
+    @PostMapping
     @Transactional
-    public ResponseEntity<?> analyze(@RequestPart("file") MultipartFile file) {
+    public ResponseEntity<?> analyze(@RequestPart("photo") MultipartFile file) {
         final UUID userId = CurrentUser.id();
 
         final String contentType = file.getContentType();
@@ -171,7 +171,7 @@ public class MealsController {
      * cliente permitiria gravar um dia de calorias que não corresponde a nada do que está na
      * tela, e é justamente o total que o diário soma.
      */
-    @PatchMapping("/{id}")
+    @PutMapping("/{id}")
     @Transactional
     public ResponseEntity<?> adjust(@PathVariable UUID id, @RequestBody AdjustRequest request) {
         final MealPhotoAnalysis analysis =

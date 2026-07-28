@@ -43,10 +43,10 @@ import org.springframework.web.bind.annotation.RestController;
  * competir com todo o resto do tráfego, além de esbarrar no limite de multipart.
  */
 @RestController
-@RequestMapping("/api/videos")
-public class VideosController {
+@RequestMapping("/api/video-analyses")
+public class VideoAnalysesController {
 
-    private static final Logger log = LoggerFactory.getLogger(VideosController.class);
+    private static final Logger log = LoggerFactory.getLogger(VideoAnalysesController.class);
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -72,7 +72,7 @@ public class VideosController {
     private final MediaStorage storage;
     private final EntitlementService entitlements;
 
-    public VideosController(
+    public VideoAnalysesController(
             ExerciseVideoAnalysisRepository analyses,
             AnalysisJobRepository jobs,
             MediaStorage storage,
@@ -90,7 +90,7 @@ public class VideosController {
      * subir 80 MB antes de descobrir que não pode; e no passo 2 porque é lá que o job nasce, e
      * entre um passo e outro cabe outra análise.
      */
-    @PostMapping("/upload-url")
+    @PostMapping("/presign")
     public ResponseEntity<?> uploadUrl(@RequestBody UploadUrlRequest request) {
         final UUID userId = CurrentUser.id();
 
@@ -122,7 +122,7 @@ public class VideosController {
     }
 
     /** Passo 2: confirma que o arquivo chegou e enfileira a análise. */
-    @PostMapping("/analyze")
+    @PostMapping
     @Transactional
     public ResponseEntity<?> analyze(@RequestBody AnalyzeRequest request) {
         final UUID userId = CurrentUser.id();
@@ -176,7 +176,7 @@ public class VideosController {
      * <p>A tela monta a lista a partir daqui em vez de embutir os slugs no app: um exercício
      * novo no serviço passa a aparecer sem publicar versão nova nas lojas.
      */
-    @GetMapping("/exercises")
+    @GetMapping("/supported-exercises")
     public List<ExerciseOption> exercises() {
         return Arrays.stream(VideoExercise.values())
                 .map(e -> new ExerciseOption(e.slug(), e.label()))
