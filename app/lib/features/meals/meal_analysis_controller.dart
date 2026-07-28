@@ -77,6 +77,7 @@ class MealAnalysisController extends JobGenerationController {
   Uint8List? _photo;
   String _fileName = 'refeicao.jpg';
   String _contentType = 'image/jpeg';
+  bool _illustrated = false;
 
   /// Última análise concluída — é o que a tela mostra depois do envio.
   MealAnalysis? _result;
@@ -87,7 +88,10 @@ class MealAnalysisController extends JobGenerationController {
   double get uploadProgress => _uploadProgress;
 
   /// Tira ou escolhe a foto e dispara a análise. Devolve false se o usuário desistiu.
-  Future<bool> analyzeFrom(ImageSource source) async {
+  Future<bool> analyzeFrom(
+    ImageSource source, {
+    bool illustrated = false,
+  }) async {
     final picked = await ref
         .read(imagePickerProvider)
         .pickImage(
@@ -105,6 +109,7 @@ class MealAnalysisController extends JobGenerationController {
     _photo = prepared.bytes;
     _fileName = prepared.fileName;
     _contentType = prepared.contentType;
+    _illustrated = illustrated;
     _result = null;
     _uploadProgress = 0;
 
@@ -125,6 +130,7 @@ class MealAnalysisController extends JobGenerationController {
           photo: photo,
           fileName: _fileName,
           contentType: _contentType,
+          illustrated: _illustrated,
           onProgress: (sent, total) {
             if (total > 0) {
               _uploadProgress = sent / total;
@@ -155,7 +161,10 @@ class MealAnalysisController extends JobGenerationController {
   @override
   String stepLabel(JobState state) => switch (state) {
     JobState.pending => 'Na fila…',
-    JobState.processing => 'Identificando os alimentos…',
+    JobState.processing =>
+      _illustrated
+          ? 'Identificando e ilustrando o prato…'
+          : 'Identificando os alimentos…',
     _ => 'Finalizando…',
   };
 

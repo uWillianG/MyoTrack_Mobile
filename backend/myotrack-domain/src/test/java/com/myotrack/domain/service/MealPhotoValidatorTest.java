@@ -27,7 +27,9 @@ class MealPhotoValidatorTest {
                 BigDecimal.valueOf(kcal),
                 BigDecimal.valueOf(protein),
                 BigDecimal.valueOf(carbs),
-                BigDecimal.valueOf(fat));
+                BigDecimal.valueOf(fat),
+                500,
+                500);
     }
 
     private static Optional<AnalyzedMeal> validate(LlmDetectedItem... items) {
@@ -101,7 +103,7 @@ class MealPhotoValidatorTest {
             final var proposal = new LlmMealPhoto(List.of(new LlmDetectedItem(
                     "Arroz", 999, BigDecimal.valueOf(150),
                     BigDecimal.valueOf(195), BigDecimal.valueOf(3.6),
-                    BigDecimal.valueOf(42), BigDecimal.valueOf(0.3))));
+                    BigDecimal.valueOf(42), BigDecimal.valueOf(0.3), 500, 500)));
 
             final var meal = MealPhotoValidator.validate(proposal, Set.of(1, 2, 3)).orElseThrow();
 
@@ -114,11 +116,40 @@ class MealPhotoValidatorTest {
             final var proposal = new LlmMealPhoto(List.of(new LlmDetectedItem(
                     "Arroz", 2, BigDecimal.valueOf(150),
                     BigDecimal.valueOf(195), BigDecimal.valueOf(3.6),
-                    BigDecimal.valueOf(42), BigDecimal.valueOf(0.3))));
+                    BigDecimal.valueOf(42), BigDecimal.valueOf(0.3), 500, 500)));
 
             final var meal = MealPhotoValidator.validate(proposal, Set.of(1, 2, 3)).orElseThrow();
 
             assertThat(meal.items().getFirst().foodItemId()).isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("posição fora da escala 0-1000 vira null")
+        void posicaoInvalida() {
+            // Prender ao limite seria pior: uma etiqueta encostada no canto da foto engana
+            // mais do que uma etiqueta ausente, porque parece apontar para algo.
+            final var proposal = new LlmMealPhoto(List.of(new LlmDetectedItem(
+                    "Arroz", null, BigDecimal.valueOf(150), BigDecimal.valueOf(195),
+                    BigDecimal.valueOf(3.6), BigDecimal.valueOf(42), BigDecimal.valueOf(0.3),
+                    4200, -8)));
+
+            final var item = MealPhotoValidator.validate(proposal, Set.of())
+                    .orElseThrow().items().getFirst();
+
+            assertThat(item.posX()).isNull();
+            assertThat(item.posY()).isNull();
+            // E os macros seguem intactos: a posição só serve para desenhar.
+            assertThat(item.kcal()).isEqualByComparingTo("195");
+        }
+
+        @Test
+        @DisplayName("posição válida é preservada para a versão ilustrada")
+        void posicaoValida() {
+            final var item = validate(item("Arroz", 150, 195, 3.6, 42, 0.3))
+                    .orElseThrow().items().getFirst();
+
+            assertThat(item.posX()).isEqualTo(500);
+            assertThat(item.posY()).isEqualTo(500);
         }
 
         @Test

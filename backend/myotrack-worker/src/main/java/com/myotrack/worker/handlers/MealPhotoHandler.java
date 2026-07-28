@@ -9,13 +9,21 @@ import com.myotrack.domain.entity.MealPhotoAnalysis;
 import com.myotrack.domain.service.MealPhotoValidator;
 import com.myotrack.domain.service.MealPhotoValidator.AnalyzedMeal;
 import com.myotrack.domain.service.MealPhotoValidator.LlmMealPhoto;
+import com.myotrack.infrastructure.ai.GeminiImageClient;
+import com.myotrack.infrastructure.ai.GeminiImageClient.GeneratedImage;
 import com.myotrack.infrastructure.ai.LlmJsonClient;
+import com.myotrack.infrastructure.ai.MealImageAnnotator;
+import com.myotrack.infrastructure.ai.MealImageAnnotator.Annotation;
 import com.myotrack.infrastructure.ai.LlmJsonClient.LlmJsonResult;
 import com.myotrack.infrastructure.repository.AiUsageLogRepository;
 import com.myotrack.infrastructure.repository.FoodItemRepository;
 import com.myotrack.infrastructure.repository.MealPhotoAnalysisRepository;
 import com.myotrack.infrastructure.storage.MediaStorage;
 import com.myotrack.worker.JobHandler;
+import java.io.ByteArrayInputStream;
+import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -52,18 +60,21 @@ public class MealPhotoHandler implements JobHandler {
     private final AiUsageLogRepository aiUsage;
     private final MediaStorage storage;
     private final LlmJsonClient llm;
+    private final GeminiImageClient imageClient;
 
     public MealPhotoHandler(
             MealPhotoAnalysisRepository analyses,
             FoodItemRepository foods,
             AiUsageLogRepository aiUsage,
             MediaStorage storage,
-            LlmJsonClient llm) {
+            LlmJsonClient llm,
+            GeminiImageClient imageClient) {
         this.analyses = analyses;
         this.foods = foods;
         this.aiUsage = aiUsage;
         this.storage = storage;
         this.llm = llm;
+        this.imageClient = imageClient;
     }
 
     @Override
@@ -107,6 +118,15 @@ public class MealPhotoHandler implements JobHandler {
                                 + "Tente enquadrar o prato inteiro, com boa luz."));
 
         final MealPhotoAnalysis entity = persist(userId, job, mediaKey, meal);
+
+        // A versão ilustrada é melhor-esforço e vem depois de a análise estar pronta:
+        // falhar aqui não pode custar os macros, que são o resultado que importa.
+        if (illustratedRequested(job)) {
+            entity.setIllustratedMediaKey(
+                    illustrate(job, mediaKey, image, mediaTypeOf(job), meal));
+            analyses.save(entity);
+        }
+
         return "{\"mealAnalysisId\":\"%s\"}".formatted(entity.getId());
     }
 
@@ -118,6 +138,108 @@ public class MealPhotoHandler implements JobHandler {
             throw new IllegalStateException("A foto da refeição não está mais disponível.");
         }
         return image;
+    }
+
+    /** O usuário pediu a versão anotada? Vem no {@code inputJson} montado pelo controller. */
+    private static boolean illustratedRequested(AnalysisJob job) {
+        final String input = job.getInputJson();
+        if (input == null || input.isBlank()) {
+            return false;
+        }
+        try {
+            return MAPPER.readTree(input).path("illustrated").asBoolean(false);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * Gera a foto anotada e devolve a chave dela, ou null.
+     *
+     * <p>Tenta o modelo de imagem do Gemini primeiro e cai no renderizador local. O fallback
+     * não é detalhe: o modelo de imagem exige chave com billing e no tier gratuito tem cota
+     * zero, então sem ele a funcionalidade quase nunca entregaria alguma coisa.
+     */
+    private String illustrate(
+            AnalysisJob job, String mediaKey, byte[] image, String mediaType, AnalyzedMeal meal) {
+
+        final List<String> labels = new ArrayList<>();
+        for (final var item : meal.items()) {
+            labels.add("%s \u2014 %s g \u00b7 %s kcal".formatted(
+                    item.description(),
+                    item.quantityG().setScale(0, RoundingMode.HALF_UP),
+                    item.kcal().setScale(0, RoundingMode.HALF_UP)));
+        }
+        final String totals = "%s kcal \u00b7 P %s g \u00b7 C %s g \u00b7 G %s g".formatted(
+                meal.totalKcal(), meal.totalProteinG(), meal.totalCarbsG(), meal.totalFatG());
+
+        byte[] bytes;
+        String outputType = "image/jpeg";
+
+        final GeneratedImage generated = imageClient.isConfigured()
+                ? imageClient.editImage(image, mediaType, instructionFor(labels, totals))
+                : null;
+
+        if (generated != null) {
+            bytes = generated.bytes();
+            outputType = generated.mediaType();
+            recordImageUsage(job.getUserId(), generated);
+        } else {
+            try {
+                final List<Annotation> annotations = new ArrayList<>();
+                for (var i = 0; i < meal.items().size(); i++) {
+                    final var item = meal.items().get(i);
+                    annotations.add(new Annotation(labels.get(i), item.posX(), item.posY()));
+                }
+                bytes = MealImageAnnotator.render(image, annotations, totals);
+            } catch (Exception e) {
+                log.warn("Renderização local da análise ilustrada falhou: {}", e.getMessage());
+                return null;
+            }
+        }
+
+        final String key = "%s-ilustrada%s".formatted(
+                stripExtension(mediaKey), "image/png".equals(outputType) ? ".png" : ".jpg");
+        try {
+            storage.upload(key, new ByteArrayInputStream(bytes), bytes.length, outputType);
+            return key;
+        } catch (Exception e) {
+            log.warn("Falha ao guardar a análise ilustrada {}: {}", key, e.getMessage());
+            return null;
+        }
+    }
+
+    private static String instructionFor(List<String> labels, String totals) {
+        final StringBuilder lines = new StringBuilder();
+        for (final String label : labels) {
+            lines.append("- ").append(label).append('\n');
+        }
+        return """
+                Edite esta foto de refeição adicionando anotações visuais elegantes e legíveis
+                por cima da imagem, como em um infográfico de nutrição. Mantenha a foto
+                original como fundo, sem alterar a comida.
+                Para cada item abaixo, desenhe uma etiqueta discreta apontando para o alimento
+                correspondente:
+                %s
+                Adicione também um cartão de resumo em um canto com os totais: %s
+                Todos os textos em português.
+                """.formatted(lines, totals);
+    }
+
+    /** A chave da ilustrada fica ao lado da original, para expirar junto na retenção. */
+    private static String stripExtension(String mediaKey) {
+        final int dot = mediaKey.lastIndexOf('.');
+        return dot < 0 ? mediaKey : mediaKey.substring(0, dot);
+    }
+
+    private void recordImageUsage(UUID userId, GeneratedImage generated) {
+        final AiUsageLog usage = new AiUsageLog();
+        usage.setUserId(userId);
+        usage.setOperation(AnalysisJobType.MEAL_PHOTO);
+        usage.setModel(imageClient.model());
+        usage.setInputTokens(generated.inputTokens());
+        usage.setOutputTokens(generated.outputTokens());
+        aiUsage.save(usage);
     }
 
     /** O tipo real da imagem, gravado pelo controller no {@code inputJson} do job. */
@@ -183,6 +305,8 @@ public class MealPhotoHandler implements JobHandler {
                 Estime a porção pelo tamanho aparente comparado a talheres, pratos e copos na
                 imagem. Se não houver comida na foto, devolva a lista vazia.
                 Não invente itens que não estejam visíveis.
+                Informe também posX e posY: a posição aproximada do centro do alimento na
+                imagem, em escala de 0 a 1000 (0,0 = canto superior esquerdo).
                 """;
     }
 
@@ -210,9 +334,11 @@ public class MealPhotoHandler implements JobHandler {
                           "kcal": { "type": "number" },
                           "proteinG": { "type": "number" },
                           "carbsG": { "type": "number" },
-                          "fatG": { "type": "number" }
+                          "fatG": { "type": "number" },
+                          "posX": { "type": "integer" },
+                          "posY": { "type": "integer" }
                         },
-                        "required": ["description", "quantityG", "kcal", "proteinG", "carbsG", "fatG"]
+                        "required": ["description", "quantityG", "kcal", "proteinG", "carbsG", "fatG", "posX", "posY"]
                       }
                     }
                   },

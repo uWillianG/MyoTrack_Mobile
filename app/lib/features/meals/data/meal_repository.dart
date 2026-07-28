@@ -20,9 +20,12 @@ class MealRepository {
     required Uint8List photo,
     required String fileName,
     required String contentType,
+    bool illustrated = false,
     void Function(int sent, int total)? onProgress,
   }) async {
     final form = FormData.fromMap({
+      // Vai como texto: é multipart, não JSON.
+      'illustrated': '$illustrated',
       'photo': MultipartFile.fromBytes(
         photo,
         filename: fileName,

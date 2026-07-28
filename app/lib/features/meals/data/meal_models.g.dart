@@ -15,6 +15,8 @@ _MealAnalysisItem _$MealAnalysisItemFromJson(Map<String, dynamic> json) =>
       proteinG: json['proteinG'] as num? ?? 0,
       carbsG: json['carbsG'] as num? ?? 0,
       fatG: json['fatG'] as num? ?? 0,
+      posX: (json['posX'] as num?)?.toInt(),
+      posY: (json['posY'] as num?)?.toInt(),
     );
 
 Map<String, dynamic> _$MealAnalysisItemToJson(_MealAnalysisItem instance) =>
@@ -26,6 +28,8 @@ Map<String, dynamic> _$MealAnalysisItemToJson(_MealAnalysisItem instance) =>
       'proteinG': instance.proteinG,
       'carbsG': instance.carbsG,
       'fatG': instance.fatG,
+      'posX': instance.posX,
+      'posY': instance.posY,
     };
 
 _MealAnalysis _$MealAnalysisFromJson(Map<String, dynamic> json) =>
@@ -44,6 +48,7 @@ _MealAnalysis _$MealAnalysisFromJson(Map<String, dynamic> json) =>
       userAdjusted: json['userAdjusted'] as bool? ?? false,
       excludedFromDiary: json['excludedFromDiary'] as bool? ?? false,
       photoUrl: json['photoUrl'] as String?,
+      illustratedPhotoUrl: json['illustratedPhotoUrl'] as String?,
       createdAt: json['createdAt'] as String?,
     );
 
@@ -59,6 +64,7 @@ Map<String, dynamic> _$MealAnalysisToJson(_MealAnalysis instance) =>
       'userAdjusted': instance.userAdjusted,
       'excludedFromDiary': instance.excludedFromDiary,
       'photoUrl': instance.photoUrl,
+      'illustratedPhotoUrl': instance.illustratedPhotoUrl,
       'createdAt': instance.createdAt,
     };
 
