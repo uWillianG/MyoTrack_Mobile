@@ -7,6 +7,7 @@ import '../features/auth/login_page.dart';
 import '../features/diet/diet_plan_page.dart';
 import '../features/home/home_page.dart';
 import '../features/logging/log_session_page.dart';
+import '../features/meals/meal_analysis_page.dart';
 import '../features/profile/onboarding_page.dart';
 import '../features/splash/splash_page.dart';
 import '../features/workout/workout_plan_page.dart';
@@ -52,6 +53,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const WorkoutPlanPage(),
       ),
       GoRoute(path: Routes.dietPlan, builder: (_, _) => const DietPlanPage()),
+      GoRoute(
+        path: Routes.mealAnalysis,
+        builder: (_, _) => const MealAnalysisPage(),
+      ),
       GoRoute(
         path: Routes.logSession,
         builder: (_, _) => const LogSessionPage(),

@@ -32,6 +32,15 @@ class HomePage extends StatelessWidget {
             onTap: () => context.push(Routes.dietPlan),
           ),
           ListTile(
+            leading: const Icon(Icons.photo_camera_outlined),
+            title: const Text('Analisar refeição'),
+            subtitle: const Text(
+              'Fotografe o prato e a IA estima calorias e macros',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push(Routes.mealAnalysis),
+          ),
+          ListTile(
             leading: const Icon(Icons.edit_note_outlined),
             title: const Text('Registrar treino'),
             subtitle: const Text(
