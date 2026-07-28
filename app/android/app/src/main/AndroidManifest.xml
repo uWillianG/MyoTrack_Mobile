@@ -1,4 +1,18 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Aviso de fim do descanso (B4). -->
+    <!-- Do Android 13 em diante notificar exige permissão do usuário, pedida em tempo de
+         execução quando o treino começa. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Alarme exato: é o que faz o aviso chegar no segundo certo em vez de ser agrupado
+         pelo sistema e atrasar minutos. Do Android 13 em diante não é concedida sozinha — o
+         app checa com canScheduleExactNotifications() e cai para o modo inexato quando não
+         tem, porque avisar atrasado ainda é melhor do que não avisar.
+         Deliberadamente sem USE_EXACT_ALARM: aquela é concedida automaticamente, mas exige
+         justificar na Play Console que o alarme é função central do app. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+    <!-- Sem isto o descanso agendado some quando o aparelho reinicia no meio do treino. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+
     <application
         android:label="myotrack"
         android:name="${applicationName}"
@@ -30,6 +44,25 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- Receptores do flutter_local_notifications (B4). O manifesto do plugin declara
+             só as permissões, então estes precisam vir do app: sem o primeiro, o alarme
+             dispara e não há quem mostre a notificação. -->
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
+            android:exported="false"/>
+        <!-- Reagenda o que estava pendente depois de reiniciar o aparelho ou atualizar o
+             app — o Android descarta os alarmes nos dois casos. -->
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

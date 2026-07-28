@@ -18,6 +18,15 @@ class HomePage extends StatelessWidget {
       body: ListView(
         children: [
           ListTile(
+            leading: const Icon(Icons.play_circle_outline),
+            title: const Text('Treinar agora'),
+            subtitle: const Text(
+              'Conduz o treino série a série, com timer de descanso',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push(Routes.workoutMode),
+          ),
+          ListTile(
             leading: const Icon(Icons.fitness_center_outlined),
             title: const Text('Meu treino'),
             subtitle: const Text('Plano gerado a partir do seu perfil'),

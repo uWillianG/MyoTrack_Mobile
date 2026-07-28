@@ -34,7 +34,18 @@ class WorkoutPlanPage extends ConsumerWidget {
     });
 
     return Scaffold(
-      appBar: AppBar(title: Text(planAsync.valueOrNull?.name ?? 'Seu treino')),
+      appBar: AppBar(
+        title: Text(planAsync.valueOrNull?.name ?? 'Seu treino'),
+        actions: [
+          // Quem está olhando o plano é candidato a começar o treino agora.
+          if (planAsync.valueOrNull != null)
+            IconButton(
+              onPressed: () => context.push(Routes.workoutMode),
+              icon: const Icon(Icons.play_circle_outline),
+              tooltip: 'Treinar este plano',
+            ),
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(activeWorkoutPlanProvider);
