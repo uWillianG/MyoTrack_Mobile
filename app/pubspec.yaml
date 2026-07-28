@@ -61,6 +61,17 @@ dependencies:
   path_provider_android: '>=2.2.17 <2.3.0'
   path: ^1.9.0
 
+  # --- Timer de descanso (B4) ---
+  # O descanso precisa avisar mesmo com o app em segundo plano: entre uma série e outra o
+  # celular vai para o bolso, e um Timer do Dart não sobrevive a isso. A notificação é
+  # agendada no relógio do sistema, que continua correndo.
+  flutter_local_notifications: ^22.2.0
+  # zonedSchedule trabalha com TZDateTime, não com DateTime.
+  timezone: ^0.11.1
+  # Mantém a tela ligada durante o treino: com as mãos na barra, ninguém volta a tocar no
+  # aparelho a cada 30 segundos só para ele não apagar.
+  wakelock_plus: ^1.5.2
+
   # --- Links externos (B3) ---
   # Abre o vídeo do exercício no TikTok. Exige <queries> no AndroidManifest: do Android 11
   # em diante o app não enxerga quem trata https sem declarar. No iOS o link https vai por
@@ -90,7 +101,6 @@ dev_dependencies:
   mocktail: ^1.0.4
 
 # A ENTRAR, por funcionalidade:
-#   B4  timer de descanso .... flutter_local_notifications, timezone, wakelock_plus
 #   B6  sincronização ........ workmanager (usar >=0.9: a 0.5.x usa a API v1 já removida)
 #   B7  foto de refeição ..... camera, image_picker, flutter_image_compress
 #   B9  vídeo ................ video_player
