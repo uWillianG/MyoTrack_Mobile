@@ -36,6 +36,23 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!--
+	  Sincronização em background da fila de escrita (B6). O iOS só entrega uma tarefa cujo
+	  identificador esteja declarado aqui **e** registrado no AppDelegate antes de o
+	  didFinishLaunchingWithOptions retornar; faltando qualquer um dos dois, o agendamento é
+	  recusado em tempo de execução. Os identificadores têm de bater com os de
+	  core/sync/background_sync.dart.
+	-->
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>myotrack.sync.periodic</string>
+		<string>myotrack.sync.now</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>processing</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

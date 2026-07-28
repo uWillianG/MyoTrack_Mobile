@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../db/local_database.dart';
 import '../network/api_client.dart';
 import '../network/api_exception.dart';
+import 'sync_scheduler.dart';
 
 /// Resultado de uma escrita que aceita ficar pendente.
 enum WriteOutcome {
@@ -23,10 +24,12 @@ enum WriteOutcome {
 /// cativo e rede móvel com 1 barra são todos "conectado" para o sistema e falham na hora do
 /// envio. Tentar e reagir ao erro é mais confiável do que perguntar antes.
 class SyncQueue {
-  SyncQueue(this._api, this._db);
+  SyncQueue(this._api, this._db, {SyncScheduler? scheduler})
+    : _scheduler = scheduler ?? const NoopSyncScheduler();
 
   final ApiClient _api;
   final LocalDatabase _db;
+  final SyncScheduler _scheduler;
 
   /// Envia; se a rede falhar, guarda e devolve [WriteOutcome.queued].
   ///
@@ -48,6 +51,10 @@ class SyncQueue {
         rethrow;
       }
       await _db.enqueue(endpoint, jsonEncode(body));
+      // Pede ao sistema que acorde o app quando a rede voltar. Sem isto a fila só andaria na
+      // próxima escrita — quem registrou o treino no subsolo e guardou o celular ficaria com
+      // tudo parado no aparelho por tempo indeterminado.
+      await _scheduler.requestFlush();
       return WriteOutcome.queued;
     }
   }
@@ -69,6 +76,14 @@ class SyncQueue {
         sent++;
       } on ApiException catch (e) {
         if (e.isRetryable) {
+          break;
+        }
+        // 401 não é conteúdo recusado, é sessão: o token venceu e a renovação não pegou. A
+        // escrita continua válida e sobe assim que houver login. Descartar aqui perderia um
+        // treino inteiro por token vencido — e na sincronização em background isso
+        // aconteceria sem ninguém ver.
+        if (e.isUnauthorized) {
+          await _db.recordAttempt(write.id, e.message);
           break;
         }
         // O servidor recusou o conteúdo. Manter na fila bloquearia todas as escritas
