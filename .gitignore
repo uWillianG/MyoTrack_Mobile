@@ -19,6 +19,23 @@
 *.tar.gz
 *.rar
 
+# O wrapper é a exceção do *.jar acima, e precisa ser versionado: é ele que garante que
+# todo mundo (e o CI) compile com a mesma versão do Gradle. Sem este arquivo no
+# repositório, `./gradlew` falha logo no clone com "Could not find or load main class
+# org.gradle.wrapper.GradleWrapperMain".
+#
+# O `**/` é necessário: um padrão com barra no meio é ancorado na pasta do .gitignore, e
+# `gradle/wrapper/...` sozinho só valeria para a raiz — deixando o wrapper do backend e o
+# do Android de fora, que é exatamente o caso aqui.
+!**/gradle/wrapper/gradle-wrapper.jar
+
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# --- Saída de build ---
+# Gerada a cada compilação e diferente em cada máquina. Estava versionada por engano: eram
+# 104 arquivos que sujavam o `git status` a cada `gradlew build` e entravam em commit sem
+# ninguém notar.
+build/
+.gradle/

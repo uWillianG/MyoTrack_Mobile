@@ -1406,6 +1406,296 @@ as int?,
 
 
 /// @nodoc
+mixin _$MeasurementView {
+
+ String get id; String get date; num? get weightKg; num? get bodyFatPercent; num? get waistCm; num? get chestCm; num? get hipCm; num? get armCm; num? get thighCm; num? get calfCm;
+/// Create a copy of MeasurementView
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$MeasurementViewCopyWith<MeasurementView> get copyWith => _$MeasurementViewCopyWithImpl<MeasurementView>(this as MeasurementView, _$identity);
+
+  /// Serializes this MeasurementView to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is MeasurementView&&(identical(other.id, id) || other.id == id)&&(identical(other.date, date) || other.date == date)&&(identical(other.weightKg, weightKg) || other.weightKg == weightKg)&&(identical(other.bodyFatPercent, bodyFatPercent) || other.bodyFatPercent == bodyFatPercent)&&(identical(other.waistCm, waistCm) || other.waistCm == waistCm)&&(identical(other.chestCm, chestCm) || other.chestCm == chestCm)&&(identical(other.hipCm, hipCm) || other.hipCm == hipCm)&&(identical(other.armCm, armCm) || other.armCm == armCm)&&(identical(other.thighCm, thighCm) || other.thighCm == thighCm)&&(identical(other.calfCm, calfCm) || other.calfCm == calfCm));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,id,date,weightKg,bodyFatPercent,waistCm,chestCm,hipCm,armCm,thighCm,calfCm);
+
+@override
+String toString() {
+  return 'MeasurementView(id: $id, date: $date, weightKg: $weightKg, bodyFatPercent: $bodyFatPercent, waistCm: $waistCm, chestCm: $chestCm, hipCm: $hipCm, armCm: $armCm, thighCm: $thighCm, calfCm: $calfCm)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $MeasurementViewCopyWith<$Res>  {
+  factory $MeasurementViewCopyWith(MeasurementView value, $Res Function(MeasurementView) _then) = _$MeasurementViewCopyWithImpl;
+@useResult
+$Res call({
+ String id, String date, num? weightKg, num? bodyFatPercent, num? waistCm, num? chestCm, num? hipCm, num? armCm, num? thighCm, num? calfCm
+});
+
+
+
+
+}
+/// @nodoc
+class _$MeasurementViewCopyWithImpl<$Res>
+    implements $MeasurementViewCopyWith<$Res> {
+  _$MeasurementViewCopyWithImpl(this._self, this._then);
+
+  final MeasurementView _self;
+  final $Res Function(MeasurementView) _then;
+
+/// Create a copy of MeasurementView
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? date = null,Object? weightKg = freezed,Object? bodyFatPercent = freezed,Object? waistCm = freezed,Object? chestCm = freezed,Object? hipCm = freezed,Object? armCm = freezed,Object? thighCm = freezed,Object? calfCm = freezed,}) {
+  return _then(_self.copyWith(
+id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String,date: null == date ? _self.date : date // ignore: cast_nullable_to_non_nullable
+as String,weightKg: freezed == weightKg ? _self.weightKg : weightKg // ignore: cast_nullable_to_non_nullable
+as num?,bodyFatPercent: freezed == bodyFatPercent ? _self.bodyFatPercent : bodyFatPercent // ignore: cast_nullable_to_non_nullable
+as num?,waistCm: freezed == waistCm ? _self.waistCm : waistCm // ignore: cast_nullable_to_non_nullable
+as num?,chestCm: freezed == chestCm ? _self.chestCm : chestCm // ignore: cast_nullable_to_non_nullable
+as num?,hipCm: freezed == hipCm ? _self.hipCm : hipCm // ignore: cast_nullable_to_non_nullable
+as num?,armCm: freezed == armCm ? _self.armCm : armCm // ignore: cast_nullable_to_non_nullable
+as num?,thighCm: freezed == thighCm ? _self.thighCm : thighCm // ignore: cast_nullable_to_non_nullable
+as num?,calfCm: freezed == calfCm ? _self.calfCm : calfCm // ignore: cast_nullable_to_non_nullable
+as num?,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [MeasurementView].
+extension MeasurementViewPatterns on MeasurementView {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _MeasurementView value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _MeasurementView() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _MeasurementView value)  $default,){
+final _that = this;
+switch (_that) {
+case _MeasurementView():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _MeasurementView value)?  $default,){
+final _that = this;
+switch (_that) {
+case _MeasurementView() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String date,  num? weightKg,  num? bodyFatPercent,  num? waistCm,  num? chestCm,  num? hipCm,  num? armCm,  num? thighCm,  num? calfCm)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _MeasurementView() when $default != null:
+return $default(_that.id,_that.date,_that.weightKg,_that.bodyFatPercent,_that.waistCm,_that.chestCm,_that.hipCm,_that.armCm,_that.thighCm,_that.calfCm);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String date,  num? weightKg,  num? bodyFatPercent,  num? waistCm,  num? chestCm,  num? hipCm,  num? armCm,  num? thighCm,  num? calfCm)  $default,) {final _that = this;
+switch (_that) {
+case _MeasurementView():
+return $default(_that.id,_that.date,_that.weightKg,_that.bodyFatPercent,_that.waistCm,_that.chestCm,_that.hipCm,_that.armCm,_that.thighCm,_that.calfCm);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String date,  num? weightKg,  num? bodyFatPercent,  num? waistCm,  num? chestCm,  num? hipCm,  num? armCm,  num? thighCm,  num? calfCm)?  $default,) {final _that = this;
+switch (_that) {
+case _MeasurementView() when $default != null:
+return $default(_that.id,_that.date,_that.weightKg,_that.bodyFatPercent,_that.waistCm,_that.chestCm,_that.hipCm,_that.armCm,_that.thighCm,_that.calfCm);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _MeasurementView implements MeasurementView {
+  const _MeasurementView({required this.id, required this.date, this.weightKg, this.bodyFatPercent, this.waistCm, this.chestCm, this.hipCm, this.armCm, this.thighCm, this.calfCm});
+  factory _MeasurementView.fromJson(Map<String, dynamic> json) => _$MeasurementViewFromJson(json);
+
+@override final  String id;
+@override final  String date;
+@override final  num? weightKg;
+@override final  num? bodyFatPercent;
+@override final  num? waistCm;
+@override final  num? chestCm;
+@override final  num? hipCm;
+@override final  num? armCm;
+@override final  num? thighCm;
+@override final  num? calfCm;
+
+/// Create a copy of MeasurementView
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$MeasurementViewCopyWith<_MeasurementView> get copyWith => __$MeasurementViewCopyWithImpl<_MeasurementView>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$MeasurementViewToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _MeasurementView&&(identical(other.id, id) || other.id == id)&&(identical(other.date, date) || other.date == date)&&(identical(other.weightKg, weightKg) || other.weightKg == weightKg)&&(identical(other.bodyFatPercent, bodyFatPercent) || other.bodyFatPercent == bodyFatPercent)&&(identical(other.waistCm, waistCm) || other.waistCm == waistCm)&&(identical(other.chestCm, chestCm) || other.chestCm == chestCm)&&(identical(other.hipCm, hipCm) || other.hipCm == hipCm)&&(identical(other.armCm, armCm) || other.armCm == armCm)&&(identical(other.thighCm, thighCm) || other.thighCm == thighCm)&&(identical(other.calfCm, calfCm) || other.calfCm == calfCm));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,id,date,weightKg,bodyFatPercent,waistCm,chestCm,hipCm,armCm,thighCm,calfCm);
+
+@override
+String toString() {
+  return 'MeasurementView(id: $id, date: $date, weightKg: $weightKg, bodyFatPercent: $bodyFatPercent, waistCm: $waistCm, chestCm: $chestCm, hipCm: $hipCm, armCm: $armCm, thighCm: $thighCm, calfCm: $calfCm)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$MeasurementViewCopyWith<$Res> implements $MeasurementViewCopyWith<$Res> {
+  factory _$MeasurementViewCopyWith(_MeasurementView value, $Res Function(_MeasurementView) _then) = __$MeasurementViewCopyWithImpl;
+@override @useResult
+$Res call({
+ String id, String date, num? weightKg, num? bodyFatPercent, num? waistCm, num? chestCm, num? hipCm, num? armCm, num? thighCm, num? calfCm
+});
+
+
+
+
+}
+/// @nodoc
+class __$MeasurementViewCopyWithImpl<$Res>
+    implements _$MeasurementViewCopyWith<$Res> {
+  __$MeasurementViewCopyWithImpl(this._self, this._then);
+
+  final _MeasurementView _self;
+  final $Res Function(_MeasurementView) _then;
+
+/// Create a copy of MeasurementView
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? date = null,Object? weightKg = freezed,Object? bodyFatPercent = freezed,Object? waistCm = freezed,Object? chestCm = freezed,Object? hipCm = freezed,Object? armCm = freezed,Object? thighCm = freezed,Object? calfCm = freezed,}) {
+  return _then(_MeasurementView(
+id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String,date: null == date ? _self.date : date // ignore: cast_nullable_to_non_nullable
+as String,weightKg: freezed == weightKg ? _self.weightKg : weightKg // ignore: cast_nullable_to_non_nullable
+as num?,bodyFatPercent: freezed == bodyFatPercent ? _self.bodyFatPercent : bodyFatPercent // ignore: cast_nullable_to_non_nullable
+as num?,waistCm: freezed == waistCm ? _self.waistCm : waistCm // ignore: cast_nullable_to_non_nullable
+as num?,chestCm: freezed == chestCm ? _self.chestCm : chestCm // ignore: cast_nullable_to_non_nullable
+as num?,hipCm: freezed == hipCm ? _self.hipCm : hipCm // ignore: cast_nullable_to_non_nullable
+as num?,armCm: freezed == armCm ? _self.armCm : armCm // ignore: cast_nullable_to_non_nullable
+as num?,thighCm: freezed == thighCm ? _self.thighCm : thighCm // ignore: cast_nullable_to_non_nullable
+as num?,calfCm: freezed == calfCm ? _self.calfCm : calfCm // ignore: cast_nullable_to_non_nullable
+as num?,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
 mixin _$MeasurementRequest {
 
  String get date; double? get weightKg; double? get bodyFatPercent; double? get waistCm; double? get chestCm; double? get hipCm; double? get armCm; double? get thighCm; double? get calfCm;

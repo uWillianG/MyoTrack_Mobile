@@ -73,6 +73,14 @@ class LoggingRepository {
   Future<WriteOutcome> logMeasurement(MeasurementRequest request) =>
       _sync.submit('/api/measurements', request.toJson());
 
+  /// Medidas corporais, em ordem crescente de data — é assim que o gráfico consome.
+  Future<List<MeasurementView>> measurements() async {
+    final json = await _api.get<List<dynamic>>('/api/measurements');
+    return json
+        .map((e) => MeasurementView.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   /// Histórico de sessões, mais recentes primeiro.
   Future<List<WorkoutSessionView>> sessions() async {
     final json = await _api.get<List<dynamic>>('/api/sessions');

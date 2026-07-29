@@ -9,6 +9,7 @@ import 'package:myotrack/core/db/local_database.dart';
 import 'package:myotrack/core/network/api_client.dart';
 import 'package:myotrack/core/network/api_exception.dart';
 import 'package:myotrack/core/sync/sync_queue.dart';
+import 'package:myotrack/core/sync/sync_scheduler.dart';
 
 class _InMemoryStorage extends FlutterSecureStorage {
   const _InMemoryStorage();
@@ -25,13 +26,23 @@ class _InMemoryStorage extends FlutterSecureStorage {
   }) async => null;
 }
 
+/// Conta os pedidos de esvaziamento sem envolver o WorkManager.
+class _FakeScheduler implements SyncScheduler {
+  int requests = 0;
+
+  @override
+  Future<void> requestFlush() async => requests++;
+}
+
 void main() {
   late LocalDatabase db;
   late DioAdapter adapter;
   late SyncQueue queue;
+  late _FakeScheduler scheduler;
 
   setUp(() {
     db = LocalDatabase.forTesting(NativeDatabase.memory());
+    scheduler = _FakeScheduler();
 
     final dio = Dio(BaseOptions(baseUrl: 'http://localhost:8080'));
     adapter = DioAdapter(dio: dio);
@@ -42,6 +53,7 @@ void main() {
         refreshDio: dio,
       ),
       db,
+      scheduler: scheduler,
     );
   });
 
@@ -168,6 +180,59 @@ void main() {
       // Uma entrada permanentemente inválida na frente bloquearia todas as seguintes.
       expect(await queue.flush(), 1);
       expect(await queue.pendingCount(), 0);
+    });
+
+    test('401 mantém a escrita na fila — é sessão, não conteúdo', () async {
+      // O 4xx que se descarta é o corpo recusado. O 401 é outra coisa: o treino continua
+      // válido e sobe assim que houver login. Descartar aqui perderia o treino inteiro por
+      // um token vencido, e em background isso aconteceria sem ninguém ver.
+      adapter.onPost(
+        '/api/sessions',
+        (server) => server.reply(401, {'error': 'Sua sessão expirou.'}),
+        data: Matchers.any,
+      );
+
+      await db.enqueue('/api/sessions', '{"a":1}');
+      await db.enqueue('/api/sessions', '{"b":2}');
+
+      expect(await queue.flush(), 0);
+      expect(await queue.pendingCount(), 2);
+      // A tentativa fica registrada para diagnóstico.
+      expect((await db.pending()).first.attempts, 1);
+    });
+  });
+
+  group('agendamento em background', () {
+    test('escrita que fica pendente pede o esvaziamento', () async {
+      adapter.onPost(
+        '/api/sessions',
+        (server) => server.throws(
+          -1,
+          DioException.connectionError(
+            requestOptions: RequestOptions(path: '/api/sessions'),
+            reason: 'offline',
+          ),
+        ),
+        data: Matchers.any,
+      );
+
+      await queue.submit('/api/sessions', body);
+
+      // É o que faz o sistema acordar o app quando a rede voltar; sem isto a fila só
+      // andaria na próxima escrita do usuário.
+      expect(scheduler.requests, 1);
+    });
+
+    test('escrita que sobe na hora não agenda nada', () async {
+      adapter.onPost(
+        '/api/sessions',
+        (server) => server.reply(200, {'id': 's1'}),
+        data: Matchers.any,
+      );
+
+      await queue.submit('/api/sessions', body);
+
+      expect(scheduler.requests, 0);
     });
   });
 

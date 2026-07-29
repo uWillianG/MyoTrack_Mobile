@@ -42,6 +42,35 @@ public final class EmailTemplates {
         return new EmailContent(subject, layout("Redefinir sua senha", body), text);
     }
 
+    /** E-mail que leva o export de dados (LGPD) em anexo. */
+    public static EmailContent dataExport(String filename) {
+        String subject = "Seus dados no MyoTrack";
+
+        String text = """
+                Em anexo estão todos os dados da sua conta no MyoTrack, em formato JSON:
+                perfil, planos de treino e dieta, treinos registrados, medidas, análises de
+                refeição e de vídeo, e sua assinatura.
+
+                Arquivo: %s
+
+                Você pediu este arquivo dentro do app. Se não foi você, troque sua senha.
+
+                MyoTrack — seu personal trainer e nutricionista digital
+                """.formatted(filename);
+
+        String body = """
+                <p style="margin:0 0 16px">Em anexo estão todos os dados da sua conta no MyoTrack, em formato JSON.</p>
+                <p style="margin:0 0 16px">O arquivo inclui seu perfil, planos de treino e dieta, treinos registrados,
+                medidas, análises de refeição e de vídeo, e sua assinatura.</p>
+                <p style="margin:0 0 24px;font-size:13px;color:#64748b">Arquivo: <strong>%s</strong></p>
+                <p style="margin:16px 0 0;font-size:13px;color:#64748b">
+                  Você pediu este arquivo dentro do app. Se não foi você, troque sua senha.
+                </p>
+                """.formatted(escapeHtml(filename));
+
+        return new EmailContent(subject, layout("Seus dados", body), text);
+    }
+
     private static String button(String label, String url) {
         return """
                 <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0">

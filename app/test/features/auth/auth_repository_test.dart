@@ -244,6 +244,62 @@ void main() {
         contains('Se houver uma conta'),
       );
     });
+
+    test('redefinição manda o uid junto do token', () async {
+      // O servidor recusa o token que não pertence ao uid do link. Omitir um dos dois
+      // aqui daria "link inválido" num link perfeitamente bom.
+      adapter.onPost(
+        '/api/auth/reset-password',
+        (server) => server.reply(200, {
+          'message': 'Senha redefinida. Entre com a nova senha.',
+        }),
+        data: {
+          'userId': '11111111-2222-3333-4444-555555555555',
+          'token': 'token-do-email',
+          'password': 'Tr0vao!Verde9',
+        },
+      );
+
+      expect(
+        await repo.resetPassword(
+          userId: '11111111-2222-3333-4444-555555555555',
+          token: 'token-do-email',
+          password: 'Tr0vao!Verde9',
+        ),
+        contains('Senha redefinida'),
+      );
+    });
+
+    test('token expirado vira a mensagem genérica do servidor', () async {
+      adapter.onPost(
+        '/api/auth/reset-password',
+        (server) => server.reply(400, {
+          'error': 'Link inválido ou expirado. Peça um novo.',
+        }),
+        data: {
+          'userId': 'uid-1',
+          'token': 'token-velho',
+          'password': 'Tr0vao!Verde9',
+        },
+      );
+
+      await expectLater(
+        repo.resetPassword(
+          userId: 'uid-1',
+          token: 'token-velho',
+          password: 'Tr0vao!Verde9',
+        ),
+        throwsA(
+          isA<ApiException>().having(
+            (e) => e.message,
+            'message',
+            'Link inválido ou expirado. Peça um novo.',
+          ),
+        ),
+      );
+      // Redefinir senha não autentica: nada pode ter ido para o armazenamento.
+      expect(storage, isEmpty);
+    });
   });
 
   test('logout apaga a sessão', () async {

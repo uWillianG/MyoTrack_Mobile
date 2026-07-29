@@ -1,10 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'auth/token_store.dart';
 import 'db/local_database.dart';
 import 'jobs/job_watcher.dart';
 import 'network/api_client.dart';
+import 'sync/background_sync.dart';
 import 'sync/sync_queue.dart';
+import 'sync/sync_scheduler.dart';
 
 /// Providers de infraestrutura, disponíveis para o app inteiro.
 ///
@@ -12,6 +15,10 @@ import 'sync/sync_queue.dart';
 /// precisam ser sobrescritos nos testes com `ProviderScope(overrides: [...])`.
 
 final tokenStoreProvider = Provider<TokenStore>((ref) => TokenStore());
+
+/// Câmera e galeria do sistema. Serve foto de refeição (B7) e vídeo de execução (B9), por isso
+/// mora aqui e não dentro de uma das duas features.
+final imagePickerProvider = Provider<ImagePicker>((ref) => ImagePicker());
 
 final apiClientProvider = Provider<ApiClient>((ref) {
   final client = ApiClient(tokenStore: ref.watch(tokenStoreProvider));
@@ -35,9 +42,16 @@ final localDatabaseProvider = Provider<LocalDatabase>((ref) {
   return db;
 });
 
+final syncSchedulerProvider = Provider<SyncScheduler>(
+  (ref) => const WorkManagerSync(),
+);
+
 final syncQueueProvider = Provider<SyncQueue>(
-  (ref) =>
-      SyncQueue(ref.watch(apiClientProvider), ref.watch(localDatabaseProvider)),
+  (ref) => SyncQueue(
+    ref.watch(apiClientProvider),
+    ref.watch(localDatabaseProvider),
+    scheduler: ref.watch(syncSchedulerProvider),
+  ),
 );
 
 /// Quantas escritas ainda não subiram — a UI avisa quando é diferente de zero.

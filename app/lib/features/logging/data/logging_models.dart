@@ -78,6 +78,29 @@ abstract class SetView with _$SetView {
       _$SetViewFromJson(json);
 }
 
+/// Medida corporal já registrada — `GET /api/measurements`, em ordem crescente de data.
+///
+/// Os números vêm como `num` porque o backend serializa `BigDecimal`: o mesmo campo chega
+/// como `82` ou `82.4` conforme o valor.
+@freezed
+abstract class MeasurementView with _$MeasurementView {
+  const factory MeasurementView({
+    required String id,
+    required String date,
+    num? weightKg,
+    num? bodyFatPercent,
+    num? waistCm,
+    num? chestCm,
+    num? hipCm,
+    num? armCm,
+    num? thighCm,
+    num? calfCm,
+  }) = _MeasurementView;
+
+  factory MeasurementView.fromJson(Map<String, dynamic> json) =>
+      _$MeasurementViewFromJson(json);
+}
+
 /// Medida corporal — `POST /api/measurements`.
 @freezed
 abstract class MeasurementRequest with _$MeasurementRequest {

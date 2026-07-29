@@ -14,5 +14,19 @@
 	<array>
 		<string>Default</string>
 	</array>
+	<!--
+	  Universal Links: faz o link https do e-mail abrir o app em vez do Safari.
+
+	  Exige três coisas juntas, e nenhuma sozinha funciona: este entitlement, a capability
+	  Associated Domains habilitada no identificador do app no portal da Apple (conta paga),
+	  e o arquivo https://myotrack.app/.well-known/apple-app-site-association servido como
+	  application/json, sem redirecionamento.
+
+	  Enquanto isso não estiver pronto, o esquema myotrack:// do Info.plist cobre o caso.
+	-->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:myotrack.app</string>
+	</array>
 </dict>
 </plist>

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/iso_date.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/providers.dart';
 import '../../core/sync/sync_queue.dart';
@@ -111,7 +112,7 @@ class LogSessionForm {
     final weight = parsedBodyWeightKg;
     return weight == null
         ? null
-        : MeasurementRequest(date: _isoDate(date), weightKg: weight);
+        : MeasurementRequest(date: isoDate(date), weightKg: weight);
   }
 
   List<SetEntry> get completeSets => sets.where((s) => s.isComplete).toList();
@@ -131,16 +132,11 @@ class LogSessionForm {
     }
 
     return SessionRequest(
-      date: _isoDate(date),
+      date: isoDate(date),
       notes: notes.trim().isEmpty ? null : notes.trim(),
       sets: requests,
     );
   }
-
-  static String _isoDate(DateTime date) =>
-      '${date.year.toString().padLeft(4, '0')}-'
-      '${date.month.toString().padLeft(2, '0')}-'
-      '${date.day.toString().padLeft(2, '0')}';
 }
 
 /// Resultado do envio, para a tela decidir o que dizer.

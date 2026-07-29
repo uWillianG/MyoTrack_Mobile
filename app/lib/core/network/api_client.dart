@@ -59,7 +59,11 @@ class ApiClient {
   Future<T> put<T>(String path, {Object? body}) =>
       _run(() => _dio.put<T>(path, data: body));
 
-  Future<T> delete<T>(String path) => _run(() => _dio.delete<T>(path));
+  /// O corpo é opcional porque quase nenhum DELETE precisa dele — mas a exclusão de conta
+  /// precisa: ela exige a confirmação do titular, e mandá-la na query a deixaria no log do
+  /// servidor e no histórico de proxies.
+  Future<T> delete<T>(String path, {Object? body}) =>
+      _run(() => _dio.delete<T>(path, data: body));
 
   /// Upload multipart (foto de refeição). Timeout maior que o das chamadas comuns.
   Future<T> upload<T>(
