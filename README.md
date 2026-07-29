@@ -95,10 +95,51 @@ O CI (`.github/workflows/ci.yml`) roda isso mais os builds de Android e iOS a ca
 pega coisas que não aparecem no Windows** — o bit de execução do `gradlew` e a versão mínima
 do iOS já quebraram lá depois de passarem aqui.
 
+## Deep links: verificação de domínio
+
+O link que o backend manda por e-mail (`https://myotrack.app/redefinir-senha?...`) só abre o
+app se o domínio provar que pertence ao mesmo dono. A API serve os dois arquivos que fazem
+isso, em `/.well-known/`, mas **eles não aparecem enquanto não forem configurados** — servir um
+arquivo incompleto é pior que não servir, porque a plataforma o busca, lê, descarta em silêncio,
+e o sintoma no aparelho fica idêntico ao de arquivo nenhum.
+
+| Variável | Onde achar o valor |
+|---|---|
+| `MYOTRACK_ANDROID_CERT_FINGERPRINTS` | Play Console > Setup > App signing. Com **Play App Signing** é a SHA-256 do Google, **não** a do seu keystore de upload — o Google reassina o APK antes de distribuir. Trocar as duas é o engano comum, e o sintoma é o link seguir abrindo o navegador sem erro nenhum. |
+| `MYOTRACK_APPLE_APP_ID` | `TEAMID.com.myotrack.app`. O Team ID está no portal da Apple, em Membership. Exige conta paga. |
+
+Aceita mais de uma impressão digital, separadas por vírgula — útil numa migração de chave ou
+para autorizar a de debug em ambiente de teste. Para pegar a de debug:
+
+```bash
+keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android
+```
+
+Confira depois de configurar:
+
+```bash
+curl -i https://myotrack.app/.well-known/assetlinks.json
+curl -i https://myotrack.app/.well-known/apple-app-site-association
+```
+
+Os dois precisam responder `200` com `Content-Type: application/json`, **sem redirecionamento**
+— as duas plataformas recusam 301/302. E o domínio precisa rotear `/.well-known/*` para a API:
+hoje o Caddy do repositório .NET manda tudo que não é `/api/*` para os estáticos do frontend,
+então falta lá um bloco
+
+```
+handle /.well-known/* {
+	reverse_proxy api:8080
+}
+```
+
+No Android dá para conferir a verificação no aparelho com
+`adb shell pm get-app-links com.myotrack.app`.
+
 ## Falta para produção
 
-- **Os deep links `https://` não abrem o app em aparelho real.** Falta hospedar o
-  `assetlinks.json` (Android) e o `apple-app-site-association` (iOS) em `myotrack.app`. O
-  esquema `myotrack://` já funciona; o link que o backend manda por e-mail, não.
-- **Não há build de release nem assinatura.** Falta keystore no Android e certificado com
-  perfil no iOS.
+- **Não há build de release nem assinatura.** O `android/app/build.gradle.kts` ainda assina
+  release com a chave de debug (`TODO` do template do Flutter). Falta keystore no Android e
+  certificado com perfil no iOS.
+- **A verificação de domínio acima** ainda não tem os valores: dependem de publicar na Play
+  Store e de conta paga da Apple.

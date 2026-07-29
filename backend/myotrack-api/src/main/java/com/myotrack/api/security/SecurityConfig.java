@@ -69,6 +69,9 @@ public class SecurityConfig {
                         // O Stripe chama sem token; a autenticidade vem da assinatura do webhook.
                         .requestMatchers(HttpMethod.POST, "/api/billing/webhook").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        // Verificação de domínio dos deep links. Quem busca é o sistema
+                        // operacional, antes de qualquer login — às vezes na instalação do app.
+                        .requestMatchers("/.well-known/**").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .bearerTokenResolver(bearerTokenResolver)
