@@ -27,7 +27,6 @@ Future<void> main() async {
     debugPrint('Sincronização em background indisponível: $error\n$stack');
   }
 
-
   runApp(const ProviderScope(child: MyoTrackApp()));
 }
 

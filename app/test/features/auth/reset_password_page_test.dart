@@ -168,6 +168,9 @@ void main() {
       findsOneWidget,
     );
     // O formulário continua na tela: a pessoa pode pedir um link novo, não redigitar.
-    expect(find.widgetWithText(FilledButton, 'Redefinir senha'), findsOneWidget);
+    expect(
+      find.widgetWithText(FilledButton, 'Redefinir senha'),
+      findsOneWidget,
+    );
   });
 }
