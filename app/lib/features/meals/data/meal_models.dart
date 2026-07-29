@@ -20,6 +20,11 @@ abstract class MealAnalysisItem with _$MealAnalysisItem {
     @Default(0) num proteinG,
     @Default(0) num carbsG,
     @Default(0) num fatG,
+
+    /// Centro do alimento na foto, escala 0–1000. Só serve para desenhar a etiqueta na
+    /// versão ilustrada — nenhum número nutricional depende disso.
+    int? posX,
+    int? posY,
   }) = _MealAnalysisItem;
 
   factory MealAnalysisItem.fromJson(Map<String, dynamic> json) =>
@@ -47,6 +52,10 @@ abstract class MealAnalysis with _$MealAnalysis {
     /// URL temporária da foto. Null quando a retenção (LGPD) já apagou o arquivo — o
     /// resultado da análise sobrevive à imagem.
     String? photoUrl,
+
+    /// Foto anotada pela IA. Null quando o modo ilustrado não foi pedido, ou quando a
+    /// geração não pôde ser feita — a análise vale igual sem ela.
+    String? illustratedPhotoUrl,
     String? createdAt,
   }) = _MealAnalysis;
 

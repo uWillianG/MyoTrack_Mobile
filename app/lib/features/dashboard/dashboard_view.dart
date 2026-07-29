@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../progress/progress_controller.dart';
 import 'dashboard_stats.dart';
 
 /// Corpo do dashboard: números do momento, evolução e recordes.
@@ -153,7 +154,7 @@ class _VolumeChart extends StatelessWidget {
     final theme = Theme.of(context);
     final maxVolume = weeks.fold<double>(
       0,
-      (max, w) => w.volumeKg > max ? w.volumeKg : max,
+      (max, w) => w.volumeKg > max ? w.volumeKg.toDouble() : max,
     );
 
     return _ChartCard(
@@ -213,7 +214,7 @@ class _VolumeChart extends StatelessWidget {
                       getTooltipItem: (_, _, rod, index) {
                         final week = weeks[index];
                         return BarTooltipItem(
-                          '${formatKg(week.volumeKg)}\n',
+                          '${formatKg(week.volumeKg.toDouble())}\n',
                           theme.textTheme.labelMedium!.copyWith(
                             color: theme.colorScheme.onInverseSurface,
                             fontWeight: FontWeight.bold,
@@ -238,7 +239,7 @@ class _VolumeChart extends StatelessWidget {
                         x: i,
                         barRods: [
                           BarChartRodData(
-                            toY: weeks[i].volumeKg,
+                            toY: weeks[i].volumeKg.toDouble(),
                             color: theme.colorScheme.primary,
                             width: 10,
                             // Topo arredondado, base reta: a barra fica ancorada na linha de
@@ -266,7 +267,7 @@ class _WeightChart extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final weights = points.map((p) => p.weightKg).toList();
+    final weights = points.map((p) => p.weightKg.toDouble()).toList();
     final min = weights.reduce((a, b) => a < b ? a : b);
     final max = weights.reduce((a, b) => a > b ? a : b);
     // Uma folga mínima de 1 kg evita que uma variação de 200 g vire uma montanha — o eixo
@@ -335,7 +336,7 @@ class _WeightChart extends StatelessWidget {
                 getTooltipItems: (spots) => spots.map((spot) {
                   final point = points[spot.x.toInt()];
                   return LineTooltipItem(
-                    '${formatKg(point.weightKg)}\n',
+                    '${formatKg(point.weightKg.toDouble())}\n',
                     theme.textTheme.labelMedium!.copyWith(
                       color: theme.colorScheme.onInverseSurface,
                       fontWeight: FontWeight.bold,
@@ -356,7 +357,7 @@ class _WeightChart extends StatelessWidget {
               LineChartBarData(
                 spots: [
                   for (var i = 0; i < points.length; i++)
-                    FlSpot(i.toDouble(), points[i].weightKg),
+                    FlSpot(i.toDouble(), points[i].weightKg.toDouble()),
                 ],
                 color: theme.colorScheme.primary,
                 barWidth: 2,
@@ -382,7 +383,7 @@ class _WeightChart extends StatelessWidget {
 class _Records extends StatelessWidget {
   const _Records({required this.records});
 
-  final List<PersonalRecord> records;
+  final List<ExerciseRecord> records;
 
   /// Os dez maiores. Mais que isso vira inventário do catálogo, não destaque.
   static const int _maxShown = 10;
@@ -404,14 +405,14 @@ class _Records extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      record.exerciseName,
+                      record.name,
                       style: theme.textTheme.bodyMedium,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    formatKg(record.loadKg),
+                    formatKg(record.maxLoadKg.toDouble()),
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -420,7 +421,7 @@ class _Records extends StatelessWidget {
                   SizedBox(
                     width: 92,
                     child: Text(
-                      '${record.reps} reps · ${DateFormat('d/M/y').format(record.date)}',
+                      _detailOf(record),
                       textAlign: TextAlign.end,
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
@@ -433,6 +434,19 @@ class _Records extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// Repetições e data da série mais pesada, no que houver delas.
+  ///
+  /// Os dois campos são opcionais no contrato: um recorde sem data ou sem repetições ainda é
+  /// uma carga válida para mostrar, e sumir com a linha inteira por causa disso seria pior.
+  static String _detailOf(ExerciseRecord record) {
+    final parts = [
+      if (record.maxLoadReps != null) '${record.maxLoadReps} reps',
+      if (record.maxLoadDate != null)
+        DateFormat('d/M/y').format(record.maxLoadDate!),
+    ];
+    return parts.join(' · ');
   }
 }
 

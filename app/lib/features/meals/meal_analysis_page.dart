@@ -7,11 +7,23 @@ import 'data/meal_models.dart';
 import 'meal_analysis_controller.dart';
 
 /// Análise de refeição por foto. Porte de `MealAnalysisPage.tsx`.
-class MealAnalysisPage extends ConsumerWidget {
+class MealAnalysisPage extends ConsumerStatefulWidget {
   const MealAnalysisPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MealAnalysisPage> createState() => _MealAnalysisPageState();
+}
+
+class _MealAnalysisPageState extends ConsumerState<MealAnalysisPage> {
+  /// Modo ilustrado: a IA anota os itens e os macros na própria foto.
+  ///
+  /// Fica desligado por padrão porque custa uma chamada a mais e nem sempre está
+  /// disponível — quando o modelo de imagem não tem cota, o servidor cai para um
+  /// desenho local, e o resultado é mais simples do que a pessoa esperaria.
+  bool _illustrated = false;
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(mealAnalysisProvider);
     final controller = ref.read(mealAnalysisProvider.notifier);
     final history = ref.watch(mealHistoryProvider);
@@ -53,30 +65,53 @@ class MealAnalysisPage extends ConsumerWidget {
       ),
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: FilledButton.icon(
-                onPressed: state.running
-                    ? null
-                    : () => controller.analyzeFrom(ImageSource.camera),
-                icon: const Icon(Icons.photo_camera_outlined),
-                label: const Text('Fotografar'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(48),
-                ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              value: _illustrated,
+              onChanged: state.running
+                  ? null
+                  : (v) => setState(() => _illustrated = v),
+              title: const Text('Análise ilustrada'),
+              subtitle: const Text(
+                'Marca os alimentos e os macros na própria foto',
               ),
             ),
-            const SizedBox(width: 8),
-            OutlinedButton.icon(
-              onPressed: state.running
-                  ? null
-                  : () => controller.analyzeFrom(ImageSource.gallery),
-              icon: const Icon(Icons.photo_library_outlined),
-              label: const Text('Galeria'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(48),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: state.running
+                        ? null
+                        : () => controller.analyzeFrom(
+                            ImageSource.camera,
+                            illustrated: _illustrated,
+                          ),
+                    icon: const Icon(Icons.photo_camera_outlined),
+                    label: const Text('Fotografar'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: state.running
+                      ? null
+                      : () => controller.analyzeFrom(
+                          ImageSource.gallery,
+                          illustrated: _illustrated,
+                        ),
+                  icon: const Icon(Icons.photo_library_outlined),
+                  label: const Text('Galeria'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -166,9 +201,11 @@ class _MealCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (meal.photoUrl != null)
+          // Quando há versão ilustrada, é ela que aparece: as anotações sobre a comida
+          // dizem mais que a foto crua, e a original continua no storage.
+          if ((meal.illustratedPhotoUrl ?? meal.photoUrl) != null)
             Image.network(
-              meal.photoUrl!,
+              meal.illustratedPhotoUrl ?? meal.photoUrl!,
               height: 160,
               fit: BoxFit.cover,
               // A URL é assinada e expira; falhar em carregar não pode quebrar o cartão,

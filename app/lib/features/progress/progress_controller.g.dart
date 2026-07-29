@@ -53,3 +53,58 @@ Map<String, dynamic> _$ProgressSuggestionToJson(_ProgressSuggestion instance) =>
       'targetReps': instance.targetReps,
       'incrementKg': instance.incrementKg,
     };
+
+_WeeklyVolume _$WeeklyVolumeFromJson(Map<String, dynamic> json) =>
+    _WeeklyVolume(
+      weekStart: DateTime.parse(json['weekStart'] as String),
+      volumeKg: json['volumeKg'] as num? ?? 0,
+      sessions: (json['sessions'] as num?)?.toInt() ?? 0,
+    );
+
+Map<String, dynamic> _$WeeklyVolumeToJson(_WeeklyVolume instance) =>
+    <String, dynamic>{
+      'weekStart': instance.weekStart.toIso8601String(),
+      'volumeKg': instance.volumeKg,
+      'sessions': instance.sessions,
+    };
+
+_WeightPoint _$WeightPointFromJson(Map<String, dynamic> json) => _WeightPoint(
+  date: DateTime.parse(json['date'] as String),
+  weightKg: json['weightKg'] as num? ?? 0,
+);
+
+Map<String, dynamic> _$WeightPointToJson(_WeightPoint instance) =>
+    <String, dynamic>{
+      'date': instance.date.toIso8601String(),
+      'weightKg': instance.weightKg,
+    };
+
+_ExerciseRecord _$ExerciseRecordFromJson(Map<String, dynamic> json) =>
+    _ExerciseRecord(
+      exerciseId: (json['exerciseId'] as num?)?.toInt(),
+      name: json['name'] as String? ?? '',
+      maxLoadKg: json['maxLoadKg'] as num? ?? 0,
+      maxLoadDate: json['maxLoadDate'] == null
+          ? null
+          : DateTime.parse(json['maxLoadDate'] as String),
+      maxLoadReps: (json['maxLoadReps'] as num?)?.toInt(),
+      bestE1RmKg: json['bestE1RmKg'] as num?,
+      e1RmReps: (json['e1RmReps'] as num?)?.toInt(),
+      e1RmLoadKg: json['e1RmLoadKg'] as num?,
+      e1RmDate: json['e1RmDate'] == null
+          ? null
+          : DateTime.parse(json['e1RmDate'] as String),
+    );
+
+Map<String, dynamic> _$ExerciseRecordToJson(_ExerciseRecord instance) =>
+    <String, dynamic>{
+      'exerciseId': instance.exerciseId,
+      'name': instance.name,
+      'maxLoadKg': instance.maxLoadKg,
+      'maxLoadDate': instance.maxLoadDate?.toIso8601String(),
+      'maxLoadReps': instance.maxLoadReps,
+      'bestE1RmKg': instance.bestE1RmKg,
+      'e1RmReps': instance.e1RmReps,
+      'e1RmLoadKg': instance.e1RmLoadKg,
+      'e1RmDate': instance.e1RmDate?.toIso8601String(),
+    };

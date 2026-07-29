@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:myotrack/core/theme.dart';
 import 'package:myotrack/features/dashboard/dashboard_stats.dart';
 import 'package:myotrack/features/dashboard/dashboard_view.dart';
-import 'package:myotrack/features/logging/data/logging_models.dart';
+import 'package:myotrack/features/progress/progress_controller.dart';
 
 /// O validador de paleta confere cor, não geometria. Estes testes renderizam o dashboard na
 /// largura de um celular pequeno para que qualquer estouro de layout — rótulo colidindo,
@@ -11,35 +11,29 @@ import 'package:myotrack/features/logging/data/logging_models.dart';
 void main() {
   const smallPhone = Size(360, 800);
 
-  DashboardStats statsWith({int sessions = 8, int measurements = 6}) {
+  DashboardStats statsWith({int weeks = 8, int measurements = 6}) {
     return DashboardStats.from(
       now: DateTime(2026, 7, 29),
-      sessions: [
-        for (var i = 0; i < sessions; i++)
-          WorkoutSessionView(
-            id: 's$i',
-            date: '2026-0${5 + (i % 3)}-${(i % 27) + 1}'.replaceAllMapped(
-              RegExp(r'-(\d)$'),
-              (m) => '-0${m[1]}',
-            ),
-            totalVolumeKg: 4000 + i * 850,
-            sets: [
-              SetView(
-                id: 'set$i',
-                // Nome longo de propósito: é o caso que estoura a linha de recordes.
-                exerciseName: 'Desenvolvimento militar com halteres sentado $i',
-                reps: 8,
-                loadKg: 40 + i * 5,
-              ),
-            ],
+      volume: [
+        for (var i = 0; i < weeks; i++)
+          WeeklyVolume(
+            weekStart: DateTime(2026, 7, 27).subtract(Duration(days: 7 * i)),
+            volumeKg: 4000 + i * 850,
+            sessions: 2 + (i % 3),
           ),
       ],
-      measurements: [
+      weight: [
         for (var i = 0; i < measurements; i++)
-          MeasurementView(
-            id: 'm$i',
-            date: '2026-07-0${i + 1}',
-            weightKg: 84.6 - i * 0.4,
+          WeightPoint(date: DateTime(2026, 7, i + 1), weightKg: 84.6 - i * 0.4),
+      ],
+      records: [
+        for (var i = 0; i < weeks; i++)
+          ExerciseRecord(
+            // Nome longo de propósito: é o caso que estoura a linha de recordes.
+            name: 'Desenvolvimento militar com halteres sentado $i',
+            maxLoadKg: 40 + i * 5,
+            maxLoadReps: 8,
+            maxLoadDate: DateTime(2026, 7, 20),
           ),
       ],
     );

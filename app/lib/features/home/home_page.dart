@@ -6,6 +6,7 @@ import '../../core/router.dart';
 import '../dashboard/dashboard_controller.dart';
 import '../dashboard/dashboard_view.dart';
 import '../reports/weekly_report_card.dart';
+import '../reviews/review_controller.dart';
 
 /// Tela inicial: o que aconteceu até agora, e como chegar ao resto.
 ///
@@ -45,10 +46,15 @@ class HomePage extends ConsumerWidget {
             ),
             // O card do relatório fica acima dos gráficos porque é leitura, não consulta:
             // ele já diz o que a semana foi, e os gráficos existem para quem quer conferir.
-            // Some sozinho quando ainda não há relatório.
-            const Padding(
-              padding: EdgeInsets.only(top: 16),
-              child: WeeklyReportCard(),
+            //
+            // `canGenerate` diz se vale oferecer a geração quando ainda não há relatório.
+            // Quem instalou o app hoje não tem semana fechada, e um botão prometendo um
+            // relatório que sairia vazio é pior que botão nenhum.
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: WeeklyReportCard(
+                canGenerate: stats.valueOrNull?.isEmpty == false,
+              ),
             ),
             const SizedBox(height: 24),
             const _Navigation(),
@@ -127,7 +133,7 @@ class _DashboardUnavailable extends StatelessWidget {
   }
 }
 
-class _Navigation extends StatelessWidget {
+class _Navigation extends ConsumerWidget {
   const _Navigation();
 
   // Uma entrada por rota registrada no router.
@@ -169,6 +175,12 @@ class _Navigation extends StatelessWidget {
       route: Routes.videoAnalysis,
     ),
     _Destination(
+      icon: Icons.chat_bubble_outline,
+      title: 'Coach',
+      subtitle: 'Tire dúvidas com quem conhece seu treino e sua dieta',
+      route: Routes.coach,
+    ),
+    _Destination(
       icon: Icons.edit_note_outlined,
       title: 'Registrar treino',
       subtitle: 'Séries, cargas e peso corporal — funciona offline',
@@ -194,11 +206,30 @@ class _Navigation extends StatelessWidget {
     ),
   ];
 
+  /// A revisão só aparece para quem pode revisar.
+  ///
+  /// Mostrar para todo mundo levaria o aluno a uma tela que o servidor recusa com 403 — e
+  /// um item de menu que dá erro é pior que item nenhum.
+  static const _reviewDestination = _Destination(
+    icon: Icons.fact_check_outlined,
+    title: 'Revisão',
+    subtitle: 'Fila de planos aguardando sua aprovação',
+    route: Routes.review,
+  );
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Falha ao ler os papéis esconde a revisão em vez de derrubar a navegação: as outras
+    // telas continuam alcançáveis.
+    final canReview =
+        ref.watch(reviewableKindsProvider).valueOrNull?.isNotEmpty ?? false;
+
     return Column(
       children: [
-        for (final destination in _destinations)
+        for (final destination in [
+          ..._destinations,
+          if (canReview) _reviewDestination,
+        ])
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: Icon(destination.icon),

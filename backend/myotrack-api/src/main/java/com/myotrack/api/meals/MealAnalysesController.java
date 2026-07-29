@@ -98,7 +98,10 @@ public class MealAnalysesController {
      */
     @PostMapping
     @Transactional
-    public ResponseEntity<?> analyze(@RequestPart("photo") MultipartFile file) {
+    public ResponseEntity<?> analyze(
+            @RequestPart("photo") MultipartFile file,
+            // Vem do multipart como texto; ausente = análise padrão.
+            @RequestParam(name = "illustrated", defaultValue = "false") boolean illustrated) {
         final UUID userId = CurrentUser.id();
 
         final String contentType = file.getContentType();
@@ -140,7 +143,9 @@ public class MealAnalysesController {
         job.setType(AnalysisJobType.MEAL_PHOTO);
         job.setMediaKey(mediaKey);
         // O worker precisa do tipo real para mandar ao modelo o mime certo.
-        job.setInputJson("{\"contentType\":\"%s\"}".formatted(normalizedType));
+        job.setInputJson(
+                "{\"contentType\":\"%s\",\"illustrated\":%s}"
+                        .formatted(normalizedType, illustrated));
 
         return ResponseEntity.accepted().body(Map.of("jobId", jobs.save(job).getId()));
     }
@@ -246,7 +251,8 @@ public class MealAnalysesController {
                 analysis.getTotalFatG(),
                 analysis.isUserAdjusted(),
                 analysis.isExcludedFromDiary(),
-                photoUrl(analysis),
+                photoUrl(analysis.getMediaKey(), analysis),
+                photoUrl(analysis.getIllustratedMediaKey(), analysis),
                 analysis.getCreatedAt());
     }
 
@@ -264,15 +270,15 @@ public class MealAnalysesController {
      * URL temporária da foto, ou null quando a retenção já apagou o arquivo — o resultado da
      * análise é preservado mesmo depois de a imagem sumir.
      */
-    private String photoUrl(MealPhotoAnalysis analysis) {
-        if (analysis.getMediaExpiredAt() != null || analysis.getMediaKey() == null) {
+    private String photoUrl(String mediaKey, MealPhotoAnalysis analysis) {
+        if (analysis.getMediaExpiredAt() != null || mediaKey == null || mediaKey.isBlank()) {
             return null;
         }
         try {
-            return storage.presignedDownloadUrl(analysis.getMediaKey(), PHOTO_URL_TTL);
+            return storage.presignedDownloadUrl(mediaKey, PHOTO_URL_TTL);
         } catch (Exception e) {
             // Storage fora do ar não pode derrubar a listagem: os macros continuam úteis.
-            log.warn("Falha ao assinar a URL da foto {}: {}", analysis.getMediaKey(), e.getMessage());
+            log.warn("Falha ao assinar a URL da foto {}: {}", mediaKey, e.getMessage());
             return null;
         }
     }
@@ -295,11 +301,13 @@ public class MealAnalysesController {
             BigDecimal kcal,
             BigDecimal proteinG,
             BigDecimal carbsG,
-            BigDecimal fatG) {
+            BigDecimal fatG,
+            Integer posX,
+            Integer posY) {
 
         MealPhotoValidator.LlmDetectedItem toDetected() {
             return new MealPhotoValidator.LlmDetectedItem(
-                    description, foodItemId, quantityG, kcal, proteinG, carbsG, fatG);
+                    description, foodItemId, quantityG, kcal, proteinG, carbsG, fatG, posX, posY);
         }
     }
 
@@ -314,6 +322,8 @@ public class MealAnalysesController {
             boolean userAdjusted,
             boolean excludedFromDiary,
             String photoUrl,
+            /** Versão anotada pela IA. Null quando não foi pedida ou não pôde ser gerada. */
+            String illustratedPhotoUrl,
             OffsetDateTime createdAt) {
     }
 }

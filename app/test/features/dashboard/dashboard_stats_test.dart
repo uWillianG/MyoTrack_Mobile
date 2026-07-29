@@ -1,43 +1,44 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myotrack/features/dashboard/dashboard_stats.dart';
-import 'package:myotrack/features/logging/data/logging_models.dart';
+import 'package:myotrack/features/progress/progress_controller.dart';
 
+/// O que sobrou de conta na tela depois de o cálculo ir para `/api/progress/*`: a janela de
+/// doze semanas e o preenchimento das vazias. O resto — volume de uma série, começo da
+/// semana, qual série é o recorde — é do servidor, e é testado lá.
 void main() {
   // Uma quarta-feira: exercita o recuo até a segunda sem cair no caso trivial.
   final now = DateTime(2026, 7, 29);
 
-  SetView set({required String name, required int reps, required num loadKg}) =>
-      SetView(id: 's', exerciseName: name, reps: reps, loadKg: loadKg);
+  WeeklyVolume week(String start, {num volumeKg = 0, int sessions = 1}) =>
+      WeeklyVolume(
+        weekStart: DateTime.parse(start),
+        volumeKg: volumeKg,
+        sessions: sessions,
+      );
 
-  WorkoutSessionView session({
-    required String date,
-    num totalVolumeKg = 0,
-    List<SetView> sets = const [],
-  }) => WorkoutSessionView(
-    id: 'w-$date',
-    date: date,
-    totalVolumeKg: totalVolumeKg,
-    sets: sets,
-  );
+  WeightPoint weight(String date, num kg) =>
+      WeightPoint(date: DateTime.parse(date), weightKg: kg);
 
-  MeasurementView weight(String date, num? kg) =>
-      MeasurementView(id: 'm-$date', date: date, weightKg: kg);
+  ExerciseRecord record(String name, num loadKg) =>
+      ExerciseRecord(name: name, maxLoadKg: loadKg);
 
   DashboardStats build({
-    List<WorkoutSessionView> sessions = const [],
-    List<MeasurementView> measurements = const [],
+    List<WeeklyVolume> volume = const [],
+    List<WeightPoint> weight = const [],
+    List<ExerciseRecord> records = const [],
   }) => DashboardStats.from(
-    sessions: sessions,
-    measurements: measurements,
+    volume: volume,
+    weight: weight,
+    records: records,
     now: now,
   );
 
-  group('volume por semana', () {
+  group('janela de volume', () {
     test('semana sem treino entra com zero, e não some do gráfico', () {
       // Omitir a semana vazia colaria duas semanas distantes lado a lado, e o gráfico
-      // contaria uma constância que não houve.
+      // contaria uma constância que não houve. O servidor só manda as que têm registro.
       final stats = build(
-        sessions: [session(date: '2026-07-27', totalVolumeKg: 5000)],
+        volume: [week('2026-07-27', volumeKg: 5000, sessions: 2)],
       );
 
       expect(stats.weeklyVolume, hasLength(DashboardStats.volumeWeeks));
@@ -53,131 +54,50 @@ void main() {
       expect(stats.weeklyVolume.first.weekStart, DateTime(2026, 5, 11));
     });
 
-    test('sessões da mesma semana somam na mesma barra', () {
+    test('os treinos da semana corrente vêm da última barra', () {
       final stats = build(
-        sessions: [
-          session(date: '2026-07-27', totalVolumeKg: 3000),
-          session(date: '2026-07-29', totalVolumeKg: 2500),
-        ],
+        volume: [week('2026-07-27', volumeKg: 5500, sessions: 2)],
       );
 
-      expect(stats.weeklyVolume.last.volumeKg, 5500);
-      expect(stats.weeklyVolume.last.sessions, 2);
       expect(stats.sessionsThisWeek, 2);
+      expect(stats.volumeThisWeek, 5500);
     });
 
-    test('sem o total do servidor, soma das séries', () {
-      // Sessão que subiu pela fila offline pode chegar antes de o servidor recalcular o
-      // total; um zero no meio do gráfico pareceria semana perdida.
+    test('semana antiga demais fica fora da janela', () {
       final stats = build(
-        sessions: [
-          session(
-            date: '2026-07-28',
-            sets: [
-              set(name: 'Supino', reps: 10, loadKg: 60),
-              set(name: 'Supino', reps: 8, loadKg: 60),
-            ],
-          ),
-        ],
-      );
-
-      expect(stats.weeklyVolume.last.volumeKg, 10 * 60 + 8 * 60);
-    });
-
-    test('sessão antiga demais fica fora da janela', () {
-      final stats = build(
-        sessions: [session(date: '2025-01-05', totalVolumeKg: 9999)],
+        volume: [week('2025-01-06', volumeKg: 9999, sessions: 3)],
       );
 
       expect(stats.weeklyVolume.every((w) => w.volumeKg == 0), isTrue);
-      // Mas continua contando no total de sessões — ela existiu.
-      expect(stats.totalSessions, 1);
+      expect(stats.sessionsThisWeek, 0);
     });
   });
 
   group('recordes', () {
-    test('guarda a maior carga por exercício, com reps e data', () {
+    test('ordena pela carga, que é o que a lista mostra', () {
+      // O servidor ordena pelo 1RM estimado — leitura útil em outro lugar, mas aqui
+      // deixaria a lista fora de ordem à vista de quem lê as cargas.
       final stats = build(
-        sessions: [
-          session(
-            date: '2026-07-20',
-            sets: [set(name: 'Supino', reps: 8, loadKg: 70)],
-          ),
-          session(
-            date: '2026-07-27',
-            sets: [
-              set(name: 'Supino', reps: 5, loadKg: 80),
-              set(name: 'Agachamento', reps: 5, loadKg: 100),
-            ],
-          ),
-        ],
+        records: [record('Supino', 80), record('Agachamento', 100)],
       );
 
-      final supino = stats.records.firstWhere(
-        (r) => r.exerciseName == 'Supino',
-      );
-      expect(supino.loadKg, 80);
-      expect(supino.reps, 5);
-      expect(supino.date, DateTime(2026, 7, 27));
-      // Ordenados do maior para o menor.
-      expect(stats.records.first.exerciseName, 'Agachamento');
-    });
-
-    test('empate de carga fica com o mais recente', () {
-      // Bater a mesma carga hoje diz mais sobre a forma atual do que tê-la batido em maio.
-      final stats = build(
-        sessions: [
-          session(
-            date: '2026-05-04',
-            sets: [set(name: 'Supino', reps: 3, loadKg: 80)],
-          ),
-          session(
-            date: '2026-07-27',
-            sets: [set(name: 'Supino', reps: 6, loadKg: 80)],
-          ),
-        ],
-      );
-
-      expect(stats.records.single.reps, 6);
-      expect(stats.records.single.date, DateTime(2026, 7, 27));
-    });
-
-    test('carga zero é peso corporal, não recorde de carga', () {
-      final stats = build(
-        sessions: [
-          session(
-            date: '2026-07-27',
-            sets: [
-              set(name: 'Barra fixa', reps: 12, loadKg: 0),
-              set(name: 'Supino', reps: 8, loadKg: 60),
-            ],
-          ),
-        ],
-      );
-
-      expect(stats.records.map((r) => r.exerciseName), ['Supino']);
+      expect(stats.records.map((r) => r.name), ['Agachamento', 'Supino']);
     });
   });
 
   group('peso corporal', () {
-    test('só entram medidas que têm peso', () {
-      // Medir a cintura não é pesar-se; sem o filtro, o gráfico ganharia pontos em zero.
+    test('variação é do primeiro ao último ponto', () {
       final stats = build(
-        measurements: [
-          weight('2026-07-01', 84),
-          weight('2026-07-15', null),
-          weight('2026-07-28', 82.4),
-        ],
+        weight: [weight('2026-07-01', 84), weight('2026-07-28', 82.4)],
       );
 
-      expect(stats.weightSeries, hasLength(2));
       expect(stats.currentWeightKg, 82.4);
       expect(stats.weightDeltaKg, closeTo(-1.6, 0.001));
     });
 
     test('com um único registro não há variação a informar', () {
       // "Variação" a partir de uma medida só seria invenção.
-      final stats = build(measurements: [weight('2026-07-28', 82)]);
+      final stats = build(weight: [weight('2026-07-28', 82)]);
 
       expect(stats.currentWeightKg, 82);
       expect(stats.weightDeltaKg, isNull);
@@ -185,7 +105,7 @@ void main() {
 
     test('ordena por data mesmo se a API não ordenar', () {
       final stats = build(
-        measurements: [weight('2026-07-28', 82), weight('2026-07-01', 84)],
+        weight: [weight('2026-07-28', 82), weight('2026-07-01', 84)],
       );
 
       expect(stats.weightSeries.first.weightKg, 84);
@@ -200,18 +120,14 @@ void main() {
       expect(build().isEmpty, isTrue);
     });
 
-    test('uma sessão já basta para não ser vazio', () {
-      expect(build(sessions: [session(date: '2026-07-27')]).isEmpty, isFalse);
+    test('uma semana com treino já basta para não ser vazio', () {
+      expect(build(volume: [week('2026-07-27')]).isEmpty, isFalse);
     });
-  });
 
-  test('data malformada é ignorada em vez de derrubar a tela', () {
-    final stats = build(
-      sessions: [session(date: 'sem-data', totalVolumeKg: 100)],
-      measurements: [weight('', 80)],
-    );
-
-    expect(stats.weeklyVolume.every((w) => w.volumeKg == 0), isTrue);
-    expect(stats.weightSeries, isEmpty);
+    test('semana com treino fora da janela não conta como conteúdo', () {
+      // A janela é o que a tela mostra: um treino de 2025 deixaria a home afirmando ter
+      // dados enquanto todos os doze gráficos aparecem zerados.
+      expect(build(volume: [week('2025-01-06')]).isEmpty, isTrue);
+    });
   });
 }

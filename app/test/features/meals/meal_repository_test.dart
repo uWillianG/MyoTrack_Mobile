@@ -45,6 +45,7 @@ void main() {
     bool userAdjusted = false,
     bool excludedFromDiary = false,
     String? photoUrl = 'https://storage/foto.jpg',
+    String? illustratedPhotoUrl,
   }) => {
     'id': 'a1',
     'analysisJobId': 'j1',
@@ -75,6 +76,7 @@ void main() {
     'userAdjusted': userAdjusted,
     'excludedFromDiary': excludedFromDiary,
     'photoUrl': photoUrl,
+    'illustratedPhotoUrl': illustratedPhotoUrl,
     'createdAt': '2026-07-28T12:30:00Z',
   };
 
@@ -169,6 +171,56 @@ void main() {
 
       expect(meal.totalKcal, 393.0);
       expect(meal.totalCarbsG, 42);
+    });
+  });
+
+  group('análise ilustrada', () {
+    test('o modo vai como campo do multipart', () async {
+      // É multipart, não JSON: o booleano viaja como texto.
+      adapter.onPost(
+        '/api/meal-analyses',
+        (server) => server.reply(202, {'jobId': 'job-2'}),
+        data: Matchers.any,
+      );
+
+      expect(
+        await repo.analyze(
+          photo: Uint8List.fromList([1]),
+          fileName: 'refeicao.jpg',
+          contentType: 'image/jpeg',
+          illustrated: true,
+        ),
+        'job-2',
+      );
+    });
+
+    test('quando existe, a foto anotada vem junto da original', () async {
+      adapter.onGet(
+        '/api/meal-analyses',
+        (server) => server.reply(200, [
+          analysisJson(
+            illustratedPhotoUrl: 'https://storage/foto-ilustrada.jpg',
+          ),
+        ]),
+        queryParameters: {'limit': 30},
+      );
+
+      final meal = (await repo.recent()).single;
+
+      expect(meal.illustratedPhotoUrl, contains('ilustrada'));
+      expect(meal.photoUrl, isNotNull);
+    });
+
+    test('sem o modo ilustrado, só a original', () async {
+      // Null é estado normal: o modo não foi pedido, ou o modelo de imagem não tinha cota
+      // e o desenho local também falhou. A análise vale igual.
+      adapter.onGet(
+        '/api/meal-analyses',
+        (server) => server.reply(200, [analysisJson()]),
+        queryParameters: {'limit': 30},
+      );
+
+      expect((await repo.recent()).single.illustratedPhotoUrl, isNull);
     });
   });
 

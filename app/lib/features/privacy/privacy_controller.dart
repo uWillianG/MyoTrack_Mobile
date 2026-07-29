@@ -18,10 +18,51 @@ class PrivacyRepository {
     '/api/privacy/account',
     body: {'password': confirmation},
   );
+
+  /// Pede o export dos dados por e-mail.
+  ///
+  /// Não recebe endereço: o servidor manda sempre para o da própria conta. Aceitar um
+  /// destinatário aqui transformaria o pedido numa forma de exfiltrar os dados de quem
+  /// deixasse a sessão aberta.
+  Future<void> emailExport() => _api.post<void>('/api/privacy/export/email');
 }
 
 final privacyRepositoryProvider = Provider<PrivacyRepository>(
   (ref) => PrivacyRepository(ref.watch(apiClientProvider)),
+);
+
+/// Estado do pedido de export.
+class ExportState {
+  const ExportState({this.sending = false});
+
+  final bool sending;
+}
+
+class ExportController extends Notifier<ExportState> {
+  @override
+  ExportState build() => const ExportState();
+
+  /// Devolve a mensagem a mostrar — de sucesso ou de erro.
+  Future<String> request() async {
+    if (state.sending) {
+      return '';
+    }
+    state = const ExportState(sending: true);
+    try {
+      await ref.read(privacyRepositoryProvider).emailExport();
+      return 'Enviamos seus dados para o e-mail da sua conta.';
+    } catch (error) {
+      // A mensagem do servidor distingue "SMTP indisponível neste ambiente" de falha real,
+      // e é ela que o usuário precisa ler.
+      return '$error';
+    } finally {
+      state = const ExportState();
+    }
+  }
+}
+
+final exportProvider = NotifierProvider<ExportController, ExportState>(
+  ExportController.new,
 );
 
 /// Estado da tela de exclusão.

@@ -69,10 +69,19 @@ public final class MealPhotoValidator {
             BigDecimal kcal,
             BigDecimal proteinG,
             BigDecimal carbsG,
-            BigDecimal fatG) {
+            BigDecimal fatG,
+            Integer posX,
+            Integer posY) {
     }
 
     /** Item já validado, no formato que vai para o {@code ItemsJson} e para a tela. */
+    /**
+     * Item já validado, no formato que vai para o {@code ItemsJson} e para a tela.
+     *
+     * @param posX centro do alimento na imagem, escala 0–1000; null quando o modelo não
+     *     soube dizer. Serve só para desenhar a etiqueta na versão ilustrada — nenhum número
+     *     nutricional depende disso.
+     */
     public record AnalyzedItem(
             String description,
             Integer foodItemId,
@@ -80,7 +89,9 @@ public final class MealPhotoValidator {
             BigDecimal kcal,
             BigDecimal proteinG,
             BigDecimal carbsG,
-            BigDecimal fatG) {
+            BigDecimal fatG,
+            Integer posX,
+            Integer posY) {
     }
 
     public record AnalyzedMeal(
@@ -180,7 +191,9 @@ public final class MealPhotoValidator {
                 reconcileKcal(raw.kcal(), protein, carbs, fat),
                 grams(protein),
                 grams(carbs),
-                grams(fat)));
+                grams(fat),
+                position(raw.posX()),
+                position(raw.posY())));
     }
 
     /**
@@ -211,6 +224,16 @@ public final class MealPhotoValidator {
 
         final BigDecimal chosen = deviation.compareTo(KCAL_TOLERANCE) > 0 ? derived : safeReported;
         return capped(chosen).setScale(0, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Coordenada na escala 0–1000, ou null quando fora dela.
+     *
+     * <p>Posição inválida vira null em vez de ser presa à borda: uma etiqueta encostada no
+     * canto da foto engana mais do que uma etiqueta ausente, porque parece apontar para algo.
+     */
+    private static Integer position(Integer value) {
+        return value == null || value < 0 || value > 1000 ? null : value;
     }
 
     private static BigDecimal capped(BigDecimal value) {

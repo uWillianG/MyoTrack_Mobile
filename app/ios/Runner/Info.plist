@@ -53,6 +53,30 @@
 		<string>fetch</string>
 		<string>processing</string>
 	</array>
+	<!--
+	  Esquema próprio (myotrack://). É a metade dos deep links que não depende de conta paga
+	  nem de arquivo hospedado: funciona assim que o app é instalado. Os Universal Links
+	  (https) exigem o entitlement de Associated Domains e o apple-app-site-association no
+	  domínio — ver Runner.entitlements.
+	-->
+	<!-- Equivalente iOS do flutter_deeplinking_enabled: sem ele o link abre o app na rota
+	     inicial e o endereço é descartado. -->
+	<key>FlutterDeepLinkingEnabled</key>
+	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>app.myotrack.deeplink</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>myotrack</string>
+			</array>
+		</dict>
+	</array>
+	<!--
 	  Foto de refeição (B7). O iOS encerra o app na hora se a câmera ou a galeria forem
 	  abertas sem a descrição correspondente — não é aviso, é crash. O texto aparece no
 	  diálogo de permissão, então diz para que serve, não o óbvio.

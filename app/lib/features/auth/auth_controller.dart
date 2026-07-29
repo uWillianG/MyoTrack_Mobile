@@ -90,6 +90,10 @@ class AuthController extends StateNotifier<AuthState> {
   ///
   /// Não autentica: o backend responde só uma mensagem, sem par de tokens, e manda entrar
   /// com a senha nova. Por isso não invalida o [authStateProvider] como os outros fluxos.
+  ///
+  /// E é o comportamento certo, não só o que o servidor impõe: o link chega por e-mail, e
+  /// uma caixa de entrada aberta em outro aparelho abriria a sessão sem que ninguém
+  /// digitasse a senha nova. A SPA faz igual.
   Future<bool> resetPassword({
     required String userId,
     required String token,
