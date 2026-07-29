@@ -1,0 +1,65 @@
+# Nome distinto do compose do repositório .NET, que também se chamaria "myotrack". Dois
+# arquivos com o mesmo nome de projeto compartilham os containers: rodar
+# `docker compose down --remove-orphans` aqui apagaria os serviços do outro repositório, que
+# aparecem como órfãos. Descoberto ao subir isto pela primeira vez.
+name: myotrack-mobile
+
+# Infraestrutura de desenvolvimento: o banco e o armazenamento de mídia.
+#
+# A API e o Worker NÃO estão aqui de propósito. Eles rodam por `gradlew bootRun`, que é como
+# se desenvolve neste repositório — com recompilação a cada mudança, sem reconstruir imagem.
+# Containerizá-los só passa a valer no dia em que houver deploy, e um Dockerfile que ninguém
+# executa apodrece sem avisar.
+#
+# O serviço de visão (FastAPI + MediaPipe) também não está aqui: ele vive em outro
+# repositório. Veja o README.
+#
+# Os valores abaixo são exatamente os padrões de myotrack-shared.yml. Isso é intencional:
+# `docker compose up -d` seguido de `gradlew bootRun` funciona sem configurar nada.
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: myotrack
+      POSTGRES_USER: myotrack
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev-only-password}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      # 5433 no host para não conflitar com um PostgreSQL nativo na 5432. Preso a 127.0.0.1:
+      # um banco com senha "dev-only-password" não pode ficar exposto na rede local.
+      - "127.0.0.1:5433:5432"
+    healthcheck:
+      # A API roda as migrations do Flyway na subida e falha se o banco ainda não aceita
+      # conexão. `depends_on` sozinho só espera o container existir, não o Postgres responder.
+      test: ["CMD-SHELL", "pg_isready -U myotrack -d myotrack"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-myotrack}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-dev-only-password}
+    volumes:
+      - minio-data:/data
+    ports:
+      # 9000 é a API S3; 9001 é o console web.
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+# O bucket `myotrack-media` não é criado aqui: quem o cria é o MinioMediaStorage, na primeira
+# escrita. Um container de bootstrap com `mc mb` seria uma segunda coisa a manter em sincronia
+# com o nome do bucket.
+
+volumes:
+  postgres-data:
+  minio-data:
