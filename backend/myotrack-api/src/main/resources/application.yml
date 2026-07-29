@@ -74,6 +74,20 @@ myotrack:
       # assinado pela Apple e o backend só valida contra o JWKS público.
       audiences: ${MYOTRACK_APPLE_AUDIENCES:}
 
+  # Verificação de domínio dos deep links (/.well-known/*). Vazio = o arquivo não é servido,
+  # e o link https abre o navegador em vez do app. Ver WellKnownController.
+  deep-links:
+    android-package-name: ${MYOTRACK_ANDROID_PACKAGE_NAME:com.myotrack.app}
+    # Com Play App Signing, é a SHA-256 do GOOGLE (Play Console > Setup > App signing), e não
+    # a do keystore de upload — o Google reassina o APK antes de distribuir. Em ambiente de
+    # teste, use a do keystore de debug:
+    #   keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey \
+    #     -storepass android
+    android-cert-fingerprints: ${MYOTRACK_ANDROID_CERT_FINGERPRINTS:}
+    # TEAMID.bundleId, ex.: ABCDE12345.com.myotrack.app. O Team ID está no portal da Apple,
+    # em Membership. Exige conta paga.
+    apple-app-id: ${MYOTRACK_APPLE_APP_ID:}
+
   limits:
     free:
       max-meal-analyses-per-day: 10
