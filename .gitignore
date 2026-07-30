@@ -39,3 +39,35 @@ replay_pid*
 # ninguém notar.
 build/
 .gradle/
+
+# --- Anotações locais ---
+# Levantamento do que falta de credencial e configuração externa. Não guarda valor de
+# credencial nenhum — só nomes de variável e onde obter cada coisa —, mas é anotação de
+# trabalho e fica fora do repositório.
+CREDENCIAIS.md
+
+# --- Credenciais de verdade ---
+# Nada aqui existe ainda; os padrões vêm antes dos arquivos de propósito. Um keystore ou uma
+# conta de serviço entram em commit uma única vez e depois moram no histórico para sempre, e a
+# correção deixa de ser um `git rm` e passa a ser reescrever a história e rotacionar a chave.
+
+# Assinatura de release do Android: a senha do keystore e o caminho dele.
+android/key.properties
+app/android/key.properties
+*.jks
+*.keystore
+
+# Conta de serviço do Firebase (MYOTRACK_FCM_CREDENTIALS_JSON) e afins.
+**/service-account*.json
+**/firebase-adminsdk*.json
+
+# Certificados e perfis de provisionamento do iOS.
+*.p12
+*.p8
+*.mobileprovision
+*.cer
+
+# Arquivos de ambiente.
+.env
+.env.*
+!.env.example
