@@ -126,4 +126,11 @@ public final class EnumConverters {
             super(SubscriptionProvider.class);
         }
     }
+
+    @Converter(autoApply = true)
+    public static class DevicePlatformConverter extends Base<DevicePlatform> {
+        public DevicePlatformConverter() {
+            super(DevicePlatform.class);
+        }
+    }
 }

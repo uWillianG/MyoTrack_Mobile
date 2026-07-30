@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 
 /**
  * O laço que consome a fila.
@@ -43,12 +45,14 @@ class JobPollerTest {
 
     private AnalysisJobRepository jobs;
     private JobClaimer claimer;
+    private JobCompletionNotifier notifier;
     private JobHandler handler;
 
     @BeforeEach
     void setUp() {
         jobs = mock(AnalysisJobRepository.class);
         claimer = mock(JobClaimer.class);
+        notifier = mock(JobCompletionNotifier.class);
         handler = handlerFor(AnalysisJobType.WORKOUT_GENERATION);
     }
 
@@ -59,7 +63,7 @@ class JobPollerTest {
     }
 
     private JobPoller pollerWith(JobHandler... handlers) {
-        return new JobPoller(jobs, claimer, List.of(handlers));
+        return new JobPoller(jobs, claimer, notifier, List.of(handlers));
     }
 
     /**
@@ -212,6 +216,56 @@ class JobPollerTest {
             assertThatThrownBy(() -> pollerWith(handler, outro))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining(AnalysisJobType.WORKOUT_GENERATION.toString());
+        }
+    }
+
+    @Nested
+    @DisplayName("o aviso ao usuário")
+    class Aviso {
+
+        @Test
+        @DisplayName("sai depois de o job ser gravado")
+        void notifiesAfterSave() {
+            AnalysisJob job = claimedJob(AnalysisJobType.WORKOUT_GENERATION, 1);
+            queueHolds(job);
+            when(handler.handle(job)).thenReturn("{}");
+
+            pollerWith(handler).sweep();
+
+            // A ordem é o ponto: a notificação diz "está pronto", e chegar antes do commit
+            // mandaria o app buscar um resultado que o banco ainda não tem.
+            InOrder ordem = inOrder(jobs, notifier);
+            ordem.verify(jobs).save(job);
+            ordem.verify(notifier).jobFinished(job);
+        }
+
+        @Test
+        @DisplayName("sai também quando o job falha de vez")
+        void notifiesOnPermanentFailure() {
+            AnalysisJob job = claimedJob(AnalysisJobType.WORKOUT_GENERATION, 1);
+            queueHolds(job);
+            when(handler.handle(job)).thenThrow(new IllegalStateException("Perfil incompleto."));
+
+            pollerWith(handler).sweep();
+
+            // Quem esperava o treino precisa saber que não vai sair; quem decide se este tipo de
+            // job merece aviso de falha é o notificador.
+            verify(notifier).jobFinished(job);
+        }
+
+        @Test
+        @DisplayName("não sai enquanto o job ainda vai ser retentado")
+        void staysQuietWhileRetrying() {
+            // O job voltou para PENDING: ainda vai ser processado. Avisar aqui mandaria um "não
+            // foi possível" para algo que muito provavelmente conclui na tentativa seguinte.
+            AnalysisJob job = claimedJob(AnalysisJobType.WORKOUT_GENERATION, MAX_ATTEMPTS - 1);
+            queueHolds(job);
+            when(handler.handle(job)).thenThrow(new RuntimeException("Connection reset"));
+
+            pollerWith(handler).sweep();
+
+            assertThat(saved().getStatus()).isEqualTo(JobStatus.PENDING);
+            verify(notifier, never()).jobFinished(any());
         }
     }
 

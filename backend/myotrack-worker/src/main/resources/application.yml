@@ -31,6 +31,18 @@ myotrack:
     video-days: 30
     meal-photo-days: 90
 
+  push:
+    # Notificação nos aparelhos quando um job termina. Vazio = as notificações são escritas no
+    # log do Worker e não saem daqui — é o padrão em desenvolvimento, e permite conferir texto e
+    # rota sem aparelho e sem projeto no Firebase.
+    #
+    # As DUAS variáveis são necessárias: metade configurada mantém o modo log, porque o id do
+    # projeto sem credencial não autentica e a credencial sem o id não sabe para onde enviar.
+    fcm-project-id: ${MYOTRACK_FCM_PROJECT_ID:}
+    # Conteúdo do JSON da conta de serviço do Firebase, não o caminho do arquivo: em container o
+    # arquivo teria de ser montado, e uma variável de ambiente já é como as outras chaves chegam.
+    fcm-credentials-json: ${MYOTRACK_FCM_CREDENTIALS_JSON:}
+
 logging:
   level:
     root: INFO

@@ -80,6 +80,7 @@ importam:
 | `MYOTRACK_PUBLIC_BASE_URL` | API | Base dos links enviados por e-mail. |
 | `MYOTRACK_EMAIL_USER` / `_PASSWORD` | API | O e-mail não é enviado, só registrado no log. |
 | `MYOTRACK_STRIPE_SECRET_KEY` | API | Pagamento desligado; todos no plano gratuito. |
+| `MYOTRACK_FCM_PROJECT_ID` **e** `MYOTRACK_FCM_CREDENTIALS_JSON` | Worker | As notificações são escritas no log do Worker e não vão para os aparelhos. Precisa das duas: metade configurada mantém o modo log. |
 
 A lista completa está em `application.yml` de cada módulo — cada entrada diz o que acontece
 quando fica vazia.
@@ -95,6 +96,40 @@ O CI (`.github/workflows/ci.yml`) roda isso mais os builds de Android e iOS a ca
 pega coisas que não aparecem no Windows** — o bit de execução do `gradlew` e a versão mínima
 do iOS já quebraram lá depois de passarem aqui.
 
+## Notificações
+
+O Worker avisa o aparelho quando um job termina. O que dispara aviso é curto e por inclusão —
+**avisa-se quem não está olhando**: relatório semanal pronto (nasce de um agendador, sem ninguém
+pedir), análise de vídeo (leva minutos) e as gerações de treino e dieta. Foto de refeição e
+resposta do coach não avisam: são rápidas e a pessoa está na tela esperando. A regra vive em
+`JobCompletionNotifier`.
+
+O caminho inteiro já funciona — o job conclui, os tokens do usuário são consultados, a mensagem é
+montada com a rota de destino — e **a última etapa escreve no log em vez de enviar**, enquanto não
+houver `MYOTRACK_FCM_*`. É assim que se confere texto e rota sem aparelho e sem credencial, do
+mesmo jeito que o link de redefinição de senha aparece no log da API quando não há SMTP.
+
+O app registra o token a cada abertura, não uma vez no primeiro login: o FCM o rotaciona por conta
+própria (reinstalação, restauração de backup, limpeza de dados) e não avisa ninguém. `POST
+/api/devices` é idempotente por isso. E o token pertence ao **aparelho**, não à pessoa: quem sai da
+conta e entra com outra no mesmo aparelho mantém o token, então o registro reatribui a linha em vez
+de inserir outra — sem isso o aparelho passaria a receber as notificações das duas contas.
+
+### Falta para as notificações saírem de fato
+
+Duas coisas, e as duas são de fora do código:
+
+1. **Um projeto no Firebase**, para gerar a conta de serviço (`MYOTRACK_FCM_*`) e o
+   `google-services.json` do app. É grátis.
+2. **Uma chave APNs**, para o iOS, carregada no console do Firebase. Exige conta paga da Apple —
+   o mesmo bloqueio da verificação de domínio.
+
+Enquanto não existirem, `firebase_messaging` **não entra no `pubspec.yaml`**: sem o
+`google-services.json` o plugin do Google falha o build do Android, e é a política de dependências
+declarada lá — cada pacote entra na funcionalidade que o usa, não antes. O que falta no app é uma
+implementação de `PushTokenSource` (`app/lib/core/notifications/push_registration.dart`); o resto do
+fluxo está de pé e testado contra uma fonte falsa.
+
 ## Falta para produção
 
 - **Os deep links `https://` não abrem o app em aparelho real.** Falta hospedar o
@@ -102,3 +137,4 @@ do iOS já quebraram lá depois de passarem aqui.
   esquema `myotrack://` já funciona; o link que o backend manda por e-mail, não.
 - **Não há build de release nem assinatura.** Falta keystore no Android e certificado com
   perfil no iOS.
+- **As notificações não saem do log.** Ver acima.

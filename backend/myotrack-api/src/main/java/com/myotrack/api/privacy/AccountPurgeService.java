@@ -6,6 +6,7 @@ import com.myotrack.infrastructure.repository.ApplicationUserRepository;
 import com.myotrack.infrastructure.repository.BodyMeasurementRepository;
 import com.myotrack.infrastructure.repository.CoachMessageRepository;
 import com.myotrack.infrastructure.repository.ConsentRecordRepository;
+import com.myotrack.infrastructure.repository.DeviceTokenRepository;
 import com.myotrack.infrastructure.repository.DietPlanRepository;
 import com.myotrack.infrastructure.repository.ExerciseVideoAnalysisRepository;
 import com.myotrack.infrastructure.repository.LoginCodeRepository;
@@ -49,6 +50,7 @@ public class AccountPurgeService {
     private final RefreshTokenRepository refreshTokens;
     private final LoginCodeRepository loginCodes;
     private final PasswordResetTokenRepository resetTokens;
+    private final DeviceTokenRepository deviceTokens;
 
     public AccountPurgeService(
             ApplicationUserRepository users,
@@ -67,7 +69,8 @@ public class AccountPurgeService {
             UserSubscriptionRepository subscriptions,
             RefreshTokenRepository refreshTokens,
             LoginCodeRepository loginCodes,
-            PasswordResetTokenRepository resetTokens) {
+            PasswordResetTokenRepository resetTokens,
+            DeviceTokenRepository deviceTokens) {
         this.users = users;
         this.profiles = profiles;
         this.consents = consents;
@@ -85,6 +88,7 @@ public class AccountPurgeService {
         this.refreshTokens = refreshTokens;
         this.loginCodes = loginCodes;
         this.resetTokens = resetTokens;
+        this.deviceTokens = deviceTokens;
     }
 
     /**
@@ -111,6 +115,10 @@ public class AccountPurgeService {
         refreshTokens.deleteByUserId(userId);
         loginCodes.deleteByUserId(userId);
         resetTokens.deleteByUserId(userId);
+        // O aparelho fica com o app instalado e o token vivo depois da conta apagada. Sem esta
+        // linha ele seguiria recebendo notificação de uma conta que não existe mais — e o token
+        // pertence ao aparelho, então quem entrasse depois receberia no lugar.
+        deviceTokens.deleteByUserId(userId);
         profiles.deleteByUserId(userId);
 
         // Por último o usuário: AspNetUserLogins, UserRoles e UserClaims caem em cascata.

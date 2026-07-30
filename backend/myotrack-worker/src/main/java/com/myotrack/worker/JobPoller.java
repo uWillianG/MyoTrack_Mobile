@@ -34,11 +34,17 @@ public class JobPoller {
 
     private final AnalysisJobRepository jobs;
     private final JobClaimer claimer;
+    private final JobCompletionNotifier notifier;
     private final Map<AnalysisJobType, JobHandler> handlers = new EnumMap<>(AnalysisJobType.class);
 
-    public JobPoller(AnalysisJobRepository jobs, JobClaimer claimer, List<JobHandler> registeredHandlers) {
+    public JobPoller(
+            AnalysisJobRepository jobs,
+            JobClaimer claimer,
+            JobCompletionNotifier notifier,
+            List<JobHandler> registeredHandlers) {
         this.jobs = jobs;
         this.claimer = claimer;
+        this.notifier = notifier;
         for (JobHandler handler : registeredHandlers) {
             JobHandler previous = handlers.put(handler.type(), handler);
             if (previous != null) {
@@ -86,6 +92,15 @@ public class JobPoller {
         }
 
         jobs.save(job);
+
+        // Depois do save, e fora do try acima: a notificação diz "está pronto", e chegar antes de
+        // o resultado estar gravado mandaria o app buscar o que o banco ainda não tem. Um job que
+        // voltou para PENDING não passa por aqui em estado terminal, então não gera aviso de
+        // falha enquanto ainda há tentativa pela frente.
+        if (job.getStatus().isTerminal()) {
+            notifier.jobFinished(job);
+        }
+
         return true;
     }
 
