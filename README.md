@@ -132,6 +132,12 @@ fluxo está de pé e testado contra uma fonte falsa.
 
 ## Falta para produção
 
+- **O fechamento do dia não chega inteiro ao servidor.** A tela "Fechar o dia" faz três
+  perguntas; só a pesagem tem destino (`POST /api/measurements`). Esforço e energia ficam na
+  memória do app porque não existe endpoint de check-in — e é por isso que o resumo mostra o
+  que o plano já diz sobre amanhã em vez de prometer um ajuste. Quando houver `POST
+  /api/check-ins`, o lugar de mandar as respostas é o `DayCloseController`, pela `SyncQueue`,
+  como todas as outras escritas.
 - **Os deep links `https://` não abrem o app em aparelho real.** Falta hospedar o
   `assetlinks.json` (Android) e o `apple-app-site-association` (iOS) em `myotrack.app`. O
   esquema `myotrack://` já funciona; o link que o backend manda por e-mail, não.
