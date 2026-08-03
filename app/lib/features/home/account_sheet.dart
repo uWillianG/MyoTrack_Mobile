@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/design/tokens.dart';
 import '../../core/providers.dart';
 import '../../core/router.dart';
 import '../reviews/review_controller.dart';
@@ -32,6 +33,12 @@ class AccountSheet extends ConsumerWidget {
       title: 'Progresso',
       subtitle: 'Volume por semana, peso corporal e seus recordes',
       route: Routes.progress,
+    ),
+    _Destination(
+      icon: Icons.emoji_events_outlined,
+      title: 'Conquistas',
+      subtitle: 'O que sua evolução já rendeu, e o que está a um passo',
+      route: Routes.achievements,
     ),
     _Destination(
       icon: Icons.fitness_center_outlined,
@@ -121,7 +128,7 @@ class _PendingWritesNotice extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      padding: const EdgeInsets.fromLTRB(Space.gutter, 0, Space.gutter, 8),
       child: Card(
         margin: EdgeInsets.zero,
         child: Padding(

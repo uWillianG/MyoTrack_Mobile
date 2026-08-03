@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../design/tokens.dart';
+
 /// Mensagem centralizada de estado vazio ou de erro, com uma ação opcional.
 ///
 /// É um `ListView`, e não uma `Column`: o `RefreshIndicator` precisa de um scrollable para
@@ -40,28 +42,48 @@ class EmptyState extends StatelessWidget {
 
     if (inline) {
       return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Space.xxl,
+          vertical: Space.huge,
+        ),
         child: Column(children: children),
       );
     }
 
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 64),
+      padding: const EdgeInsets.fromLTRB(Space.xxl, 72, Space.xxl, Space.huge),
       children: children,
     );
   }
 
   List<Widget> _children(ThemeData theme) {
     return [
-      Icon(icon, size: 48, color: theme.colorScheme.outline),
-      const SizedBox(height: 16),
+      // O ícone dentro de um disco, e não solto sobre o fundo. Solto ele lê como avaria —
+      // um glifo cinza no meio do nada parece a imagem que não carregou. Dentro de uma
+      // forma ele vira ilustração, e a tela vazia passa a parecer um estado previsto.
+      Center(
+        child: Container(
+          width: 72,
+          height: 72,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHigh,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            size: 32,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ),
+      const SizedBox(height: Space.lg),
       Text(
         title,
         textAlign: TextAlign.center,
         style: theme.textTheme.titleMedium,
       ),
       if (detail != null) ...[
-        const SizedBox(height: 8),
+        const SizedBox(height: Space.xs),
         Text(
           detail!,
           textAlign: TextAlign.center,
@@ -71,7 +93,7 @@ class EmptyState extends StatelessWidget {
         ),
       ],
       if (action != null) ...[
-        const SizedBox(height: 16),
+        const SizedBox(height: Space.xl),
         Center(child: action),
       ],
     ];

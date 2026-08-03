@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/design/tokens.dart';
 import '../diary/diary_page.dart';
 import '../diet/diet_plan_page.dart';
 
@@ -37,7 +38,7 @@ class NutritionView extends ConsumerWidget {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          padding: const EdgeInsets.fromLTRB(Space.gutter, 8, Space.gutter, 0),
           child: SegmentedButton<NutritionTab>(
             segments: [
               for (final segment in NutritionTab.values)

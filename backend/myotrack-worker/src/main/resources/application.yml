@@ -11,14 +11,20 @@ spring:
 
 myotrack:
   llm:
-    # "anthropic" ou "gemini". Vazio = autodetecção pela chave preenchida (Anthropic tem precedência).
+    # "openai" ou "gemini". Vazio = autodetecção pela chave preenchida (Gemini tem precedência,
+    # por ser o mais barato por token — quem quiser o outro nomeia aqui).
     provider: ${MYOTRACK_LLM_PROVIDER:}
-    # Vazio = geração usa apenas o motor de regras, sem chamada externa.
-    anthropic-api-key: ${MYOTRACK_ANTHROPIC_API_KEY:}
-    model: ${MYOTRACK_LLM_MODEL:claude-opus-4-8}
+    # Vazio nas duas = geração usa apenas o motor de regras, sem chamada externa.
+    openai-api-key: ${MYOTRACK_OPENAI_API_KEY:}
+    openai-model: ${MYOTRACK_OPENAI_MODEL:gpt-5-mini}
     gemini-api-key: ${MYOTRACK_GEMINI_API_KEY:}
     gemini-model: ${MYOTRACK_GEMINI_MODEL:gemini-3.5-flash}
-    # Análise ilustrada de refeição: exige chave com billing; sem cota, cai no modo padrão.
+    # Análise ilustrada de refeição: exige chave com billing; sem cota, cai no renderizador local.
+    #
+    # É a chamada mais cara do app por uma ordem de grandeza — geração de imagem, cobrada por
+    # imagem e não por token de texto. O renderizador local (MealImageAnnotator) produz a mesma
+    # anotação de graça, e é o que roda hoje. Ligar billing aqui é uma decisão de custo, não de
+    # configuração: ver a seção "Custo de IA" do README antes.
     gemini-image-model: ${MYOTRACK_GEMINI_IMAGE_MODEL:gemini-3.1-flash-image}
     # Nos modelos com raciocínio, os tokens de "thinking" contam dentro deste teto.
     max-tokens: 8192

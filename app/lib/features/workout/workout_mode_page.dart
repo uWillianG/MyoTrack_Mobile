@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/design/tokens.dart';
 import '../../core/notifications/rest_alarm.dart';
 import '../../core/router.dart';
 import '../../core/widgets/empty_state.dart';
@@ -70,7 +71,7 @@ class _DayPicker extends ConsumerWidget {
     }
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      padding: const EdgeInsets.fromLTRB(Space.gutter, 8, Space.gutter, 16),
       children: [
         Text(
           'Qual treino é o de hoje?',
@@ -145,7 +146,7 @@ class _SessionView extends ConsumerWidget {
           ),
         ),
         body: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          padding: const EdgeInsets.fromLTRB(Space.gutter, 8, Space.gutter, 16),
           children: [
             Text(exercise.exerciseName, style: theme.textTheme.headlineSmall),
             const SizedBox(height: 4),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../core/design/tokens.dart';
 import '../../core/widgets/empty_state.dart';
 import 'data/video_models.dart';
 import 'video_analysis_controller.dart';
@@ -74,7 +75,7 @@ class VideoAnalysisView extends ConsumerWidget {
         ),
         SafeArea(
           top: false,
-          minimum: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          minimum: const EdgeInsets.fromLTRB(Space.gutter, 0, Space.gutter, 12),
           child: FilledButton.icon(
             onPressed: state.running ? null : () => _start(context, ref),
             icon: const Icon(Icons.videocam_outlined),
@@ -153,7 +154,12 @@ class _ExerciseSheet extends ConsumerWidget {
           data: (options) => ListView(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                padding: const EdgeInsets.fromLTRB(
+                  Space.gutter,
+                  16,
+                  Space.gutter,
+                  8,
+                ),
                 child: Text(
                   'Qual exercício está no vídeo?',
                   style: Theme.of(context).textTheme.titleMedium,
@@ -197,7 +203,7 @@ class _Body extends StatelessWidget {
     }
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      padding: const EdgeInsets.fromLTRB(Space.gutter, 8, Space.gutter, 16),
       children: [
         if (running) _ProgressCard(step: step, progress: progress),
         for (final analysis in analyses) _AnalysisCard(analysis: analysis),
@@ -583,7 +589,7 @@ class _Scrubber extends StatelessWidget {
         : (position.inMilliseconds / total).clamp(0.0, 1.0);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      padding: const EdgeInsets.fromLTRB(Space.gutter, 12, Space.gutter, 12),
       child: Column(
         children: [
           LayoutBuilder(

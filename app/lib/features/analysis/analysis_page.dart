@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/design/tokens.dart';
 import '../meals/meal_analysis_page.dart';
 import '../videos/video_analysis_page.dart';
 
@@ -36,7 +37,7 @@ class AnalysisView extends ConsumerWidget {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          padding: const EdgeInsets.fromLTRB(Space.gutter, 8, Space.gutter, 0),
           child: SegmentedButton<AnalysisTab>(
             segments: [
               for (final segment in AnalysisTab.values)

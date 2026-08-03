@@ -5,6 +5,9 @@ import 'package:intl/intl.dart';
 
 import 'package:go_router/go_router.dart';
 
+import '../../core/design/tokens.dart';
+import '../../core/design/format.dart';
+import '../../core/design/typography.dart';
 import '../../core/router.dart';
 import '../../core/widgets/empty_state.dart';
 import '../analysis/analysis_page.dart';
@@ -87,7 +90,7 @@ class _DayPicker extends ConsumerWidget {
       height: 68,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+        padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 4),
         children: [
           for (var back = 6; back >= 0; back--) ...[
             if (back < 6) const SizedBox(width: 6),
@@ -121,7 +124,7 @@ class _DayChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final foreground = selected
-        ? theme.colorScheme.onPrimary
+        ? theme.colorScheme.onPrimaryContainer
         : theme.colorScheme.onSurfaceVariant;
 
     return Semantics(
@@ -131,7 +134,12 @@ class _DayChip extends StatelessWidget {
       label: DateFormat("EEEE, d 'de' MMMM").format(date),
       excludeSemantics: true,
       child: Material(
-        color: selected ? theme.colorScheme.primary : Colors.transparent,
+        // `primaryContainer`, o mesmo da aba selecionada na barra inferior. Com o esmeralda
+        // cheio, o dia escolhido virava a coisa mais berrante da tela — mais que o botão de
+        // fotografar a refeição, que é a ação que a tela quer. Cor cheia fica para ação.
+        color: selected
+            ? theme.colorScheme.primaryContainer
+            : Colors.transparent,
         shape: const StadiumBorder(),
         child: InkWell(
           customBorder: const StadiumBorder(),
@@ -172,7 +180,7 @@ class _Body extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      padding: const EdgeInsets.fromLTRB(Space.gutter, 8, Space.gutter, 16),
       children: [
         _Totals(day: day),
         const SizedBox(height: 16),
@@ -244,18 +252,25 @@ class _Totals extends StatelessWidget {
               textBaseline: TextBaseline.alphabetic,
               children: [
                 Text(
-                  '${consumed.kcal.round()}',
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+                  Fmt.integer(consumed.kcal),
+                  style: AppTypography.numeric(
+                    size: 30,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
-                const SizedBox(width: 4),
-                Text(
-                  targets == null
-                      ? 'kcal hoje'
-                      : 'de ${targets.kcal.round()} kcal',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                const SizedBox(width: Space.xxs + 2),
+                // `Flexible` porque a meta é um número que vem do servidor: com quatro
+                // dígitos de cada lado e a fonte do sistema ampliada, a linha estoura a
+                // largura do cartão num celular de 360 dp.
+                Flexible(
+                  child: Text(
+                    targets == null
+                        ? 'kcal hoje'
+                        : 'de ${Fmt.kcal(targets.kcal)}',
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
               ],
@@ -271,19 +286,19 @@ class _Totals extends StatelessWidget {
                 label: 'Proteína',
                 consumed: consumed.proteinG,
                 target: targets.proteinG,
-                unit: 'g',
+                grams: true,
               ),
               _MacroBar(
                 label: 'Carboidrato',
                 consumed: consumed.carbsG,
                 target: targets.carbsG,
-                unit: 'g',
+                grams: true,
               ),
               _MacroBar(
                 label: 'Gordura',
                 consumed: consumed.fatG,
                 target: targets.fatG,
-                unit: 'g',
+                grams: true,
               ),
             ] else ...[
               const SizedBox(height: 8),
@@ -312,13 +327,15 @@ class _MacroBar extends StatelessWidget {
     required this.label,
     required this.consumed,
     required this.target,
-    this.unit = '',
+    this.grams = false,
   });
 
   final String label;
   final num consumed;
   final num target;
-  final String unit;
+
+  /// Calorias não levam unidade nesta linha — o cabeçalho do cartão já disse "kcal".
+  final bool grams;
 
   @override
   Widget build(BuildContext context) {
@@ -326,9 +343,10 @@ class _MacroBar extends StatelessWidget {
     final ratio = target <= 0
         ? 0.0
         : (consumed / target).clamp(0.0, 1.0).toDouble();
+    final unit = grams ? Fmt.grams : Fmt.integer;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: Space.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -336,18 +354,18 @@ class _MacroBar extends StatelessWidget {
             children: [
               Expanded(child: Text(label, style: theme.textTheme.labelMedium)),
               Text(
-                '${consumed.round()}$unit / ${target.round()}$unit',
+                '${Fmt.integer(consumed)} / ${unit(target)}',
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(value: ratio, minHeight: 6),
-          ),
+          const SizedBox(height: Space.xxs),
+          // O raio e a altura vêm do tema (`progressIndicatorTheme`), que é onde a barra do
+          // app inteiro é definida — aqui só a altura menor, porque esta é uma barra de
+          // apoio e não a de progresso de uma tela.
+          LinearProgressIndicator(value: ratio, minHeight: 6),
         ],
       ),
     );
@@ -419,7 +437,7 @@ class _WeekChart extends StatelessWidget {
                     touchTooltipData: BarTouchTooltipData(
                       getTooltipColor: (_) => theme.colorScheme.inverseSurface,
                       getTooltipItem: (_, _, _, index) => BarTooltipItem(
-                        '${week[index].kcal.round()} kcal',
+                        Fmt.kcal(week[index].kcal),
                         theme.textTheme.labelSmall!.copyWith(
                           color: theme.colorScheme.onInverseSurface,
                         ),
@@ -467,7 +485,7 @@ class _EntryTile extends ConsumerWidget {
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         title: Text(
-          '${entry.totalKcal.round()} kcal',
+          Fmt.kcal(entry.totalKcal),
           style: theme.textTheme.titleSmall?.copyWith(
             decoration: excluded ? TextDecoration.lineThrough : null,
             color: excluded ? theme.colorScheme.onSurfaceVariant : null,
@@ -475,9 +493,9 @@ class _EntryTile extends ConsumerWidget {
         ),
         subtitle: Text(
           '${time == null ? '' : '${DateFormat('HH:mm').format(time.toLocal())}  ·  '}'
-          'P ${entry.totalProteinG.round()} g  ·  '
-          'C ${entry.totalCarbsG.round()} g  ·  '
-          'G ${entry.totalFatG.round()} g',
+          'P ${Fmt.grams(entry.totalProteinG)}  ·  '
+          'C ${Fmt.grams(entry.totalCarbsG)}  ·  '
+          'G ${Fmt.grams(entry.totalFatG)}',
           style: theme.textTheme.labelSmall,
         ),
         // Excluir do diário não apaga a análise: ela continua na lista, riscada. Sumir com

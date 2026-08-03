@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/design/tokens.dart';
 import '../../core/router.dart';
 import '../reports/weekly_report_card.dart';
 import 'dashboard_controller.dart';
@@ -27,7 +28,7 @@ class ProgressPage extends ConsumerWidget {
           await ref.read(dashboardStatsProvider.future);
         },
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          padding: const EdgeInsets.fromLTRB(Space.gutter, 8, Space.gutter, 16),
           children: [
             stats.when(
               loading: () => const SizedBox(

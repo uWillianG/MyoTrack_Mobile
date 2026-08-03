@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/design/tokens.dart';
 import 'data/profile_models.dart';
 import 'onboarding_controller.dart';
 import 'widgets/form_section.dart';
@@ -188,7 +189,12 @@ class _OnboardingViewState extends ConsumerState<OnboardingView> {
       children: [
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            padding: const EdgeInsets.fromLTRB(
+              Space.gutter,
+              8,
+              Space.gutter,
+              16,
+            ),
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(2),
@@ -229,7 +235,7 @@ class _OnboardingViewState extends ConsumerState<OnboardingView> {
         // faz o assistente parecer sem saída.
         SafeArea(
           top: false,
-          minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          minimum: const EdgeInsets.fromLTRB(Space.gutter, 8, Space.gutter, 12),
           child: Row(
             children: [
               if (_step > 0) ...[

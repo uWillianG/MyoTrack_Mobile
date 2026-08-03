@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/design/tokens.dart';
 import '../../core/router.dart';
 import 'privacy_controller.dart';
 
@@ -21,7 +22,7 @@ class AccountPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Conta e privacidade')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        padding: const EdgeInsets.fromLTRB(Space.gutter, 8, Space.gutter, 16),
         children: [
           Card(
             margin: EdgeInsets.zero,

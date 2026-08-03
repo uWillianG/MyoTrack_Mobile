@@ -5,7 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/design/tokens.dart';
+import '../../core/design/format.dart';
+import '../../core/design/typography.dart';
 import '../../core/router.dart';
+import '../achievements/achievements_controller.dart';
 import '../dashboard/dashboard_controller.dart';
 import '../diary/data/diary_models.dart';
 import '../diary/diary_controller.dart';
@@ -38,13 +42,21 @@ class TodayView extends ConsumerWidget {
         await ref.read(diaryDayProvider.future);
       },
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+        // O respiro de baixo tem de passar do botão flutuante: 96 dp o deixava sobre a
+        // última linha do cartão de fechar o dia, que é justamente onde a rolagem para.
+        padding: const EdgeInsets.fromLTRB(
+          Space.gutter,
+          Space.xs,
+          Space.gutter,
+          120,
+        ),
         children: const [
           _EnergyCard(),
-          SizedBox(height: 16),
+          SizedBox(height: Space.md),
           _NextWorkoutCard(),
           _WeekCard(),
-          SizedBox(height: 16),
+          _AchievementsCard(),
+          SizedBox(height: Space.md),
           _CloseDayCard(),
           _ReviewQueueCard(),
         ],
@@ -110,7 +122,7 @@ class _EnergyBody extends StatelessWidget {
             textBaseline: TextBaseline.alphabetic,
             children: [
               Text(
-                _integer(consumed.kcal),
+                Fmt.integer(consumed.kcal),
                 style: theme.textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -161,13 +173,13 @@ class _EnergyBody extends StatelessWidget {
                     textBaseline: TextBaseline.alphabetic,
                     children: [
                       Text(
-                        _integer(consumed.kcal),
+                        Fmt.integer(consumed.kcal),
                         style: theme.textTheme.titleMedium,
                       ),
                       const SizedBox(width: 4),
                       Flexible(
                         child: Text(
-                          'de ${_integer(targets.kcal)} kcal',
+                          'de ${Fmt.integer(targets.kcal)} kcal',
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
@@ -240,7 +252,7 @@ class _CalorieRing extends StatelessWidget {
   final double target;
   final int left;
 
-  static const double _size = 104;
+  static const double _size = 116;
 
   @override
   Widget build(BuildContext context) {
@@ -269,11 +281,16 @@ class _CalorieRing extends StatelessWidget {
                   child: Text(
                     NumberFormat.decimalPattern('pt_BR').format(left),
                     maxLines: 1,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
+                    // É o número que responde a pergunta que traz a pessoa ao app no meio
+                    // da tarde. Ganha o estilo numérico — mais peso, entreletra fechada e
+                    // dígitos de largura fixa, para não dançar a cada refeição registrada.
+                    style: AppTypography.numeric(
+                      size: 34,
+                      color: theme.colorScheme.onSurface,
                     ),
                   ),
                 ),
+                const SizedBox(height: 2),
                 Text(
                   'kcal restam',
                   style: theme.textTheme.labelSmall?.copyWith(
@@ -300,7 +317,7 @@ class _RingPainter extends CustomPainter {
   final Color track;
   final Color progress;
 
-  static const double _stroke = 10;
+  static const double _stroke = 11;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -653,17 +670,101 @@ class _VolumeSparkline extends StatelessWidget {
                 // ausência, em vez de sumir e encurtar o gráfico.
                 height: math.max(2, (weeks[i].volumeKg / max) * 64),
                 decoration: BoxDecoration(
-                  color: i == weeks.length - 1
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.primary.withValues(alpha: 0.35),
+                  // A opacidade sobe com a proximidade em vez de separar só a última: o
+                  // olho lê a rampa como tempo, e a semana corrente termina em destaque sem
+                  // precisar de uma segunda cor. Com dois níveis apenas, as sete anteriores
+                  // viravam um bloco chapado sem informação nenhuma.
+                  // Uma semana só cai no denominador zero — aí ela é a corrente, e vai
+                  // opaca.
+                  color: theme.colorScheme.primary.withValues(
+                    alpha: weeks.length == 1
+                        ? 1
+                        : 0.28 + 0.72 * (i / (weeks.length - 1)),
+                  ),
                   borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(4),
+                    top: Radius.circular(5),
                   ),
                 ),
               ),
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Conquista nova esperando ser vista.
+///
+/// **Só aparece quando há novidade**, e some assim que a pessoa abre a lista. É a regra do
+/// hub inteiro — cartão só aparece quando tem o que dizer —, e vale em dobro aqui: um cartão
+/// permanente de "veja suas conquistas" viraria mais um ícone a ignorar, e a próxima
+/// conquista de verdade chegaria no mesmo lugar sem chamar atenção nenhuma.
+///
+/// Não é diálogo nem confete por cima da tela. Quem abriu o app no vestiário para ver quanto
+/// pode comer não pediu uma comemoração no caminho.
+class _AchievementsCard extends ConsumerWidget {
+  const _AchievementsCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final unseen = ref.watch(unseenAchievementsProvider);
+
+    if (unseen == 0) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: Space.md),
+      child: Card(
+        child: InkWell(
+          borderRadius: Radii.mdAll,
+          onTap: () => context.push(Routes.achievements),
+          child: Padding(
+            padding: const EdgeInsets.all(Space.lg),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.emoji_events_outlined,
+                    size: 22,
+                    color: theme.colorScheme.onPrimaryContainer,
+                  ),
+                ),
+                const SizedBox(width: Space.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        unseen == 1
+                            ? 'Você desbloqueou uma conquista'
+                            : 'Você desbloqueou $unseen conquistas',
+                        style: theme.textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Seu histórico rendeu algo novo.',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -681,11 +782,9 @@ class _CloseDayCard extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Card(
-      margin: EdgeInsets.zero,
       color: theme.colorScheme.primaryContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(Space.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -696,7 +795,7 @@ class _CloseDayCard extends StatelessWidget {
                   size: 20,
                   color: theme.colorScheme.onPrimaryContainer,
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: Space.xs),
                 Text(
                   'Fechar o dia',
                   style: theme.textTheme.titleSmall?.copyWith(
@@ -705,20 +804,25 @@ class _CloseDayCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: Space.xs),
             Text(
               'Três perguntas: como o dia foi, seu peso e sua energia.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onPrimaryContainer,
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: Space.md),
             Align(
               alignment: Alignment.centerLeft,
               child: FilledButton(
+                // Não é o botão principal de uma tela, é a ação de um cartão: 44 dp de
+                // altura e largura do próprio texto, para não competir com "Treinar agora"
+                // logo acima. Fundo da superfície sobre o container primário — o esmeralda
+                // sobre esmeralda claro não teria contraste suficiente.
                 style: FilledButton.styleFrom(
-                  minimumSize: const Size(0, 40),
-                  backgroundColor: theme.colorScheme.surface,
+                  minimumSize: const Size(0, 44),
+                  padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+                  backgroundColor: theme.colorScheme.surfaceContainerLowest,
                   foregroundColor: theme.colorScheme.primary,
                 ),
                 onPressed: () => context.push(Routes.dayClose),
@@ -858,9 +962,6 @@ class _CardMessage extends StatelessWidget {
     );
   }
 }
-
-String _integer(num value) =>
-    NumberFormat.decimalPattern('pt_BR').format(value.round());
 
 /// Volume da semana em toneladas: "12,4 t".
 ///

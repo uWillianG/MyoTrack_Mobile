@@ -62,7 +62,15 @@ void main() {
       expect(find.textContaining('Faltam 62 g de proteína'), findsOne);
       expect(find.text('Treino B · Peito e tríceps'), findsOne);
       expect(find.text('Sua semana'), findsOne);
-      expect(find.text('Fechar o dia'), findsOne);
+
+      // Os dois últimos cartões ficam abaixo da dobra num celular de 800 dp, e a `ListView`
+      // não constrói o que não vai desenhar. Rolar até eles é o que prova que estão lá — sem
+      // isso o teste passaria por acaso, dependendo de o conteúdo caber no cache da lista.
+      for (final label in ['Fechar o dia', '3 planos aguardando você']) {
+        await tester.scrollUntilVisible(find.text(label), 200);
+        expect(find.text(label), findsOne, reason: label);
+      }
+      expect(tester.takeException(), isNull);
     });
   }
 

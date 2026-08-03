@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/design/tokens.dart';
 import '../../core/providers.dart';
 import '../../core/router.dart';
 import '../../core/sync/sync_queue.dart';
@@ -67,7 +68,13 @@ class HomePage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(tab.title),
-        actions: const [_AccountAvatar(), SizedBox(width: 4)],
+        // A margem da direita é a mesma do conteúdo (`Space.gutter`) menos o respiro que o
+        // próprio `IconButton` já reserva: sem ela o avatar encosta na borda da tela e some
+        // pela metade no recorte da câmera.
+        actions: const [
+          _AccountAvatar(),
+          SizedBox(width: Space.gutter - Space.sm),
+        ],
       ),
       // `IndexedStack` e não uma troca de filho: o diário rolado, a foto em análise e o
       // formulário do perfil pela metade sobrevivem à ida e volta entre abas. Refazer esse
@@ -216,7 +223,7 @@ Future<void> showQuickCaptureSheet(BuildContext context, WidgetRef ref) {
               subtitle: const Text('Alimenta o gráfico e as metas da dieta'),
               onTap: () {
                 Navigator.of(sheetContext).pop();
-                showWeighInDialog(context, ref);
+                showWeighInDialog(context);
               },
             ),
             const SizedBox(height: 8),
@@ -231,48 +238,17 @@ Future<void> showQuickCaptureSheet(BuildContext context, WidgetRef ref) {
 ///
 /// Um campo só. A tela de `/registrar` pede peso junto com as séries, e é o caminho de quem
 /// acabou de treinar; quem sobe na balança de manhã não tem série nenhuma para lançar.
-Future<void> showWeighInDialog(BuildContext context, WidgetRef ref) async {
-  final controller = TextEditingController();
-  final weight = await showDialog<double>(
-    context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: const Text('Anotar peso'),
-      content: TextField(
-        controller: controller,
-        autofocus: true,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        decoration: const InputDecoration(
-          labelText: 'Peso (kg)',
-          hintText: '82,4',
-        ),
-        onSubmitted: (value) =>
-            Navigator.of(dialogContext).pop(parseWeightKg(value)),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: () =>
-              Navigator.of(dialogContext).pop(parseWeightKg(controller.text)),
-          child: const Text('Salvar'),
-        ),
-      ],
-    ),
-  );
-  controller.dispose();
+Future<void> showWeighInDialog(BuildContext context) async {
+  final weight = await askWeightKg(context, title: 'Anotar peso');
 
   if (weight == null || !context.mounted) {
     return;
   }
 
-  final outcome = await saveWeighIn(ref, weight);
-  if (!context.mounted) {
-    return;
-  }
+  final messenger = ScaffoldMessenger.of(context);
+  final outcome = await saveWeighIn(containerOf(context), weight);
 
-  ScaffoldMessenger.of(context)
+  messenger
     ..clearSnackBars()
     ..showSnackBar(
       SnackBar(

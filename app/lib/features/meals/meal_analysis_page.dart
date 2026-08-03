@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/design/tokens.dart';
 import '../../core/widgets/empty_state.dart';
 import 'data/meal_models.dart';
 import 'meal_analysis_controller.dart';
@@ -87,7 +88,7 @@ class _MealAnalysisViewState extends ConsumerState<MealAnalysisView> {
         ),
         SafeArea(
           top: false,
-          minimum: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          minimum: const EdgeInsets.fromLTRB(Space.gutter, 0, Space.gutter, 12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -164,13 +165,13 @@ class _Body extends StatelessWidget {
   Widget build(BuildContext context) {
     if (meals.isEmpty && !running) {
       return ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        padding: const EdgeInsets.fromLTRB(Space.gutter, 8, Space.gutter, 16),
         children: const [_PhotoPlaceholder()],
       );
     }
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      padding: const EdgeInsets.fromLTRB(Space.gutter, 8, Space.gutter, 16),
       children: [
         if (running) _ProgressCard(step: step, progress: progress),
         for (final meal in meals) _MealCard(meal: meal),

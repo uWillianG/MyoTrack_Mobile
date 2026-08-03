@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
+import '../../core/design/tokens.dart';
+import '../../core/design/format.dart';
+import '../../core/design/typography.dart';
 import '../../core/sync/sync_queue.dart';
 import '../../core/widgets/review_badge.dart';
 import '../dashboard/dashboard_controller.dart';
@@ -49,16 +51,18 @@ class _DayClosePageState extends ConsumerState<DayClosePage> {
       appBar: AppBar(title: const Text('Fechar o dia')),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          padding: const EdgeInsets.fromLTRB(
+            Space.gutter,
+            Space.sm,
+            Space.gutter,
+            Space.xl,
+          ),
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(2),
-              child: LinearProgressIndicator(
-                value: (_step + 1) / 4,
-                minHeight: 4,
-              ),
-            ),
-            const SizedBox(height: 20),
+            // Fina de propósito: é um indicador de onde a pessoa está nas quatro etapas, e
+            // não o assunto da tela. A barra padrão de 8 dp do tema competiria com o
+            // enunciado da pergunta logo abaixo. O raio vem do tema.
+            LinearProgressIndicator(value: (_step + 1) / 4, minHeight: 4),
+            const SizedBox(height: Space.xl),
             switch (_step) {
               0 => _EffortStep(onAnswered: _advance),
               1 => _WeightStep(onAnswered: _advance),
@@ -188,36 +192,7 @@ class _WeightStep extends ConsumerWidget {
   }
 
   Future<void> _typeIn(BuildContext context, WidgetRef ref) async {
-    final controller = TextEditingController();
-    final typed = await showDialog<double>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Seu peso de hoje'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(
-            labelText: 'Peso (kg)',
-            hintText: '82,4',
-          ),
-          onSubmitted: (value) =>
-              Navigator.of(dialogContext).pop(parseWeightKg(value)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () =>
-                Navigator.of(dialogContext).pop(parseWeightKg(controller.text)),
-            child: const Text('Salvar'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
+    final typed = await askWeightKg(context, title: 'Seu peso de hoje');
 
     if (typed != null && context.mounted) {
       await _save(context, ref, typed);
@@ -229,16 +204,23 @@ class _WeightStep extends ConsumerWidget {
     WidgetRef ref,
     double weightKg,
   ) async {
+    // O que precisa sobreviver ao `await` é lido agora, enquanto este widget existe: a tela
+    // avança na linha seguinte, e a pergunta do peso sai da árvore antes de o POST voltar.
+    // O container é o do `ProviderScope` e o messenger é o do `MaterialApp` — os dois duram
+    // mais que a tela.
+    final container = containerOf(context);
+    final messenger = ScaffoldMessenger.of(context);
+
     ref.read(dayCloseProvider.notifier).setWeight(weightKg);
     // Avança antes de a rede responder: a pergunta já foi respondida, e prender a tela
     // esperando um POST faria o fechamento parecer travado no Wi-Fi ruim.
     onAnswered();
 
-    final outcome = await saveWeighIn(ref, weightKg);
-    if (!context.mounted || outcome == WriteOutcome.sent) {
+    final outcome = await saveWeighIn(container, weightKg);
+    if (outcome == WriteOutcome.sent) {
       return;
     }
-    ScaffoldMessenger.of(context)
+    messenger
       ..clearSnackBars()
       ..showSnackBar(
         const SnackBar(
@@ -317,19 +299,19 @@ class _Tiles extends StatelessWidget {
           Expanded(
             child: _Tile(
               label: 'Calorias',
-              value: consumed == null ? '—' : _integer(consumed.kcal),
-              detail: _gap(consumed?.kcal, targets?.kcal, 'kcal'),
+              value: consumed == null ? '—' : Fmt.integer(consumed.kcal),
+              detail: _gap(consumed?.kcal, targets?.kcal),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: Space.xs),
           Expanded(
             child: _Tile(
               label: 'Proteína',
-              value: consumed == null ? '—' : '${consumed.proteinG.round()} g',
-              detail: _gap(consumed?.proteinG, targets?.proteinG, 'g'),
+              value: consumed == null ? '—' : Fmt.grams(consumed.proteinG),
+              detail: _gap(consumed?.proteinG, targets?.proteinG),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: Space.xs),
           Expanded(
             child: _Tile(
               label: 'Peso',
@@ -338,7 +320,7 @@ class _Tiles extends StatelessWidget {
               // cor sozinha não diria qual é qual para quem não distingue verde de vermelho.
               detail: delta == null
                   ? null
-                  : '${delta >= 0 ? '+' : '−'}${formatKg(delta.abs())} no período',
+                  : '${Fmt.delta(delta, Fmt.kg)} no período',
             ),
           ),
         ],
@@ -347,7 +329,10 @@ class _Tiles extends StatelessWidget {
   }
 
   /// "−624 vs meta". Null quando não há meta com que comparar.
-  static String? _gap(num? consumed, num? target, String unit) {
+  ///
+  /// Sem a unidade: ela está no número logo acima, dentro do mesmo tijolo. Com ela a linha
+  /// passava de 105 dp e quebrava em duas, deixando os três tijolos de alturas diferentes.
+  static String? _gap(num? consumed, num? target) {
     if (consumed == null || target == null || target <= 0) {
       return null;
     }
@@ -355,7 +340,7 @@ class _Tiles extends StatelessWidget {
     if (gap == 0) {
       return 'na meta';
     }
-    return '${gap > 0 ? '+' : '−'}${gap.abs()} $unit vs meta';
+    return '${Fmt.delta(gap, Fmt.integer)} vs meta';
   }
 }
 
@@ -374,9 +359,8 @@ class _Tile extends StatelessWidget {
     );
 
     return Card(
-      margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(Space.sm),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -386,7 +370,7 @@ class _Tile extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: small,
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: Space.xxs),
             // Três tijolos numa tela de 360 dp deixam ~105 dp para cada: o número encolhe
             // em vez de quebrar em duas linhas e desalinhar os vizinhos.
             FittedBox(
@@ -395,11 +379,16 @@ class _Tile extends StatelessWidget {
               child: Text(
                 value,
                 maxLines: 1,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
+                // O mesmo estilo numérico do anel da Hoje: são os três números que o
+                // fechamento do dia entrega, e ler igual em todo lugar é metade do que faz
+                // um app parecer um só produto.
+                style: AppTypography.numeric(
+                  size: 22,
+                  color: theme.colorScheme.onSurface,
                 ),
               ),
             ),
+            const SizedBox(height: Space.xxs),
             if (detail != null)
               Text(
                 detail!,
@@ -454,8 +443,8 @@ class _TomorrowCard extends ConsumerWidget {
             if (diet != null) ...[
               const SizedBox(height: 6),
               Text(
-                'Meta do dia: ${_integer(diet.targets.kcal)} kcal e '
-                '${diet.targets.proteinG.round()} g de proteína.',
+                'Meta do dia: ${Fmt.kcal(diet.targets.kcal)} e '
+                '${Fmt.grams(diet.targets.proteinG)} de proteína.',
                 style: theme.textTheme.bodyMedium?.copyWith(color: onContainer),
               ),
               const SizedBox(height: 12),
@@ -554,16 +543,19 @@ class _Question extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(title, style: theme.textTheme.headlineSmall),
-        const SizedBox(height: 6),
+        const SizedBox(height: Space.xs),
         Text(
           help,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: Space.xl),
         for (final child in children)
-          Padding(padding: const EdgeInsets.only(bottom: 10), child: child),
+          Padding(
+            padding: const EdgeInsets.only(bottom: Space.sm),
+            child: child,
+          ),
       ],
     );
   }
@@ -593,11 +585,14 @@ class _Option extends StatelessWidget {
         : theme.colorScheme.onSurface;
 
     return Material(
+      // `surfaceContainer`, e não `surface`: no claro `surface` é a cor do fundo da tela, e
+      // a opção ficava com o mesmo preenchimento do que está atrás dela — sobrava só o fio
+      // da borda para dizer que ali há algo a tocar.
       color: selected
           ? theme.colorScheme.primaryContainer
-          : theme.colorScheme.surface,
+          : theme.colorScheme.surfaceContainer,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: Radii.mdAll,
         side: BorderSide(
           color: selected
               ? Colors.transparent
@@ -605,14 +600,17 @@ class _Option extends StatelessWidget {
         ),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: Radii.mdAll,
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(Space.lg),
           child: Row(
             children: [
-              Icon(icon, color: foreground),
-              const SizedBox(width: 16),
+              Icon(
+                icon,
+                color: selected ? foreground : theme.colorScheme.primary,
+              ),
+              const SizedBox(width: Space.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -623,6 +621,7 @@ class _Option extends StatelessWidget {
                         color: foreground,
                       ),
                     ),
+                    const SizedBox(height: 1),
                     Text(
                       detail,
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -634,6 +633,15 @@ class _Option extends StatelessWidget {
                   ],
                 ),
               ),
+              // A seta diz que a opção leva adiante, e não só marca. Sem ela as três caixas
+              // parecem um grupo de rádio do qual ainda falta apertar "continuar".
+              Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: selected
+                    ? foreground
+                    : theme.colorScheme.onSurfaceVariant,
+              ),
             ],
           ),
         ),
@@ -641,6 +649,3 @@ class _Option extends StatelessWidget {
     );
   }
 }
-
-String _integer(num value) =>
-    NumberFormat.decimalPattern('pt_BR').format(value.round());

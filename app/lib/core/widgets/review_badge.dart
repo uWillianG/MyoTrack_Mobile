@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../design/tokens.dart';
+
 /// Selo de supervisão humana: diz se um profissional já revisou o plano gerado por IA.
 ///
 /// Porte de `frontend/src/components/ReviewBadge.tsx`. Não é enfeite — é o que separa
@@ -44,15 +46,15 @@ class ReviewBadge extends StatelessWidget {
       // Sem nota não há o que explicar, e um tooltip vazio só atrapalha o leitor de tela.
       excludeFromSemantics: reviewNote == null,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        padding: const EdgeInsets.fromLTRB(Space.sm, 6, Space.sm + 2, 6),
         decoration: BoxDecoration(
           color: style.background,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: Radii.pill,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(style.icon, size: 15, color: style.foreground),
+            Icon(style.icon, size: 16, color: style.foreground),
             const SizedBox(width: 6),
             Flexible(
               child: Text(

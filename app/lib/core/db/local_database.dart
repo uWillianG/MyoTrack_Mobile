@@ -44,7 +44,24 @@ class CachedExercises extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-@DriftDatabase(tables: [PendingWrites, CachedExercises])
+/// Conquistas que o usuário já viu comemoradas.
+///
+/// **Só o "já vi", e não a conquista.** Se alguém ganhou algo é derivado dos agregados do
+/// servidor a cada abertura — guardar isso aqui criaria uma segunda verdade livre para
+/// divergir da primeira. O que o servidor não tem como saber é se a pessoa já foi avisada, e
+/// isso é estado de aparelho: quem instala num celular novo reveria a comemoração de um
+/// recorde de três meses atrás.
+class SeenAchievements extends Table {
+  /// O id do catálogo, ex.: `quatro-semanas`.
+  TextColumn get id => text()();
+
+  DateTimeColumn get seenAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DriftDatabase(tables: [PendingWrites, CachedExercises, SeenAchievements])
 class LocalDatabase extends _$LocalDatabase {
   LocalDatabase() : super(_open());
 
@@ -52,7 +69,22 @@ class LocalDatabase extends _$LocalDatabase {
   LocalDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  /// A v2 só acrescenta [SeenAchievements].
+  ///
+  /// `onUpgrade` cria a tabela nova e não toca em mais nada: a fila de escrita pode ter
+  /// séries de um treino que ainda não subiu, e uma migração que recriasse o banco perderia
+  /// justamente o dado que ninguém tem de volta.
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (m) => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.createTable(seenAchievements);
+      }
+    },
+  );
 
   // --- Fila de escrita ---
 
@@ -93,6 +125,28 @@ class LocalDatabase extends _$LocalDatabase {
   Future<List<CachedExercise>> exercises() => (select(
     cachedExercises,
   )..orderBy([(t) => OrderingTerm.asc(t.name)])).get();
+
+  // --- Conquistas já comemoradas ---
+
+  Future<Set<String>> seenAchievementIds() async {
+    final rows = await select(seenAchievements).get();
+    return {for (final row in rows) row.id};
+  }
+
+  /// Marca [ids] como vistas.
+  ///
+  /// `insertOrIgnore`, e não update: o que interessa é **quando foi a primeira vez**, e
+  /// sobrescrever a data a cada visita à tela apagaria justamente essa informação.
+  Future<void> markAchievementsSeen(Iterable<String> ids) async {
+    if (ids.isEmpty) {
+      return;
+    }
+    await batch((batch) {
+      batch.insertAll(seenAchievements, [
+        for (final id in ids) SeenAchievementsCompanion.insert(id: id),
+      ], mode: InsertMode.insertOrIgnore);
+    });
+  }
 }
 
 QueryExecutor _open() {

@@ -2,12 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mocktail/mocktail.dart';
+import 'package:myotrack/core/sync/sync_queue.dart';
 import 'package:myotrack/core/theme.dart';
 import 'package:myotrack/features/analysis/analysis_page.dart';
 import 'package:myotrack/features/home/home_page.dart';
 import 'package:myotrack/features/home/account_sheet.dart';
+import 'package:myotrack/features/logging/data/logging_models.dart';
+import 'package:myotrack/features/logging/data/logging_repository.dart';
+import 'package:myotrack/features/logging/log_session_controller.dart';
 
 import 'home_test_harness.dart';
+
+class _MockLoggingRepository extends Mock implements LoggingRepository {}
 
 /// O shell é a primeira tela do app e a única que carrega quatro telas ao mesmo tempo. Estes
 /// testes rodam na largura de um celular pequeno para que um estouro de layout em qualquer
@@ -15,15 +22,22 @@ import 'home_test_harness.dart';
 void main() {
   const smallPhone = Size(360, 800);
 
+  setUpAll(() {
+    registerFallbackValue(const MeasurementRequest(date: '2026-07-30'));
+  });
+
   Future<ProviderContainer> pump(
     WidgetTester tester, {
     Brightness brightness = Brightness.light,
+    List<Override> extraOverrides = const [],
   }) async {
     tester.view.physicalSize = smallPhone;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
-    final container = ProviderContainer(overrides: homeOverrides());
+    final container = ProviderContainer(
+      overrides: [...homeOverrides(), ...extraOverrides],
+    );
     addTearDown(container.dispose);
 
     await tester.pumpWidget(
@@ -103,6 +117,40 @@ void main() {
 
     expect(container.read(homeTabProvider), HomeTab.analysis);
     expect(container.read(analysisTabProvider), AnalysisTab.meal);
+  });
+
+  testWidgets('anotar peso pela captura rápida registra e avisa', (
+    tester,
+  ) async {
+    // Mesmo diálogo do fechamento do dia, e mesma armadilha: o campo continua na tela
+    // durante a animação de saída, e o POST volta depois. Se qualquer um dos dois for
+    // amarrado ao widget que abriu o diálogo, isto quebra.
+    final repository = _MockLoggingRepository();
+    when(
+      () => repository.logMeasurement(any()),
+    ).thenAnswer((_) async => WriteOutcome.sent);
+
+    await pump(
+      tester,
+      extraOverrides: [loggingRepositoryProvider.overrideWithValue(repository)],
+    );
+
+    await tester.tap(find.widgetWithText(FloatingActionButton, 'Registrar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Anotar peso'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), '83,1');
+    await tester.tap(find.widgetWithText(FilledButton, 'Salvar'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Peso registrado.'), findsOne);
+
+    final captured =
+        verify(() => repository.logMeasurement(captureAny())).captured.single
+            as MeasurementRequest;
+    expect(captured.weightKg, closeTo(83.1, 0.001));
   });
 
   testWidgets('o avatar guarda os destinos que saíram da home', (tester) async {

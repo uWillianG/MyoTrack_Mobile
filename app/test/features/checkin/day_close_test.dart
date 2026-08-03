@@ -115,6 +115,60 @@ void main() {
     expect(find.text('Dia fechado'), findsOne);
   });
 
+  testWidgets('o peso digitado no diálogo não derruba a tela', (tester) async {
+    // Regressão: o `TextEditingController` era descartado logo depois do `await
+    // showDialog(...)`, e o diálogo ainda estava saindo de cena. O `TextField`
+    // reconstruía contra um controller morto, a exceção abortava a reconstrução no meio, e
+    // o que o usuário via era a tela vermelha de `'_dependents.isEmpty': is not true` —
+    // que não menciona campo de texto nenhum.
+    await pump(tester);
+
+    await tester.tap(find.text('Puxado'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Outro valor'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '83,1');
+    await tester.tap(find.widgetWithText(FilledButton, 'Salvar'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Como está sua energia?'), findsOne);
+
+    final captured =
+        verify(() => repository.logMeasurement(captureAny())).captured.single
+            as MeasurementRequest;
+    expect(captured.weightKg, closeTo(83.1, 0.001));
+  });
+
+  testWidgets('a pesagem termina mesmo depois de a pergunta sair da tela', (
+    tester,
+  ) async {
+    // A tela avança sem esperar o POST, então a escrita volta quando o passo do peso já
+    // não existe. Com o `WidgetRef` daquele passo, o `invalidate` do dashboard lançava e o
+    // aviso de "guardado no aparelho" nunca aparecia — quem se pesou sem rede não ficava
+    // sabendo que o número tinha ficado na fila.
+    when(() => repository.logMeasurement(any())).thenAnswer((_) async {
+      await Future<void>.delayed(const Duration(seconds: 2));
+      return WriteOutcome.queued;
+    });
+
+    await pump(tester);
+
+    await tester.tap(find.text('Puxado'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Igual à última pesagem'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(
+      find.text('Peso guardado no aparelho. Sobe quando houver rede.'),
+      findsOne,
+    );
+  });
+
   for (final brightness in Brightness.values) {
     testWidgets('o resumo cabe na tela e não promete ajuste (${brightness.name})', (
       tester,
@@ -123,9 +177,10 @@ void main() {
       await answerAll(tester);
 
       expect(tester.takeException(), isNull);
-      // Consumo do dia contra a meta: 1.476 de 2.100 kcal, 110 g de 172 g de proteína.
-      expect(find.text('−624 kcal vs meta'), findsOne);
-      expect(find.text('−62 g vs meta'), findsOne);
+      // Consumo do dia contra a meta: 1.476 de 2.100 kcal, 110 g de 172 g de proteína. A
+      // unidade fica de fora da diferença — está no número logo acima, no mesmo tijolo.
+      expect(find.text('−624 vs meta'), findsOne);
+      expect(find.text('−62 vs meta'), findsOne);
       // O que o plano já diz sobre amanhã — e não um ajuste que o servidor não fez.
       expect(find.text('Amanhã'), findsOne);
       expect(find.textContaining('Treino B · Peito e tríceps'), findsOne);

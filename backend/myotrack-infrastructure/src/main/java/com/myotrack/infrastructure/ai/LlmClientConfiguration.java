@@ -12,6 +12,12 @@ import org.springframework.context.annotation.Primary;
  * <p>As duas implementações continuam registradas: quem precisa de uma específica injeta a
  * classe concreta. Quem só quer "o LLM configurado" injeta {@link LlmJsonClient} e recebe este
  * bean. Sem isso o Spring encontra dois candidatos e nem sobe.
+ *
+ * <p><b>A escolha é do app inteiro.</b> Todo handler recebe o mesmo provedor e o mesmo modelo, o
+ * que significa que extrair itens de uma foto contra um schema fixo e gerar um plano de treino
+ * pagam a mesma tabela. É a decisão de custo mais cara que este arquivo toma, e mudá-la é trocar
+ * este bean único por uma escolha por operação — não foi feito aqui porque é troca de qualidade
+ * por preço, e essa é decisão de produto.
  */
 @Configuration
 public class LlmClientConfiguration {
@@ -21,10 +27,10 @@ public class LlmClientConfiguration {
     @Bean
     @Primary
     public LlmJsonClient llmJsonClient(
-            LlmProperties properties, AnthropicJsonClient anthropic, GeminiJsonClient gemini) {
+            LlmProperties properties, OpenAiJsonClient openai, GeminiJsonClient gemini) {
 
         final LlmJsonClient chosen =
-                "gemini".equals(properties.effectiveProvider()) ? gemini : anthropic;
+                "openai".equals(properties.effectiveProvider()) ? openai : gemini;
 
         // Sem chave o cliente devolve null e a geração cai no motor de regras. É um cenário
         // válido em desenvolvimento, mas em produção passa despercebido: registrar no startup

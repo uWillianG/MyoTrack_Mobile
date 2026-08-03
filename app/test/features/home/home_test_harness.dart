@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:myotrack/core/providers.dart';
+import 'package:myotrack/features/achievements/data/rewards_repository.dart';
 import 'package:myotrack/features/dashboard/dashboard_controller.dart';
 import 'package:myotrack/features/dashboard/dashboard_stats.dart';
 import 'package:myotrack/features/diary/data/diary_models.dart';
@@ -126,6 +127,11 @@ List<Override> homeOverrides({
   String? email = 'rafael.souza@myotrack.dev',
   List<ReviewKind> reviewableKinds = const [],
   DietPlan? diet = dietPlan,
+
+  /// A recompensa por constância. O padrão espelha as oito semanas de sessões acima — sem
+  /// isso a sequência viria zerada e as duas conquistas de constância ficariam trancadas num
+  /// fixture que diz o contrário.
+  RewardStatus? rewards,
 }) => [
   diaryDayProvider.overrideWith((ref) async => day ?? diaryDay()),
   dashboardStatsProvider.overrideWith((ref) async => stats ?? dashboardStats()),
@@ -147,4 +153,21 @@ List<Override> homeOverrides({
   userProfileProvider.overrideWith((ref) async => profile),
   profileRepositoryProvider.overrideWithValue(_profileRepository(profile)),
   userEmailProvider.overrideWith((ref) async => email),
+  rewardStatusProvider.overrideWith((ref) async => rewards ?? rewardStatus()),
 ];
+
+/// Recompensa de mentira. Oito semanas seguidas e as duas marcas anunciadas, que é o estado de
+/// quem já ganhou a de quatro semanas e persegue a de doze.
+RewardStatus rewardStatus({
+  int streakWeeks = 8,
+  ActiveGrant? activeGrant,
+  Set<String> granted = const {},
+}) => RewardStatus(
+  streakWeeks: streakWeeks,
+  activeGrant: activeGrant,
+  granted: granted,
+  milestones: const [
+    RewardMilestone(id: 'quatro-semanas', requiredWeeks: 4, proDays: 7),
+    RewardMilestone(id: 'doze-semanas', requiredWeeks: 12, proDays: 30),
+  ],
+);
