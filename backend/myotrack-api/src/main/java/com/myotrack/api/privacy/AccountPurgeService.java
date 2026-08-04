@@ -12,6 +12,7 @@ import com.myotrack.infrastructure.repository.ExerciseVideoAnalysisRepository;
 import com.myotrack.infrastructure.repository.LoginCodeRepository;
 import com.myotrack.infrastructure.repository.MealPhotoAnalysisRepository;
 import com.myotrack.infrastructure.repository.PasswordResetTokenRepository;
+import com.myotrack.infrastructure.repository.ProGrantRepository;
 import com.myotrack.infrastructure.repository.RefreshTokenRepository;
 import com.myotrack.infrastructure.repository.UserProfileRepository;
 import com.myotrack.infrastructure.repository.UserSubscriptionRepository;
@@ -47,6 +48,7 @@ public class AccountPurgeService {
     private final CoachMessageRepository coachMessages;
     private final WeeklyReportRepository weeklyReports;
     private final UserSubscriptionRepository subscriptions;
+    private final ProGrantRepository proGrants;
     private final RefreshTokenRepository refreshTokens;
     private final LoginCodeRepository loginCodes;
     private final PasswordResetTokenRepository resetTokens;
@@ -67,6 +69,7 @@ public class AccountPurgeService {
             CoachMessageRepository coachMessages,
             WeeklyReportRepository weeklyReports,
             UserSubscriptionRepository subscriptions,
+            ProGrantRepository proGrants,
             RefreshTokenRepository refreshTokens,
             LoginCodeRepository loginCodes,
             PasswordResetTokenRepository resetTokens,
@@ -85,6 +88,7 @@ public class AccountPurgeService {
         this.coachMessages = coachMessages;
         this.weeklyReports = weeklyReports;
         this.subscriptions = subscriptions;
+        this.proGrants = proGrants;
         this.refreshTokens = refreshTokens;
         this.loginCodes = loginCodes;
         this.resetTokens = resetTokens;
@@ -111,6 +115,9 @@ public class AccountPurgeService {
         coachMessages.deleteByUserId(userId);
         weeklyReports.deleteByUserId(userId);
         subscriptions.deleteByUserId(userId);
+        // O Pro concedido por constância mora fora de "UserSubscriptions" e não cai junto com
+        // ela. Sem esta linha, uma conta recriada com o mesmo id herdaria o prêmio da anterior.
+        proGrants.deleteByUserId(userId);
         consents.deleteByUserId(userId);
         refreshTokens.deleteByUserId(userId);
         loginCodes.deleteByUserId(userId);

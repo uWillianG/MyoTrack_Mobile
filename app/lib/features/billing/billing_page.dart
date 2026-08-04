@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/design/tokens.dart';
 import '../../core/widgets/empty_state.dart';
 import 'billing_controller.dart';
 import 'data/billing_models.dart';
@@ -44,7 +45,12 @@ class BillingPage extends ConsumerWidget {
             ),
           ),
           data: (status) => ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            padding: const EdgeInsets.fromLTRB(
+              Space.gutter,
+              8,
+              Space.gutter,
+              16,
+            ),
             children: [
               _PlanCard(status: status),
               const SizedBox(height: 16),

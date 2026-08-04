@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/achievements/achievements_page.dart';
 import '../features/auth/forgot_password_page.dart';
 import '../features/auth/login_page.dart';
 import '../features/auth/reset_password_page.dart';
 import '../features/billing/billing_page.dart';
+import '../features/checkin/day_close_page.dart';
 import '../features/coach/coach_page.dart';
+import '../features/dashboard/progress_page.dart';
 import '../features/diary/diary_page.dart';
 import '../features/diet/diet_plan_page.dart';
 import '../features/home/home_page.dart';
@@ -43,6 +46,21 @@ class Routes {
   static const diary = '/diario';
   static const videoAnalysis = '/videos';
   static const review = '/revisao';
+
+  /// Fechamento do dia. Não existe na SPA: nasce do hub diário do app, onde a pergunta faz
+  /// sentido — quem está no computador não fecha o dia, fecha a aba.
+  static const dayClose = '/fechar-o-dia';
+
+  /// Conquistas. Não existe na SPA: nasce do app, que é onde a pessoa registra o treino e
+  /// vê a evolução acontecer.
+  static const achievements = '/conquistas';
+
+  /// Gráficos de evolução: volume, peso e recordes.
+  ///
+  /// Era o corpo da home até o hub diário assumir a tela. A home ficou com a silhueta das
+  /// últimas semanas, que responde "estou mantendo o ritmo?"; quem quer o eixo e o número
+  /// vem para cá.
+  static const progress = '/progresso';
 
   /// Chat com o coach. Não existe na SPA — lá o coach é um componente do dashboard; aqui
   /// vira tela própria porque conversa em celular precisa da altura inteira.
@@ -128,6 +146,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: Routes.coach, builder: (_, _) => const CoachPage()),
       GoRoute(path: Routes.review, builder: (_, _) => const ReviewPage()),
+      GoRoute(path: Routes.dayClose, builder: (_, _) => const DayClosePage()),
+      GoRoute(path: Routes.progress, builder: (_, _) => const ProgressPage()),
+      GoRoute(
+        path: Routes.achievements,
+        builder: (_, _) => const AchievementsPage(),
+      ),
       GoRoute(path: Routes.billing, builder: (_, _) => const BillingPage()),
       GoRoute(path: Routes.account, builder: (_, _) => const AccountPage()),
       GoRoute(path: Routes.home, builder: (_, _) => const HomePage()),

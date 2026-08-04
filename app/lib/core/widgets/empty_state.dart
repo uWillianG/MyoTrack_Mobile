@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../design/tokens.dart';
+
 /// Mensagem centralizada de estado vazio ou de erro, com uma ação opcional.
 ///
 /// É um `ListView`, e não uma `Column`: o `RefreshIndicator` precisa de um scrollable para
@@ -12,42 +14,88 @@ class EmptyState extends StatelessWidget {
     required this.title,
     this.detail,
     this.action,
-  });
+  }) : inline = false;
+
+  /// Versão para usar **dentro** de um scrollable que já existe.
+  ///
+  /// O construtor comum é um `ListView`, e um `ListView` dentro de outro não tem altura
+  /// limitada — a tela quebra em "Vertical viewport was given unbounded height". É o caso
+  /// do diário, onde a mensagem de "nenhuma refeição" divide a lista com os totais do dia.
+  const EmptyState.inline({
+    super.key,
+    required this.icon,
+    required this.title,
+    this.detail,
+    this.action,
+  }) : inline = true;
 
   final IconData icon;
   final String title;
   final String? detail;
   final Widget? action;
+  final bool inline;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final children = _children(theme);
+
+    if (inline) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: Space.xxl,
+          vertical: Space.huge,
+        ),
+        child: Column(children: children),
+      );
+    }
 
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 64),
-      children: [
-        Icon(icon, size: 48, color: theme.colorScheme.outline),
-        const SizedBox(height: 16),
-        Text(
-          title,
-          textAlign: TextAlign.center,
-          style: theme.textTheme.titleMedium,
-        ),
-        if (detail != null) ...[
-          const SizedBox(height: 8),
-          Text(
-            detail!,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-        if (action != null) ...[
-          const SizedBox(height: 16),
-          Center(child: action),
-        ],
-      ],
+      padding: const EdgeInsets.fromLTRB(Space.xxl, 72, Space.xxl, Space.huge),
+      children: children,
     );
+  }
+
+  List<Widget> _children(ThemeData theme) {
+    return [
+      // O ícone dentro de um disco, e não solto sobre o fundo. Solto ele lê como avaria —
+      // um glifo cinza no meio do nada parece a imagem que não carregou. Dentro de uma
+      // forma ele vira ilustração, e a tela vazia passa a parecer um estado previsto.
+      Center(
+        child: Container(
+          width: 72,
+          height: 72,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHigh,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            size: 32,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ),
+      const SizedBox(height: Space.lg),
+      Text(
+        title,
+        textAlign: TextAlign.center,
+        style: theme.textTheme.titleMedium,
+      ),
+      if (detail != null) ...[
+        const SizedBox(height: Space.xs),
+        Text(
+          detail!,
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+      if (action != null) ...[
+        const SizedBox(height: Space.xl),
+        Center(child: action),
+      ],
+    ];
   }
 }

@@ -1,0 +1,13 @@
+# A galeria visual (`test/design/gallery_test.dart`) fica fora da suíte normal.
+#
+# Ela existe para olhar, não para comparar: são screenshots das telas principais, usados
+# quando se mexe no tema. Se rodassem no CI, qualquer ajuste de espaçamento viraria uma
+# falha de pixel — e o time aprenderia a atualizar o golden sem olhar, que é o pior dos
+# mundos. Para gerar:
+#
+#   flutter test --update-goldens --tags gallery --run-skipped test/design
+#
+# (`--run-skipped` porque o `skip` abaixo é o que a mantém fora do `flutter test` seco.)
+tags:
+  gallery:
+    skip: "galeria visual — rode com --tags gallery"

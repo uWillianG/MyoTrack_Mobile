@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/design/tokens.dart';
 import '../../core/widgets/empty_state.dart';
 import 'review_controller.dart';
 
@@ -60,7 +61,12 @@ class _Queue extends ConsumerWidget {
         // Um único tipo revisável não precisa de seletor: a aba sozinha só ocuparia espaço.
         if (available.length > 1)
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            padding: const EdgeInsets.fromLTRB(
+              Space.gutter,
+              8,
+              Space.gutter,
+              0,
+            ),
             child: SegmentedButton<ReviewKind>(
               segments: [
                 for (final k in available)
@@ -95,7 +101,12 @@ class _Queue extends ConsumerWidget {
                       detail: 'Todos os planos ativos já foram revisados.',
                     )
                   : ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                      padding: const EdgeInsets.fromLTRB(
+                        Space.gutter,
+                        8,
+                        Space.gutter,
+                        16,
+                      ),
                       children: [
                         for (final item in items)
                           _QueueTile(item: item, kind: selected),

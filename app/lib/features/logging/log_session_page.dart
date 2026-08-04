@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/design/tokens.dart';
 import '../../core/providers.dart';
 import '../../core/widgets/empty_state.dart';
 import 'data/logging_models.dart';
@@ -59,7 +60,7 @@ class LogSessionPage extends ConsumerWidget {
             : _Form(form: form, exercises: exercises),
       ),
       bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        minimum: const EdgeInsets.fromLTRB(Space.gutter, 0, Space.gutter, 12),
         child: FilledButton.icon(
           onPressed: form.canSubmit ? () => _submit(context, ref) : null,
           icon: const Icon(Icons.check),
@@ -153,7 +154,7 @@ class _Form extends ConsumerWidget {
     final controller = ref.read(logSessionProvider.notifier);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      padding: const EdgeInsets.fromLTRB(Space.gutter, 12, Space.gutter, 16),
       children: [
         Row(
           children: [

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/design/tokens.dart';
 import '../../core/widgets/empty_state.dart';
 import 'coach_controller.dart';
 
@@ -85,7 +86,12 @@ class _CoachPageState extends ConsumerState<CoachPage> {
                   ? const _FirstMessage()
                   : ListView(
                       controller: _scroll,
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                      padding: const EdgeInsets.fromLTRB(
+                        Space.gutter,
+                        12,
+                        Space.gutter,
+                        12,
+                      ),
                       children: [
                         for (final message in messages)
                           _Bubble(message: message),

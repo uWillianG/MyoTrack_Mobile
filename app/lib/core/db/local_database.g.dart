@@ -758,11 +758,218 @@ class CachedExercisesCompanion extends UpdateCompanion<CachedExercise> {
   }
 }
 
+class $SeenAchievementsTable extends SeenAchievements
+    with TableInfo<$SeenAchievementsTable, SeenAchievement> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SeenAchievementsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _seenAtMeta = const VerificationMeta('seenAt');
+  @override
+  late final GeneratedColumn<DateTime> seenAt = GeneratedColumn<DateTime>(
+    'seen_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, seenAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'seen_achievements';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SeenAchievement> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('seen_at')) {
+      context.handle(
+        _seenAtMeta,
+        seenAt.isAcceptableOrUnknown(data['seen_at']!, _seenAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SeenAchievement map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SeenAchievement(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      seenAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}seen_at'],
+      )!,
+    );
+  }
+
+  @override
+  $SeenAchievementsTable createAlias(String alias) {
+    return $SeenAchievementsTable(attachedDatabase, alias);
+  }
+}
+
+class SeenAchievement extends DataClass implements Insertable<SeenAchievement> {
+  /// O id do catálogo, ex.: `quatro-semanas`.
+  final String id;
+  final DateTime seenAt;
+  const SeenAchievement({required this.id, required this.seenAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['seen_at'] = Variable<DateTime>(seenAt);
+    return map;
+  }
+
+  SeenAchievementsCompanion toCompanion(bool nullToAbsent) {
+    return SeenAchievementsCompanion(id: Value(id), seenAt: Value(seenAt));
+  }
+
+  factory SeenAchievement.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SeenAchievement(
+      id: serializer.fromJson<String>(json['id']),
+      seenAt: serializer.fromJson<DateTime>(json['seenAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'seenAt': serializer.toJson<DateTime>(seenAt),
+    };
+  }
+
+  SeenAchievement copyWith({String? id, DateTime? seenAt}) =>
+      SeenAchievement(id: id ?? this.id, seenAt: seenAt ?? this.seenAt);
+  SeenAchievement copyWithCompanion(SeenAchievementsCompanion data) {
+    return SeenAchievement(
+      id: data.id.present ? data.id.value : this.id,
+      seenAt: data.seenAt.present ? data.seenAt.value : this.seenAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SeenAchievement(')
+          ..write('id: $id, ')
+          ..write('seenAt: $seenAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, seenAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SeenAchievement &&
+          other.id == this.id &&
+          other.seenAt == this.seenAt);
+}
+
+class SeenAchievementsCompanion extends UpdateCompanion<SeenAchievement> {
+  final Value<String> id;
+  final Value<DateTime> seenAt;
+  final Value<int> rowid;
+  const SeenAchievementsCompanion({
+    this.id = const Value.absent(),
+    this.seenAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SeenAchievementsCompanion.insert({
+    required String id,
+    this.seenAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id);
+  static Insertable<SeenAchievement> custom({
+    Expression<String>? id,
+    Expression<DateTime>? seenAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (seenAt != null) 'seen_at': seenAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SeenAchievementsCompanion copyWith({
+    Value<String>? id,
+    Value<DateTime>? seenAt,
+    Value<int>? rowid,
+  }) {
+    return SeenAchievementsCompanion(
+      id: id ?? this.id,
+      seenAt: seenAt ?? this.seenAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (seenAt.present) {
+      map['seen_at'] = Variable<DateTime>(seenAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SeenAchievementsCompanion(')
+          ..write('id: $id, ')
+          ..write('seenAt: $seenAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$LocalDatabase extends GeneratedDatabase {
   _$LocalDatabase(QueryExecutor e) : super(e);
   $LocalDatabaseManager get managers => $LocalDatabaseManager(this);
   late final $PendingWritesTable pendingWrites = $PendingWritesTable(this);
   late final $CachedExercisesTable cachedExercises = $CachedExercisesTable(
+    this,
+  );
+  late final $SeenAchievementsTable seenAchievements = $SeenAchievementsTable(
     this,
   );
   @override
@@ -772,6 +979,7 @@ abstract class _$LocalDatabase extends GeneratedDatabase {
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     pendingWrites,
     cachedExercises,
+    seenAchievements,
   ];
 }
 
@@ -1194,6 +1402,159 @@ typedef $$CachedExercisesTableProcessedTableManager =
       CachedExercise,
       PrefetchHooks Function()
     >;
+typedef $$SeenAchievementsTableCreateCompanionBuilder =
+    SeenAchievementsCompanion Function({
+      required String id,
+      Value<DateTime> seenAt,
+      Value<int> rowid,
+    });
+typedef $$SeenAchievementsTableUpdateCompanionBuilder =
+    SeenAchievementsCompanion Function({
+      Value<String> id,
+      Value<DateTime> seenAt,
+      Value<int> rowid,
+    });
+
+class $$SeenAchievementsTableFilterComposer
+    extends Composer<_$LocalDatabase, $SeenAchievementsTable> {
+  $$SeenAchievementsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get seenAt => $composableBuilder(
+    column: $table.seenAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SeenAchievementsTableOrderingComposer
+    extends Composer<_$LocalDatabase, $SeenAchievementsTable> {
+  $$SeenAchievementsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get seenAt => $composableBuilder(
+    column: $table.seenAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SeenAchievementsTableAnnotationComposer
+    extends Composer<_$LocalDatabase, $SeenAchievementsTable> {
+  $$SeenAchievementsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get seenAt =>
+      $composableBuilder(column: $table.seenAt, builder: (column) => column);
+}
+
+class $$SeenAchievementsTableTableManager
+    extends
+        RootTableManager<
+          _$LocalDatabase,
+          $SeenAchievementsTable,
+          SeenAchievement,
+          $$SeenAchievementsTableFilterComposer,
+          $$SeenAchievementsTableOrderingComposer,
+          $$SeenAchievementsTableAnnotationComposer,
+          $$SeenAchievementsTableCreateCompanionBuilder,
+          $$SeenAchievementsTableUpdateCompanionBuilder,
+          (
+            SeenAchievement,
+            BaseReferences<
+              _$LocalDatabase,
+              $SeenAchievementsTable,
+              SeenAchievement
+            >,
+          ),
+          SeenAchievement,
+          PrefetchHooks Function()
+        > {
+  $$SeenAchievementsTableTableManager(
+    _$LocalDatabase db,
+    $SeenAchievementsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SeenAchievementsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SeenAchievementsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SeenAchievementsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<DateTime> seenAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SeenAchievementsCompanion(
+                id: id,
+                seenAt: seenAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<DateTime> seenAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SeenAchievementsCompanion.insert(
+                id: id,
+                seenAt: seenAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SeenAchievementsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$LocalDatabase,
+      $SeenAchievementsTable,
+      SeenAchievement,
+      $$SeenAchievementsTableFilterComposer,
+      $$SeenAchievementsTableOrderingComposer,
+      $$SeenAchievementsTableAnnotationComposer,
+      $$SeenAchievementsTableCreateCompanionBuilder,
+      $$SeenAchievementsTableUpdateCompanionBuilder,
+      (
+        SeenAchievement,
+        BaseReferences<
+          _$LocalDatabase,
+          $SeenAchievementsTable,
+          SeenAchievement
+        >,
+      ),
+      SeenAchievement,
+      PrefetchHooks Function()
+    >;
 
 class $LocalDatabaseManager {
   final _$LocalDatabase _db;
@@ -1202,4 +1563,6 @@ class $LocalDatabaseManager {
       $$PendingWritesTableTableManager(_db, _db.pendingWrites);
   $$CachedExercisesTableTableManager get cachedExercises =>
       $$CachedExercisesTableTableManager(_db, _db.cachedExercises);
+  $$SeenAchievementsTableTableManager get seenAchievements =>
+      $$SeenAchievementsTableTableManager(_db, _db.seenAchievements);
 }

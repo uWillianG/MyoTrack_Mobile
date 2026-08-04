@@ -6,8 +6,13 @@ dependencies {
     api 'org.springframework.boot:spring-boot-starter-validation'
     api 'org.springframework.boot:spring-boot-starter-mail'
 
-    // RestClient para as APIs REST do Gemini. Só o spring-web, não o starter-web inteiro:
-    // o Worker consome este módulo e não deve subir um servidor Tomcat.
+    // RestClient para as APIs REST do Gemini, da OpenAI e do serviço de visão. Só o spring-web,
+    // não o starter-web inteiro: o Worker consome este módulo e não deve subir um Tomcat.
+    //
+    // Não há SDK de LLM aqui, e é deliberado: os dois provedores são chamados por REST direto.
+    // O corpo de uma requisição de structured output é pequeno e estável, e a saída da Anthropic
+    // — que era o único que usava SDK — deixou a lição de que um SDK a mais é uma dependência a
+    // mais para versionar quando o fornecedor muda.
     api 'org.springframework:spring-web'
 
     // PasswordEncoder — o encoder do formato do ASP.NET Identity mora aqui, não na API.
@@ -19,11 +24,6 @@ dependencies {
 
     api 'io.minio:minio:8.5.17'
     api 'com.stripe:stripe-java:28.2.0'
-
-    // SDK oficial da Anthropic. O backend .NET usava o SDK equivalente em C#; manter um SDK
-    // oficial (em vez de HTTP na mão) é o que garante que structured output e contagem de
-    // tokens continuem batendo com o comportamento atual.
-    api 'com.anthropic:anthropic-java:2.34.0'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }

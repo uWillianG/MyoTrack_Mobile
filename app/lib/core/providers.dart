@@ -68,3 +68,8 @@ final authStateProvider = FutureProvider<bool>(
 final userRolesProvider = FutureProvider<List<String>>(
   (ref) => ref.watch(tokenStoreProvider).roles(),
 );
+
+/// E-mail do usuário atual. Alimenta as iniciais do avatar da barra superior.
+final userEmailProvider = FutureProvider<String?>(
+  (ref) => ref.watch(tokenStoreProvider).email(),
+);

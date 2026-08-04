@@ -3,13 +3,32 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../core/design/tokens.dart';
 import '../../core/widgets/empty_state.dart';
 import 'data/video_models.dart';
 import 'video_analysis_controller.dart';
 
 /// Análise de execução por vídeo. Porte de `VideoAnalysisPage.tsx`.
-class VideoAnalysisPage extends ConsumerWidget {
+///
+/// Rota própria (`/videos`), que é para onde aponta a notificação de análise pronta; o
+/// conteúdo mora em [VideoAnalysisView] para a aba Analisar do hub diário poder mostrá-lo
+/// sob a barra de título dela.
+class VideoAnalysisPage extends StatelessWidget {
   const VideoAnalysisPage({super.key});
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Análise de execução')),
+    body: const VideoAnalysisView(),
+  );
+}
+
+/// A análise de execução sem a barra de título, com o botão de gravar preso embaixo.
+///
+/// O botão vem no fim de uma `Column` e não num `bottomNavigationBar`: dentro da aba
+/// Analisar o rodapé do `Scaffold` já é a barra de navegação do app.
+class VideoAnalysisView extends ConsumerWidget {
+  const VideoAnalysisView({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -26,41 +45,47 @@ class VideoAnalysisPage extends ConsumerWidget {
       }
     });
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Análise de execução')),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(videoHistoryProvider);
-          await ref.read(videoHistoryProvider.future);
-        },
-        child: history.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => EmptyState(
-            icon: Icons.cloud_off_outlined,
-            title: 'Não foi possível carregar suas análises.',
-            detail: '$error',
-            action: FilledButton.tonal(
-              onPressed: () => ref.invalidate(videoHistoryProvider),
-              child: const Text('Tentar de novo'),
+    return Column(
+      children: [
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(videoHistoryProvider);
+              await ref.read(videoHistoryProvider.future);
+            },
+            child: history.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => EmptyState(
+                icon: Icons.cloud_off_outlined,
+                title: 'Não foi possível carregar suas análises.',
+                detail: '$error',
+                action: FilledButton.tonal(
+                  onPressed: () => ref.invalidate(videoHistoryProvider),
+                  child: const Text('Tentar de novo'),
+                ),
+              ),
+              data: (analyses) => _Body(
+                analyses: analyses,
+                running: state.running,
+                step: state.step,
+                progress: controller.uploadProgress,
+              ),
             ),
           ),
-          data: (analyses) => _Body(
-            analyses: analyses,
-            running: state.running,
-            step: state.step,
-            progress: controller.uploadProgress,
+        ),
+        SafeArea(
+          top: false,
+          minimum: const EdgeInsets.fromLTRB(Space.gutter, 0, Space.gutter, 12),
+          child: FilledButton.icon(
+            onPressed: state.running ? null : () => _start(context, ref),
+            icon: const Icon(Icons.videocam_outlined),
+            label: const Text('Analisar execução'),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(48),
+            ),
           ),
         ),
-      ),
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        child: FilledButton.icon(
-          onPressed: state.running ? null : () => _start(context, ref),
-          icon: const Icon(Icons.videocam_outlined),
-          label: const Text('Analisar execução'),
-          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-        ),
-      ),
+      ],
     );
   }
 
@@ -129,7 +154,12 @@ class _ExerciseSheet extends ConsumerWidget {
           data: (options) => ListView(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                padding: const EdgeInsets.fromLTRB(
+                  Space.gutter,
+                  16,
+                  Space.gutter,
+                  8,
+                ),
                 child: Text(
                   'Qual exercício está no vídeo?',
                   style: Theme.of(context).textTheme.titleMedium,
@@ -173,7 +203,7 @@ class _Body extends StatelessWidget {
     }
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      padding: const EdgeInsets.fromLTRB(Space.gutter, 8, Space.gutter, 16),
       children: [
         if (running) _ProgressCard(step: step, progress: progress),
         for (final analysis in analyses) _AnalysisCard(analysis: analysis),
@@ -234,7 +264,13 @@ class _AnalysisCard extends StatelessWidget {
           // O vídeo mostrado é o com esqueleto: ver onde o joelho passou da linha vale mais
           // que ler "profundidade insuficiente".
           if (analysis.overlayVideoUrl != null)
-            _OverlayPlayer(url: analysis.overlayVideoUrl!),
+            _OverlayPlayer(
+              url: analysis.overlayVideoUrl!,
+              marks: [
+                for (final issue in analysis.result.issues)
+                  ...issue.timestampsSec,
+              ],
+            ),
 
           Padding(
             padding: const EdgeInsets.all(16),
@@ -405,14 +441,19 @@ class _Point extends StatelessWidget {
   }
 }
 
-/// Reprodutor do vídeo com esqueleto.
+/// O vídeo com o esqueleto, mais a barra que marca onde a técnica saiu do lugar.
 ///
-/// Não toca sozinho: a lista pode ter várias análises, e vários vídeos iniciando juntos
-/// gastariam dados e bateria sem ninguém pedir.
+/// As marcas vermelhas são os `timestampsSec` das ocorrências, e tocar numa delas leva o
+/// vídeo até ali. Sem isso a lista de problemas dizia "em 0:02, 0:05" e deixava a pessoa
+/// caçar o instante arrastando o vídeo — que é justamente o que ela não consegue fazer com o
+/// dedo numa barra de sete segundos.
 class _OverlayPlayer extends StatefulWidget {
-  const _OverlayPlayer({required this.url});
+  const _OverlayPlayer({required this.url, this.marks = const []});
 
   final String url;
+
+  /// Momentos, em segundos, em que houve problema.
+  final List<double> marks;
 
   @override
   State<_OverlayPlayer> createState() => _OverlayPlayerState();
@@ -429,6 +470,9 @@ class _OverlayPlayerState extends State<_OverlayPlayer> {
       await controller.setLooping(true);
       await controller.play();
       if (mounted) {
+        // A barra precisa acompanhar a reprodução: sem ouvir o controller ela ficaria
+        // parada no zero enquanto o vídeo corre.
+        controller.addListener(_onTick);
         setState(() => _controller = controller);
       } else {
         await controller.dispose();
@@ -443,8 +487,15 @@ class _OverlayPlayerState extends State<_OverlayPlayer> {
     }
   }
 
+  void _onTick() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   @override
   void dispose() {
+    _controller?.removeListener(_onTick);
     _controller?.dispose();
     super.dispose();
   }
@@ -472,13 +523,186 @@ class _OverlayPlayerState extends State<_OverlayPlayer> {
       );
     }
 
-    return AspectRatio(
-      aspectRatio: controller.value.aspectRatio,
+    final value = controller.value;
+
+    return Column(
+      children: [
+        AspectRatio(
+          aspectRatio: value.aspectRatio,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              GestureDetector(
+                onTap: _togglePlay,
+                child: VideoPlayer(controller),
+              ),
+              // O botão só aparece com o vídeo parado: em cima da execução ele taparia
+              // justamente o quadril e o joelho, que é onde se olha.
+              if (!value.isPlaying)
+                IconButton.filled(
+                  onPressed: _togglePlay,
+                  icon: const Icon(Icons.play_arrow),
+                  tooltip: 'Reproduzir',
+                ),
+            ],
+          ),
+        ),
+        _Scrubber(
+          position: value.position,
+          duration: value.duration,
+          marks: widget.marks,
+          onSeek: (position) => controller.seekTo(position),
+        ),
+      ],
+    );
+  }
+
+  void _togglePlay() {
+    final controller = _controller;
+    if (controller == null) {
+      return;
+    }
+    controller.value.isPlaying ? controller.pause() : controller.play();
+  }
+}
+
+/// Barra de progresso do vídeo, com as marcas das ocorrências.
+class _Scrubber extends StatelessWidget {
+  const _Scrubber({
+    required this.position,
+    required this.duration,
+    required this.marks,
+    required this.onSeek,
+  });
+
+  final Duration position;
+  final Duration duration;
+  final List<double> marks;
+  final ValueChanged<Duration> onSeek;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final total = duration.inMilliseconds;
+    final ratio = total <= 0
+        ? 0.0
+        : (position.inMilliseconds / total).clamp(0.0, 1.0);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(Space.gutter, 12, Space.gutter, 12),
+      child: Column(
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) => SizedBox(
+              height: 24,
+              child: Stack(
+                alignment: Alignment.centerLeft,
+                children: [
+                  // Arrastar em qualquer ponto da faixa busca o instante: um alvo de 24 dp
+                  // de altura para uma trilha de 4, porque o dedo não acerta 4 dp.
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTapDown: (details) =>
+                        _seekTo(details.localPosition.dx, constraints.maxWidth),
+                    onHorizontalDragUpdate: (details) =>
+                        _seekTo(details.localPosition.dx, constraints.maxWidth),
+                    child: SizedBox(
+                      height: 24,
+                      width: constraints.maxWidth,
+                      child: Center(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(2),
+                          child: LinearProgressIndicator(
+                            value: ratio,
+                            minHeight: 4,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  for (final mark in marks)
+                    if (total > 0 && mark * 1000 <= total)
+                      Positioned(
+                        left: (mark * 1000 / total) * constraints.maxWidth - 5,
+                        child: _IssueMark(
+                          seconds: mark,
+                          onTap: () => onSeek(
+                            Duration(milliseconds: (mark * 1000).round()),
+                          ),
+                        ),
+                      ),
+                ],
+              ),
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                _clock(position),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              Text(
+                _clock(duration),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _seekTo(double dx, double width) {
+    if (width <= 0 || duration.inMilliseconds <= 0) {
+      return;
+    }
+    final ratio = (dx / width).clamp(0.0, 1.0);
+    onSeek(Duration(milliseconds: (duration.inMilliseconds * ratio).round()));
+  }
+
+  static String _clock(Duration duration) {
+    final seconds = duration.inSeconds;
+    return '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+  }
+}
+
+class _IssueMark extends StatelessWidget {
+  const _IssueMark({required this.seconds, required this.onTap});
+
+  final double seconds;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Semantics(
+      button: true,
+      label: 'Ir para ${seconds.toStringAsFixed(1)} segundos',
       child: GestureDetector(
-        onTap: () => setState(() {
-          controller.value.isPlaying ? controller.pause() : controller.play();
-        }),
-        child: VideoPlayer(controller),
+        onTap: onTap,
+        // O alvo tocável é maior que o ponto desenhado: 10 dp de bolinha não se acerta com
+        // o polegar, e errar aqui significa buscar o instante errado.
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: Center(
+            child: Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: theme.colorScheme.error,
+                border: Border.all(color: theme.colorScheme.surface, width: 2),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

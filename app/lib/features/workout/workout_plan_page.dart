@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/design/tokens.dart';
 import '../../core/jobs/generation_controller.dart';
 import '../../core/router.dart';
 import '../../core/widgets/empty_state.dart';
@@ -67,7 +68,7 @@ class WorkoutPlanPage extends ConsumerWidget {
         ),
       ),
       bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        minimum: const EdgeInsets.fromLTRB(Space.gutter, 0, Space.gutter, 12),
         child: FilledButton.icon(
           onPressed: generation.running
               ? null
@@ -118,7 +119,7 @@ class _PlanBody extends StatelessWidget {
 
     final workout = plan!;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      padding: const EdgeInsets.fromLTRB(Space.gutter, 8, Space.gutter, 16),
       children: [
         Row(
           children: [

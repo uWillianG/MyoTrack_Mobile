@@ -3,7 +3,9 @@ gradle-wrapper.jar
 /captures/
 /gradlew
 /gradlew.bat
-/local.properties
+# Sem barra inicial: o AGP 9 gera este arquivo tanto em `android/` quanto em `android/app/`,
+# e ele guarda o caminho do SDK de quem compilou. A regra ancorada pegava só o primeiro.
+local.properties
 GeneratedPluginRegistrant.java
 .cxx/
 

@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/design/format.dart';
 import '../progress/progress_controller.dart';
 import 'dashboard_stats.dart';
 
@@ -513,7 +514,8 @@ class _NoData extends StatelessWidget {
 }
 
 /// Peso em pt-BR, sem casa decimal desnecessária: "1.250 kg", "82,4 kg".
-String formatKg(double value) {
-  final pattern = value == value.roundToDouble() ? '#,##0' : '#,##0.0';
-  return '${NumberFormat(pattern, 'pt_BR').format(value)} kg';
-}
+/// Peso e carga em quilos: "82,5 kg", "8.400 kg".
+///
+/// Delega para [Fmt.kg], que é onde a formatação de número do app inteiro mora. Continua
+/// existindo com este nome porque quatro telas já a importam daqui.
+String formatKg(double value) => Fmt.kg(value);

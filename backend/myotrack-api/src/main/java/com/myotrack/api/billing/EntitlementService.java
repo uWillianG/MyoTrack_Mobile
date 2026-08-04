@@ -1,7 +1,10 @@
 package com.myotrack.api.billing;
 
 import com.myotrack.domain.SubscriptionPlanType;
+import com.myotrack.infrastructure.repository.ProGrantRepository;
 import com.myotrack.infrastructure.repository.UserSubscriptionRepository;
+import java.time.Clock;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,18 +21,38 @@ import org.springframework.transaction.annotation.Transactional;
 public class EntitlementService {
 
     private final UserSubscriptionRepository subscriptions;
+    private final ProGrantRepository grants;
     private final LimitsProperties limits;
+    private final Clock clock;
 
-    public EntitlementService(UserSubscriptionRepository subscriptions, LimitsProperties limits) {
+    public EntitlementService(
+            UserSubscriptionRepository subscriptions,
+            ProGrantRepository grants,
+            LimitsProperties limits,
+            Clock clock) {
         this.subscriptions = subscriptions;
+        this.grants = grants;
         this.limits = limits;
+        this.clock = clock;
     }
 
+    /**
+     * O plano efetivo e os limites dele.
+     *
+     * <p>Duas origens de Pro, e a ordem entre elas não importa porque o resultado é o mesmo:
+     * assinatura ativa da loja, ou concessão por constância dentro do prazo. O que <b>não</b>
+     * se mistura é de onde ele veio — a assinatura continua sendo a única resposta para "quem
+     * pagou", e a concessão vive na própria tabela. Um usuário com as duas coisas é Pro uma
+     * vez só; quando a concessão vence, ele continua Pro pela assinatura, sem transição.
+     */
     @Transactional(readOnly = true)
     public Entitlements get(UUID userId) {
-        final boolean isPro = subscriptions.findByUserId(userId)
+        final boolean paid = subscriptions.findByUserId(userId)
                 .filter(s -> s.isActive() && s.getPlan() == SubscriptionPlanType.PRO)
                 .isPresent();
+        final boolean granted =
+                grants.existsByUserIdAndExpiresAtAfter(userId, OffsetDateTime.now(clock));
+        final boolean isPro = paid || granted;
 
         final LimitsProperties.PlanLimits plan = isPro ? limits.pro() : limits.free();
 
@@ -37,14 +60,21 @@ public class EntitlementService {
                 isPro ? SubscriptionPlanType.PRO : SubscriptionPlanType.FREE,
                 plan.maxMealAnalysesPerDay(),
                 plan.maxVideoAnalysesPerDay(),
-                plan.maxCoachMessagesPerDay());
+                plan.maxCoachMessagesPerDay(),
+                granted && !paid);
     }
 
     public record Entitlements(
             SubscriptionPlanType plan,
             int maxMealAnalysesPerDay,
             int maxVideoAnalysesPerDay,
-            int maxCoachMessagesPerDay) {
+            int maxCoachMessagesPerDay,
+            /**
+             * O Pro veio de uma concessão por constância, e não de pagamento. A tela de
+             * assinatura usa isto para não oferecer o portal de cobrança a quem não tem
+             * cobrança nenhuma — e para dizer quando o prêmio acaba.
+             */
+            boolean isGranted) {
 
         public boolean isPro() {
             return plan == SubscriptionPlanType.PRO;

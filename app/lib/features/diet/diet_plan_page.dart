@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/design/tokens.dart';
 import '../../core/jobs/generation_controller.dart';
 import '../../core/router.dart';
 import '../../core/widgets/empty_state.dart';
@@ -10,8 +11,30 @@ import 'data/diet_models.dart';
 import 'diet_plan_controller.dart';
 
 /// Plano alimentar ativo. Porte de `frontend/src/pages/DietPlanPage.tsx`.
+///
+/// Rota própria (`/dieta`); o conteúdo mora em [DietPlanView] para a aba Nutrição do hub
+/// diário poder mostrá-lo sob a barra de título dela.
 class DietPlanPage extends ConsumerWidget {
   const DietPlanPage({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final planAsync = ref.watch(activeDietPlanProvider);
+
+    return Scaffold(
+      appBar: AppBar(title: Text(planAsync.valueOrNull?.name ?? 'Sua dieta')),
+      body: const DietPlanView(),
+    );
+  }
+}
+
+/// A dieta sem a barra de título, com o botão de gerar preso embaixo.
+///
+/// O botão vem no fim de uma `Column` em vez de num `bottomNavigationBar` porque esta view
+/// também roda dentro da aba Nutrição, onde o rodapé do `Scaffold` já é a barra de
+/// navegação do app.
+class DietPlanView extends ConsumerWidget {
+  const DietPlanView({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -27,49 +50,53 @@ class DietPlanPage extends ConsumerWidget {
       }
     });
 
-    return Scaffold(
-      appBar: AppBar(title: Text(planAsync.valueOrNull?.name ?? 'Sua dieta')),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(activeDietPlanProvider);
-          await ref.read(activeDietPlanProvider.future);
-        },
-        child: planAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => EmptyState(
-            icon: Icons.cloud_off_outlined,
-            title: 'Não foi possível carregar sua dieta.',
-            detail: '$error',
-            action: FilledButton.tonal(
-              onPressed: () => ref.invalidate(activeDietPlanProvider),
-              child: const Text('Tentar de novo'),
+    return Column(
+      children: [
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(activeDietPlanProvider);
+              await ref.read(activeDietPlanProvider.future);
+            },
+            child: planAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => EmptyState(
+                icon: Icons.cloud_off_outlined,
+                title: 'Não foi possível carregar sua dieta.',
+                detail: '$error',
+                action: FilledButton.tonal(
+                  onPressed: () => ref.invalidate(activeDietPlanProvider),
+                  child: const Text('Tentar de novo'),
+                ),
+              ),
+              data: (plan) => _PlanBody(plan: plan, generation: generation),
             ),
           ),
-          data: (plan) => _PlanBody(plan: plan, generation: generation),
         ),
-      ),
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        child: FilledButton.icon(
-          onPressed: generation.running
-              ? null
-              : () => ref.read(dietGenerationProvider.notifier).start(),
-          icon: generation.running
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.auto_awesome),
-          label: Text(
-            generation.running
-                ? (generation.step ?? 'Gerando…')
-                : planAsync.valueOrNull == null
-                ? 'Gerar dieta'
-                : 'Regenerar dieta',
+        SafeArea(
+          top: false,
+          minimum: const EdgeInsets.fromLTRB(Space.gutter, 0, Space.gutter, 12),
+          child: FilledButton.icon(
+            onPressed: generation.running
+                ? null
+                : () => ref.read(dietGenerationProvider.notifier).start(),
+            icon: generation.running
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.auto_awesome),
+            label: Text(
+              generation.running
+                  ? (generation.step ?? 'Gerando…')
+                  : planAsync.valueOrNull == null
+                  ? 'Gerar dieta'
+                  : 'Regenerar dieta',
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -101,7 +128,7 @@ class _PlanBody extends StatelessWidget {
 
     final diet = plan!;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      padding: const EdgeInsets.fromLTRB(Space.gutter, 8, Space.gutter, 16),
       children: [
         Row(
           children: [

@@ -70,22 +70,22 @@ class GeminiJsonClientTest {
     @ParameterizedTest
     @CsvSource(nullValues = "null", value = {
         // explícito vence a autodetecção
-        "gemini,    chave-a, chave-g, gemini",
+        "openai,    chave-o, chave-g, openai",
         // explícito, sem depender de caixa
-        "Anthropic, null,    chave-g, anthropic",
+        "OpenAI,    null,    chave-g, openai",
         // autodetecção pela chave preenchida
-        "null,      chave-a, null,    anthropic",
+        "null,      chave-o, null,    openai",
         "null,      null,    chave-g, gemini",
-        // ambas preenchidas ⇒ Anthropic tem precedência
-        "null,      chave-a, chave-g, anthropic",
+        // ambas preenchidas ⇒ Gemini tem precedência, por ser o mais barato por token
+        "null,      chave-o, chave-g, gemini",
         // nenhuma ⇒ padrão (o cliente fica "não configurado" e a geração cai nas regras)
-        "null,      null,    null,    anthropic"
+        "null,      null,    null,    gemini"
     })
     void effectiveProviderSelectsByConfigOrKeys(
-            String provider, String anthropicKey, String geminiKey, String expected) {
+            String provider, String openaiKey, String geminiKey, String expected) {
 
         LlmProperties properties = new LlmProperties(
-                provider, anthropicKey, null, geminiKey, null, null, 0);
+                provider, openaiKey, null, geminiKey, null, null, 0);
 
         assertThat(properties.effectiveProvider()).isEqualTo(expected);
     }
@@ -103,11 +103,11 @@ class GeminiJsonClientTest {
     }
 
     @Test
-    @DisplayName("Os defaults dos modelos batem com os do appsettings.json do .NET")
-    void defaultsMatchDotNetConfiguration() {
+    @DisplayName("Os defaults dos modelos são os que o application.yml documenta")
+    void defaultsMatchConfiguration() {
         LlmProperties properties = new LlmProperties(null, null, null, null, null, null, 0);
 
-        assertThat(properties.model()).isEqualTo("claude-opus-4-8");
+        assertThat(properties.openaiModel()).isEqualTo("gpt-5-mini");
         assertThat(properties.geminiModel()).isEqualTo("gemini-3.5-flash");
         assertThat(properties.geminiImageModel()).isEqualTo("gemini-3.1-flash-image");
         assertThat(properties.maxTokens()).isEqualTo(8192);

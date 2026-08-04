@@ -79,6 +79,21 @@ class TokenStore {
     return rolesFromAccessToken(tokens.accessToken);
   }
 
+  /// E-mail do usuário atual, tirado do JWT. Null quando não há sessão.
+  ///
+  /// Vem do token e não de `/api/profile` porque o uso é decorativo — as iniciais no avatar
+  /// da barra superior — e uma chamada de rede para desenhar duas letras deixaria o avatar
+  /// piscando vazio a cada abertura.
+  Future<String?> email() async {
+    final tokens = await read();
+    return tokens == null ? null : emailFromAccessToken(tokens.accessToken);
+  }
+
+  static String? emailFromAccessToken(String accessToken) {
+    final claim = _payload(accessToken)?['email'];
+    return claim is String && claim.isNotEmpty ? claim : null;
+  }
+
   static const _dotNetRoleClaim =
       'http://schemas.microsoft.com/ws/2008/06/identity/claims/role';
 
@@ -88,31 +103,35 @@ class TokenStore {
   /// item de menu da revisão). Toda autorização de verdade acontece no servidor, que
   /// valida a assinatura — um token adulterado no cliente não abre nenhuma porta.
   static List<String> rolesFromAccessToken(String accessToken) {
+    final payload = _payload(accessToken);
+    final claim = payload?['role'] ?? payload?[_dotNetRoleClaim];
+    if (claim == null) {
+      return const [];
+    }
+    // O claim vem como string quando há um papel só e como lista quando há vários.
+    if (claim is String) {
+      return [claim];
+    }
+    if (claim is List) {
+      return claim.whereType<String>().toList();
+    }
+    return const [];
+  }
+
+  /// Token malformado devolve null em vez de estourar: um JWT truncado no armazenamento
+  /// não pode impedir o app de abrir.
+  static Map<String, dynamic>? _payload(String accessToken) {
     try {
       final parts = accessToken.split('.');
       if (parts.length != 3) {
-        return const [];
+        return null;
       }
-      final payload =
-          json.decode(
-                utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
-              )
-              as Map<String, dynamic>;
-
-      final claim = payload['role'] ?? payload[_dotNetRoleClaim];
-      if (claim == null) {
-        return const [];
-      }
-      // O claim vem como string quando há um papel só e como lista quando há vários.
-      if (claim is String) {
-        return [claim];
-      }
-      if (claim is List) {
-        return claim.whereType<String>().toList();
-      }
-      return const [];
+      return json.decode(
+            utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+          )
+          as Map<String, dynamic>;
     } catch (_) {
-      return const [];
+      return null;
     }
   }
 }

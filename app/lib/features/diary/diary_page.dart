@@ -3,55 +3,79 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import 'package:go_router/go_router.dart';
+
+import '../../core/design/tokens.dart';
+import '../../core/design/format.dart';
+import '../../core/design/typography.dart';
+import '../../core/router.dart';
 import '../../core/widgets/empty_state.dart';
+import '../analysis/analysis_page.dart';
+import '../home/home_page.dart';
 import 'data/diary_models.dart';
 import 'diary_controller.dart';
 
 /// Diário alimentar. Porte de `DiaryPage.tsx`.
-class DiaryPage extends ConsumerWidget {
+///
+/// Rota própria (`/diario`) porque o link do e-mail e a notificação apontam para cá. O
+/// conteúdo mora em [DiaryView] para que a aba Nutrição do hub diário possa mostrá-lo sem
+/// uma segunda barra de título por cima da dela.
+class DiaryPage extends StatelessWidget {
   const DiaryPage({super.key});
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Diário')),
+    body: const DiaryView(),
+  );
+}
+
+/// O diário sem a barra de título — é o que a aba Nutrição hospeda.
+class DiaryView extends ConsumerWidget {
+  const DiaryView({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final date = ref.watch(diaryDateProvider);
     final dayAsync = ref.watch(diaryDayProvider);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Diário')),
-      body: Column(
-        children: [
-          _DayPicker(date: date),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: () async {
-                ref.invalidate(diaryDayProvider);
-                await ref.read(diaryDayProvider.future);
-              },
-              child: dayAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, _) => EmptyState(
-                  icon: Icons.cloud_off_outlined,
-                  title: 'Não foi possível carregar o diário.',
-                  detail: '$error',
-                  action: FilledButton.tonal(
-                    onPressed: () => ref.invalidate(diaryDayProvider),
-                    child: const Text('Tentar de novo'),
-                  ),
+    return Column(
+      children: [
+        _DayPicker(date: date),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(diaryDayProvider);
+              await ref.read(diaryDayProvider.future);
+            },
+            child: dayAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => EmptyState(
+                icon: Icons.cloud_off_outlined,
+                title: 'Não foi possível carregar o diário.',
+                detail: '$error',
+                action: FilledButton.tonal(
+                  onPressed: () => ref.invalidate(diaryDayProvider),
+                  child: const Text('Tentar de novo'),
                 ),
-                data: (day) => _Body(day: day),
               ),
+              data: (day) => _Body(day: day),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-/// Navegação entre dias.
+/// A semana em sete alvos, terminando em hoje.
 ///
-/// Não deixa passar de hoje: o diário registra o que foi comido, e um dia futuro só poderia
-/// estar vazio — o usuário acharia que perdeu dados.
+/// Substituiu as setas "dia anterior / próximo dia". Com setas, chegar em segunda-feira a
+/// partir de domingo custava seis toques e nenhum deles dizia onde a pessoa estava; aqui a
+/// semana inteira está à vista e a distância é sempre um toque.
+///
+/// Não passa de hoje: o diário registra o que foi comido, e um dia futuro só poderia estar
+/// vazio — o usuário acharia que perdeu dados.
 class _DayPicker extends ConsumerWidget {
   const _DayPicker({required this.date});
 
@@ -61,35 +85,88 @@ class _DayPicker extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final isToday = date == today;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-      child: Row(
+    return SizedBox(
+      height: 68,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 4),
         children: [
-          IconButton(
-            onPressed: () => ref.read(diaryDateProvider.notifier).state = date
-                .subtract(const Duration(days: 1)),
-            icon: const Icon(Icons.chevron_left),
-            tooltip: 'Dia anterior',
-          ),
-          Expanded(
-            child: Text(
-              isToday ? 'Hoje' : DateFormat("EEEE, d 'de' MMMM").format(date),
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium,
+          for (var back = 6; back >= 0; back--) ...[
+            if (back < 6) const SizedBox(width: 6),
+            () {
+              final day = today.subtract(Duration(days: back));
+              return _DayChip(
+                date: day,
+                selected: day == date,
+                onTap: () => ref.read(diaryDateProvider.notifier).state = day,
+              );
+            }(),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DayChip extends StatelessWidget {
+  const _DayChip({
+    required this.date,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final DateTime date;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final foreground = selected
+        ? theme.colorScheme.onPrimaryContainer
+        : theme.colorScheme.onSurfaceVariant;
+
+    return Semantics(
+      selected: selected,
+      button: true,
+      // A data por extenso para o leitor de tela: "S 27" não diz nada em voz alta.
+      label: DateFormat("EEEE, d 'de' MMMM").format(date),
+      excludeSemantics: true,
+      child: Material(
+        // `primaryContainer`, o mesmo da aba selecionada na barra inferior. Com o esmeralda
+        // cheio, o dia escolhido virava a coisa mais berrante da tela — mais que o botão de
+        // fotografar a refeição, que é a ação que a tela quer. Cor cheia fica para ação.
+        color: selected
+            ? theme.colorScheme.primaryContainer
+            : Colors.transparent,
+        shape: const StadiumBorder(),
+        child: InkWell(
+          customBorder: const StadiumBorder(),
+          onTap: onTap,
+          child: SizedBox(
+            width: 44,
+            height: 60,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  DateFormat('E').format(date).substring(0, 1).toUpperCase(),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: foreground,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${date.day}',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: foreground,
+                  ),
+                ),
+              ],
             ),
           ),
-          IconButton(
-            onPressed: isToday
-                ? null
-                : () => ref.read(diaryDateProvider.notifier).state = date.add(
-                    const Duration(days: 1),
-                  ),
-            icon: const Icon(Icons.chevron_right),
-            tooltip: 'Próximo dia',
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -103,21 +180,51 @@ class _Body extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      padding: const EdgeInsets.fromLTRB(Space.gutter, 8, Space.gutter, 16),
       children: [
         _Totals(day: day),
         const SizedBox(height: 16),
         _WeekChart(week: day.week),
         const SizedBox(height: 16),
         if (day.entries.isEmpty)
-          const EmptyState(
+          // `inline` porque isto já está dentro de uma `ListView`: a versão comum do
+          // `EmptyState` é outra, e uma dentro da outra quebra o layout do dia sem refeição.
+          const EmptyState.inline(
             icon: Icons.restaurant_outlined,
             title: 'Nenhuma refeição neste dia.',
             detail: 'Fotografe seu prato na tela de refeições.',
           )
         else
           for (final entry in day.entries) _EntryTile(entry: entry),
+        // O diário é onde a falta aparece — "faltam 62 g de proteína" —, e é aqui que dá
+        // vontade de registrar o que faltou. Sem este botão o caminho era voltar à barra de
+        // navegação e achar a aba Analisar.
+        const SizedBox(height: 8),
+        const _AddMealButton(),
       ],
+    );
+  }
+}
+
+class _AddMealButton extends ConsumerWidget {
+  const _AddMealButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return OutlinedButton.icon(
+      onPressed: () {
+        ref.read(analysisTabProvider.notifier).state = AnalysisTab.meal;
+        // Dentro do hub troca de aba; numa `/diario` empilhada não há hub, e aí o jeito de
+        // chegar à câmera é a rota.
+        if (ref.read(homeTabProvider) == HomeTab.nutrition) {
+          ref.read(homeTabProvider.notifier).state = HomeTab.analysis;
+        } else {
+          context.push(Routes.mealAnalysis);
+        }
+      },
+      icon: const Icon(Icons.photo_camera_outlined),
+      label: const Text('Adicionar refeição por foto'),
+      style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
     );
   }
 }
@@ -145,18 +252,25 @@ class _Totals extends StatelessWidget {
               textBaseline: TextBaseline.alphabetic,
               children: [
                 Text(
-                  '${consumed.kcal.round()}',
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+                  Fmt.integer(consumed.kcal),
+                  style: AppTypography.numeric(
+                    size: 30,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
-                const SizedBox(width: 4),
-                Text(
-                  targets == null
-                      ? 'kcal hoje'
-                      : 'de ${targets.kcal.round()} kcal',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                const SizedBox(width: Space.xxs + 2),
+                // `Flexible` porque a meta é um número que vem do servidor: com quatro
+                // dígitos de cada lado e a fonte do sistema ampliada, a linha estoura a
+                // largura do cartão num celular de 360 dp.
+                Flexible(
+                  child: Text(
+                    targets == null
+                        ? 'kcal hoje'
+                        : 'de ${Fmt.kcal(targets.kcal)}',
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
               ],
@@ -172,19 +286,19 @@ class _Totals extends StatelessWidget {
                 label: 'Proteína',
                 consumed: consumed.proteinG,
                 target: targets.proteinG,
-                unit: 'g',
+                grams: true,
               ),
               _MacroBar(
                 label: 'Carboidrato',
                 consumed: consumed.carbsG,
                 target: targets.carbsG,
-                unit: 'g',
+                grams: true,
               ),
               _MacroBar(
                 label: 'Gordura',
                 consumed: consumed.fatG,
                 target: targets.fatG,
-                unit: 'g',
+                grams: true,
               ),
             ] else ...[
               const SizedBox(height: 8),
@@ -213,13 +327,15 @@ class _MacroBar extends StatelessWidget {
     required this.label,
     required this.consumed,
     required this.target,
-    this.unit = '',
+    this.grams = false,
   });
 
   final String label;
   final num consumed;
   final num target;
-  final String unit;
+
+  /// Calorias não levam unidade nesta linha — o cabeçalho do cartão já disse "kcal".
+  final bool grams;
 
   @override
   Widget build(BuildContext context) {
@@ -227,9 +343,10 @@ class _MacroBar extends StatelessWidget {
     final ratio = target <= 0
         ? 0.0
         : (consumed / target).clamp(0.0, 1.0).toDouble();
+    final unit = grams ? Fmt.grams : Fmt.integer;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: Space.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -237,18 +354,18 @@ class _MacroBar extends StatelessWidget {
             children: [
               Expanded(child: Text(label, style: theme.textTheme.labelMedium)),
               Text(
-                '${consumed.round()}$unit / ${target.round()}$unit',
+                '${Fmt.integer(consumed)} / ${unit(target)}',
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(value: ratio, minHeight: 6),
-          ),
+          const SizedBox(height: Space.xxs),
+          // O raio e a altura vêm do tema (`progressIndicatorTheme`), que é onde a barra do
+          // app inteiro é definida — aqui só a altura menor, porque esta é uma barra de
+          // apoio e não a de progresso de uma tela.
+          LinearProgressIndicator(value: ratio, minHeight: 6),
         ],
       ),
     );
@@ -320,7 +437,7 @@ class _WeekChart extends StatelessWidget {
                     touchTooltipData: BarTouchTooltipData(
                       getTooltipColor: (_) => theme.colorScheme.inverseSurface,
                       getTooltipItem: (_, _, _, index) => BarTooltipItem(
-                        '${week[index].kcal.round()} kcal',
+                        Fmt.kcal(week[index].kcal),
                         theme.textTheme.labelSmall!.copyWith(
                           color: theme.colorScheme.onInverseSurface,
                         ),
@@ -368,7 +485,7 @@ class _EntryTile extends ConsumerWidget {
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         title: Text(
-          '${entry.totalKcal.round()} kcal',
+          Fmt.kcal(entry.totalKcal),
           style: theme.textTheme.titleSmall?.copyWith(
             decoration: excluded ? TextDecoration.lineThrough : null,
             color: excluded ? theme.colorScheme.onSurfaceVariant : null,
@@ -376,9 +493,9 @@ class _EntryTile extends ConsumerWidget {
         ),
         subtitle: Text(
           '${time == null ? '' : '${DateFormat('HH:mm').format(time.toLocal())}  ·  '}'
-          'P ${entry.totalProteinG.round()} g  ·  '
-          'C ${entry.totalCarbsG.round()} g  ·  '
-          'G ${entry.totalFatG.round()} g',
+          'P ${Fmt.grams(entry.totalProteinG)}  ·  '
+          'C ${Fmt.grams(entry.totalCarbsG)}  ·  '
+          'G ${Fmt.grams(entry.totalFatG)}',
           style: theme.textTheme.labelSmall,
         ),
         // Excluir do diário não apaga a análise: ela continua na lista, riscada. Sumir com
