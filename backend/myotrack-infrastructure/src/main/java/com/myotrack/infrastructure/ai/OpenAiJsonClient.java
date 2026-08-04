@@ -51,6 +51,11 @@ public class OpenAiJsonClient implements LlmJsonClient {
     }
 
     @Override
+    public String provider() {
+        return "openai";
+    }
+
+    @Override
     public String model() {
         return properties.openaiModel();
     }

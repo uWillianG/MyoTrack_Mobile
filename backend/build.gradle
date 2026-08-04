@@ -3,6 +3,18 @@ plugins {
     id 'io.spring.dependency-management' version '1.1.7' apply false
 }
 
+// Credenciais de desenvolvimento, lidas do `.env` da raiz do repositório — o mesmo arquivo
+// que o `docker-compose.yml` já lê nativamente. Um arquivo só para as duas coisas.
+//
+// **Isto acontece no Gradle, e não no Spring, de propósito.** Uma biblioteca de dotenv no
+// classpath viajaria junto no jar e continuaria procurando `.env` em produção, onde a
+// configuração vem do orquestrador; um arquivo esquecido no servidor passaria a valer sem
+// ninguém decidir isso. Aqui o arquivo só é lido por `bootRun`, que é como se desenvolve
+// neste repositório e não existe em produção. O `java -jar` não enxerga nada disto.
+//
+// O `.env` está no `.gitignore`. O que se versiona é o `.env.example`, sem valor nenhum.
+ext.dotEnv = readDotEnv(new File(rootProject.projectDir.parentFile, '.env'))
+
 subprojects {
     apply plugin: 'java-library'
     apply plugin: 'io.spring.dependency-management'
@@ -52,4 +64,82 @@ subprojects {
             exceptionFormat 'full'
         }
     }
+
+    // Só `bootRun`. O `test` fica de fora por decisão: teste que muda de resultado conforme
+    // o `.env` de quem o roda passa na máquina de um e falha na de outro, e a causa não
+    // aparece em lugar nenhum do relatório.
+    tasks.withType(org.springframework.boot.gradle.tasks.run.BootRun).configureEach {
+        // Variável já exportada no ambiente vence a do arquivo. É a ordem que não surpreende:
+        // quem exportou algo no terminal fez isso para aquela execução, e um arquivo antigo
+        // sobrescrevendo essa escolha seria depuração perdida.
+        def fromFile = rootProject.dotEnv.findAll { name, _ -> System.getenv(name) == null }
+        fromFile.each { name, value -> environment name, value }
+
+        doFirst {
+            if (!fromFile.isEmpty()) {
+                // Nomes, nunca valores: o log do build vai para o terminal, para o CI e para
+                // qualquer print que alguém cole num chamado.
+                logger.lifecycle(".env: ${fromFile.size()} variáveis carregadas — ${fromFile.keySet().sort().join(', ')}")
+            }
+        }
+    }
+}
+
+/**
+ * Lê um arquivo no formato `.env`. Devolve mapa vazio se ele não existir — não ter o
+ * arquivo é o caso normal, e é o que faz o projeto subir com os padrões de desenvolvimento.
+ *
+ * O formato aceito é o mesmo do docker-compose, porque o arquivo é o mesmo: linha em branco
+ * e `#` são ignorados, `export` na frente é tolerado, aspas em volta do valor são removidas,
+ * e comentário no fim da linha só conta quando vem depois de um espaço — senão uma chave com
+ * `#` no meio seria truncada aqui e não lá, divergência que ninguém veria.
+ *
+ * **Linha com valor vazio é descartada, e isso não é detalhe.** `MYOTRACK_DB_URL=` significa
+ * "não configurei", mas exportá-la assim faz o Spring resolver `${MYOTRACK_DB_URL:jdbc:...}`
+ * para string vazia: o `:` só usa o default quando a variável não existe, e existir vazia é
+ * existir. O sintoma é o Worker morrer na subida com "Failed to determine a suitable driver
+ * class", que não menciona arquivo nenhum. O compose não tem esse problema porque usa
+ * `${VAR:-default}`, onde vazio cai no default — descartar aqui é o que deixa os dois lados
+ * lendo o mesmo arquivo com o mesmo resultado, e é o que torna o `.env.example` seguro de
+ * copiar inteiro.
+ */
+static Map<String, String> readDotEnv(File file) {
+    if (!file.exists()) {
+        return [:]
+    }
+
+    def values = [:]
+    file.eachLine('UTF-8') { rawLine ->
+        def line = rawLine.trim()
+        if (line.isEmpty() || line.startsWith('#')) {
+            return
+        }
+        if (line.startsWith('export ')) {
+            line = line.substring('export '.length()).trim()
+        }
+
+        def separator = line.indexOf('=')
+        if (separator <= 0) {
+            return
+        }
+
+        def name = line.substring(0, separator).trim()
+        def value = line.substring(separator + 1).trim()
+
+        def quote = value.startsWith('"') ? '"' : (value.startsWith("'") ? "'" : null)
+        if (quote != null) {
+            def closing = value.indexOf(quote, 1)
+            value = closing > 0 ? value.substring(1, closing) : value.substring(1)
+        } else {
+            def comment = value.indexOf(' #')
+            if (comment >= 0) {
+                value = value.substring(0, comment).trim()
+            }
+        }
+
+        if (!value.isEmpty()) {
+            values[name] = value
+        }
+    }
+    return values
 }

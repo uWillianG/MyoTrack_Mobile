@@ -2,7 +2,6 @@ package com.myotrack.worker.handlers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myotrack.domain.AnalysisJobType;
-import com.myotrack.domain.entity.AiUsageLog;
 import com.myotrack.domain.entity.AnalysisJob;
 import com.myotrack.domain.entity.BodyMeasurement;
 import com.myotrack.domain.entity.MealPhotoAnalysis;
@@ -14,9 +13,9 @@ import com.myotrack.domain.service.WeeklyMetrics.MealInput;
 import com.myotrack.domain.service.WeeklyMetrics.SessionInput;
 import com.myotrack.domain.service.WeeklyMetrics.SetInput;
 import com.myotrack.domain.service.WeeklyMetrics.WeightInput;
+import com.myotrack.infrastructure.ai.AiUsageRecorder;
 import com.myotrack.infrastructure.ai.LlmJsonClient;
 import com.myotrack.infrastructure.ai.LlmJsonClient.LlmJsonResult;
-import com.myotrack.infrastructure.repository.AiUsageLogRepository;
 import com.myotrack.infrastructure.repository.BodyMeasurementRepository;
 import com.myotrack.infrastructure.repository.MealPhotoAnalysisRepository;
 import com.myotrack.infrastructure.repository.WeeklyReportRepository;
@@ -61,7 +60,7 @@ public class WeeklyReportHandler implements JobHandler {
     private final BodyMeasurementRepository measurements;
     private final MealPhotoAnalysisRepository meals;
     private final WeeklyReportRepository reports;
-    private final AiUsageLogRepository aiUsage;
+    private final AiUsageRecorder aiUsage;
     private final LlmJsonClient llm;
 
     public WeeklyReportHandler(
@@ -69,7 +68,7 @@ public class WeeklyReportHandler implements JobHandler {
             BodyMeasurementRepository measurements,
             MealPhotoAnalysisRepository meals,
             WeeklyReportRepository reports,
-            AiUsageLogRepository aiUsage,
+            AiUsageRecorder aiUsage,
             LlmJsonClient llm) {
         this.sessions = sessions;
         this.measurements = measurements;
@@ -200,13 +199,7 @@ public class WeeklyReportHandler implements JobHandler {
     }
 
     private void recordUsage(UUID userId, LlmJsonResult result) {
-        final AiUsageLog usage = new AiUsageLog();
-        usage.setUserId(userId);
-        usage.setOperation(AnalysisJobType.WEEKLY_REPORT);
-        usage.setModel(llm.model());
-        usage.setInputTokens(result.inputTokens());
-        usage.setOutputTokens(result.outputTokens());
-        aiUsage.save(usage);
+        aiUsage.record(userId, AnalysisJobType.WEEKLY_REPORT, llm, result);
     }
 
     private static String systemPrompt() {

@@ -85,6 +85,43 @@ importam:
 A lista completa está em `application.yml` de cada módulo — cada entrada diz o que acontece
 quando fica vazia.
 
+### Onde colocar os valores: o `.env` da raiz
+
+```bash
+cp .env.example .env      # e preencha só o que for usar
+```
+
+Um arquivo só, na raiz, para tudo que roda em desenvolvimento:
+
+| Quem lê | Como |
+|---|---|
+| `docker compose up -d` | Nativamente — é onde a senha do Postgres e do MinIO já vinha |
+| `./gradlew bootRun` (API e Worker) | Pelo `backend/build.gradle` |
+
+O que **não** lê: o app Flutter, que recebe configuração por `--dart-define` no build — um
+`.env` empacotado no APK é um asset que qualquer um descompacta. E o `java -jar` de produção,
+que usa as variáveis de ambiente do orquestrador.
+
+Essa última parte é o motivo de a leitura acontecer no Gradle e não por uma biblioteca de
+dotenv no Spring: uma biblioteca viajaria dentro do jar e continuaria procurando o arquivo em
+produção, onde um `.env` esquecido no servidor passaria a valer sem ninguém decidir isso.
+Aqui o arquivo só existe para o `bootRun`, que não roda em produção.
+
+Duas regras que valem a pena saber antes de perder tempo depurando:
+
+- **Variável exportada no terminal vence a do arquivo.** Quem exporta algo quer aquilo
+  naquela execução.
+- **Linha com valor vazio é descartada**, e não vira variável vazia. Sem isso, um
+  `MYOTRACK_DB_URL=` copiado do exemplo derrubaria o Worker na subida com "Failed to
+  determine a suitable driver class": para o Spring, existir vazia é existir, e o default do
+  `application.yml` deixa de valer.
+- **O `bootRun` imprime os nomes carregados na subida**, nunca os valores. Se a chave não
+  aparecer nessa linha, ela não chegou — é o primeiro lugar a olhar quando a IA continua
+  saindo do motor de regras.
+
+O `.env` está no `.gitignore`; o que se versiona é o `.env.example`, sem valor nenhum. Para
+onde obter cada credencial, veja `CREDENCIAIS.md`.
+
 ## Verificar
 
 ```bash
@@ -130,6 +167,36 @@ declarada lá — cada pacote entra na funcionalidade que o usa, não antes. O q
 implementação de `PushTokenSource` (`app/lib/core/notifications/push_registration.dart`); o resto do
 fluxo está de pé e testado contra uma fonte falsa.
 
+## Escrita offline
+
+A academia é onde o app mais é usado e onde menos há sinal. Toda escrita passa pela `SyncQueue`
+(`app/lib/core/sync/`): tenta enviar e, se a rede não colaborar, guarda em `pending_writes` e
+sobe na próxima sincronização — inclusive em background, pelo WorkManager.
+
+Não há checagem prévia de conectividade, de propósito: Wi-Fi sem internet, portal cativo e rede
+móvel com uma barra são todos "conectado" para o sistema e só falham na hora do envio.
+
+**Um 4xx é outra coisa, e tem três destinos diferentes.** A distinção importa porque ela decide o
+que acontece com um treino que já foi registrado:
+
+| Resposta | O que acontece | Por quê |
+|---|---|---|
+| Rede caiu, ou 5xx | Fica pendente, tenta de novo | O servidor pode voltar |
+| 401 | Fica pendente, tenta de novo | É sessão, não conteúdo: sobe assim que houver login |
+| Outro 4xx | Sai da fila e vai para `discarded_writes` | Recusado hoje é recusado amanhã |
+
+O último caso é uma troca de prejuízos assumida: manter na fila travaria **todas** as escritas
+seguintes, e o usuário perderia tudo que registrasse depois sem perceber. Mas descartar sozinho
+apagava o registro em silêncio — junto com o motivo, porque a linha que acabara de guardá-lo era
+deletada em seguida. Por isso a escrita recusada é **movida, não apagada**: `discarded_writes`
+(v3 do banco local) guarda endpoint, payload e a resposta do servidor, e a folha da conta mostra
+o que se perdeu em português — "Pesagem de 82,4 kg (28/07)", com o motivo abaixo. É o suficiente
+para a pessoa refazer o registro à mão, que é a única recuperação que existe. Dispensar o aviso
+apaga as linhas: o payload é dado pessoal que só existia para ser mostrado uma vez.
+
+O aviso usa a cor de erro e o de escritas pendentes não — pendente é estado normal de um app
+offline-first, e um cartão vermelho a cada treino no subsolo ensinaria a ignorar a cor.
+
 ## Custo de IA
 
 Dois provedores: **Gemini e OpenAI**. A Anthropic saiu — o cliente e o SDK dela foram removidos.
@@ -169,9 +236,18 @@ Levantado do código, não de estimativa:
   `@Primary` para o app inteiro: extrair itens de uma foto contra um schema fixo e gerar um plano
   de treino pagam a mesma tabela. Separar por operação é a mudança de maior efeito — e é troca de
   qualidade por preço, então não foi feita sem decisão de produto.
-- **`AiUsageLog` já mede** — grava operação, modelo e tokens por chamada. É por onde começar antes
-  de otimizar qualquer coisa. Com dois provedores a preços diferentes, vale acrescentar o provedor
-  à tabela: contagem de token sozinha deixou de ser comparável entre linhas.
+- **`AiUsageLog` mede uso e gasto** — operação, provedor, modelo, tokens e custo por chamada. O
+  provedor vem do cliente que fez a requisição, não de deduzir pelo nome do modelo. É por onde
+  começar antes de otimizar qualquer coisa.
+
+  **O preço não vem no jar.** A tabela `myotrack.llm.pricing.models` é configuração, vazia por
+  padrão: os dois provedores mudam a lista quando querem, e um número cravado no código
+  continuaria somando com o valor antigo sem nada indicar que envelheceu — o relatório erraria com
+  aparência de certo. Enquanto ela estiver vazia, `CostNanoUsd` grava `NULL`, que é "não sei", e
+  **não zero**, que afirmaria "foi de graça". Quem consultar precisa somar o custo *e* contar as
+  linhas nulas: ignorar isso reporta menos gasto do que houve. Para ligar, copie os valores da
+  página de preços de cada provedor para o `application.yml` do worker (a chave é o nome exato do
+  modelo, entre colchetes por causa do ponto).
 - **O relatório semanal é o único trabalho assíncrono de verdade** — nasce de um agendador, sem
   ninguém esperando. É o candidato certo para uma fila de batch (metade do preço nos dois
   provedores).
@@ -255,6 +331,10 @@ de nutrição param aí: não há histórico de proteína nem de dias anteriores
 - **Não há build de release nem assinatura.** Falta keystore no Android e certificado com
   perfil no iOS.
 - **As notificações não saem do log.** Ver acima.
-- **A migração `V5__pro_grants.sql` ainda não foi aplicada contra um Postgres.** O build e os
-  testes passam, mas a DDL só roda de fato na primeira subida da API com o banco de pé:
-  `docker compose up -d postgres && cd backend && ./gradlew :myotrack-api:bootRun`.
+- **As migrações `V5__pro_grants.sql` e `V6__ai_usage_provider_cost.sql` ainda não foram
+  aplicadas contra um Postgres.** O build e os testes passam, mas a DDL só roda de fato na
+  primeira subida da API com o banco de pé: `docker compose up -d postgres && cd backend &&
+  ./gradlew :myotrack-api:bootRun`.
+- **A tabela de preços de IA está vazia.** Ver "Onde o dinheiro sai": o custo por chamada só
+  passa a ser gravado depois que alguém preencher `myotrack.llm.pricing.models` com os valores
+  conferidos na página de preços de cada provedor.

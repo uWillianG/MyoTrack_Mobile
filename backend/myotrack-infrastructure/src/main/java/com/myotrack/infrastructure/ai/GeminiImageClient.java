@@ -40,6 +40,11 @@ public class GeminiImageClient {
         return !properties.geminiApiKey().isBlank();
     }
 
+    /** Sempre Gemini: não existe caminho de imagem pela OpenAI neste app. */
+    public String provider() {
+        return "gemini";
+    }
+
     public String model() {
         return properties.geminiImageModel();
     }

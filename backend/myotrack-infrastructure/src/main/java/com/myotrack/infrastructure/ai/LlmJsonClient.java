@@ -15,6 +15,15 @@ public interface LlmJsonClient {
 
     boolean isConfigured();
 
+    /**
+     * Quem cobrou pela chamada: {@code "gemini"} ou {@code "openai"}.
+     *
+     * <p>Vem do cliente, e não de deduzir pelo nome do modelo, porque a dedução erraria em
+     * silêncio no dia em que um provedor lançar um nome parecido com o do outro — e o erro
+     * apareceria como custo atribuído à conta errada, não como exceção.
+     */
+    String provider();
+
     String model();
 
     LlmJsonResult generateJson(String systemPrompt, String userPrompt, Map<String, Object> jsonSchema);

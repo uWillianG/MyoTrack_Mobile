@@ -29,6 +29,25 @@ myotrack:
     # Nos modelos com raciocínio, os tokens de "thinking" contam dentro deste teto.
     max-tokens: 8192
 
+    # Preço por milhão de tokens, em dólares — alimenta a coluna CostNanoUsd do AiUsageLogs.
+    #
+    # Fica vazio de propósito. O preço não é nosso: os dois provedores mudam a tabela quando
+    # querem, e um número cravado aqui por quem não conferiu continuaria somando com o valor
+    # antigo sem nada indicar que envelheceu — o relatório de custo erraria do jeito mais difícil
+    # de perceber, com aparência de certo. Modelo sem preço grava custo NULL, que é "não sei", e
+    # não zero, que seria "foi de graça".
+    #
+    # Para ligar: copie o preço da página de preços do provedor e preencha abaixo. A chave é o
+    # nome exato do modelo, entre colchetes porque contém ponto. Confira a data em que consultou.
+    #
+    #   pricing:
+    #     models:
+    #       "[gemini-3.5-flash]":       { input-per-million: 0.00, output-per-million: 0.00 }
+    #       "[gemini-3.1-flash-image]": { input-per-million: 0.00, output-per-million: 0.00 }
+    #       "[gpt-5-mini]":             { input-per-million: 0.00, output-per-million: 0.00 }
+    pricing:
+      models: {}
+
   vision:
     base-url: ${MYOTRACK_VISION_BASE_URL:http://localhost:8000}
     timeout-seconds: 600

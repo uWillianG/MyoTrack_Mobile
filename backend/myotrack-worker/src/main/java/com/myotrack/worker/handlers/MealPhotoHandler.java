@@ -2,20 +2,19 @@ package com.myotrack.worker.handlers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myotrack.domain.AnalysisJobType;
-import com.myotrack.domain.entity.AiUsageLog;
 import com.myotrack.domain.entity.AnalysisJob;
 import com.myotrack.domain.entity.FoodItem;
 import com.myotrack.domain.entity.MealPhotoAnalysis;
 import com.myotrack.domain.service.MealPhotoValidator;
 import com.myotrack.domain.service.MealPhotoValidator.AnalyzedMeal;
 import com.myotrack.domain.service.MealPhotoValidator.LlmMealPhoto;
+import com.myotrack.infrastructure.ai.AiUsageRecorder;
 import com.myotrack.infrastructure.ai.GeminiImageClient;
 import com.myotrack.infrastructure.ai.GeminiImageClient.GeneratedImage;
 import com.myotrack.infrastructure.ai.LlmJsonClient;
 import com.myotrack.infrastructure.ai.MealImageAnnotator;
 import com.myotrack.infrastructure.ai.MealImageAnnotator.Annotation;
 import com.myotrack.infrastructure.ai.LlmJsonClient.LlmJsonResult;
-import com.myotrack.infrastructure.repository.AiUsageLogRepository;
 import com.myotrack.infrastructure.repository.FoodItemRepository;
 import com.myotrack.infrastructure.repository.MealPhotoAnalysisRepository;
 import com.myotrack.infrastructure.storage.MediaStorage;
@@ -57,7 +56,7 @@ public class MealPhotoHandler implements JobHandler {
 
     private final MealPhotoAnalysisRepository analyses;
     private final FoodItemRepository foods;
-    private final AiUsageLogRepository aiUsage;
+    private final AiUsageRecorder aiUsage;
     private final MediaStorage storage;
     private final LlmJsonClient llm;
     private final GeminiImageClient imageClient;
@@ -65,7 +64,7 @@ public class MealPhotoHandler implements JobHandler {
     public MealPhotoHandler(
             MealPhotoAnalysisRepository analyses,
             FoodItemRepository foods,
-            AiUsageLogRepository aiUsage,
+            AiUsageRecorder aiUsage,
             MediaStorage storage,
             LlmJsonClient llm,
             GeminiImageClient imageClient) {
@@ -232,14 +231,15 @@ public class MealPhotoHandler implements JobHandler {
         return dot < 0 ? mediaKey : mediaKey.substring(0, dot);
     }
 
+    /**
+     * A segunda chamada da análise ilustrada, e a mais cara do app por uma ordem de grandeza.
+     *
+     * <p>Ela grava numa linha separada da extração de propósito: somadas, as duas esconderiam
+     * justamente o que precisa ser visto — que a ilustração custa múltiplos da análise que o
+     * usuário pediu.
+     */
     private void recordImageUsage(UUID userId, GeneratedImage generated) {
-        final AiUsageLog usage = new AiUsageLog();
-        usage.setUserId(userId);
-        usage.setOperation(AnalysisJobType.MEAL_PHOTO);
-        usage.setModel(imageClient.model());
-        usage.setInputTokens(generated.inputTokens());
-        usage.setOutputTokens(generated.outputTokens());
-        aiUsage.save(usage);
+        aiUsage.recordImage(userId, AnalysisJobType.MEAL_PHOTO, imageClient, generated);
     }
 
     /** O tipo real da imagem, gravado pelo controller no {@code inputJson} do job. */
@@ -287,13 +287,7 @@ public class MealPhotoHandler implements JobHandler {
     }
 
     private void recordUsage(UUID userId, LlmJsonResult result) {
-        final AiUsageLog usage = new AiUsageLog();
-        usage.setUserId(userId);
-        usage.setOperation(AnalysisJobType.MEAL_PHOTO);
-        usage.setModel(llm.model());
-        usage.setInputTokens(result.inputTokens());
-        usage.setOutputTokens(result.outputTokens());
-        aiUsage.save(usage);
+        aiUsage.record(userId, AnalysisJobType.MEAL_PHOTO, llm, result);
     }
 
     private static String systemPrompt() {

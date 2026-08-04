@@ -86,11 +86,11 @@ class SyncQueue {
           await _db.recordAttempt(write.id, e.message);
           break;
         }
-        // O servidor recusou o conteúdo. Manter na fila bloquearia todas as escritas
-        // seguintes; descartar perde o registro em silêncio. Descartamos, porque a fila
-        // parada é pior: o usuário perde tudo que registrar depois, sem perceber.
-        await _db.recordAttempt(write.id, e.message);
-        await _db.removePending(write.id);
+        // O servidor recusou o conteúdo, e vai recusar de novo: manter na fila bloquearia
+        // todas as escritas seguintes, e o usuário perderia tudo que registrasse depois sem
+        // perceber. Sai da fila — mas não some. Vai para as recusadas, com payload e motivo,
+        // para que o app possa dizer o que não subiu em vez de o registro evaporar.
+        await _db.discardPending(write, e.message);
       }
     }
 
@@ -100,4 +100,9 @@ class SyncQueue {
   Future<int> pendingCount() => _db.countPending();
 
   Stream<int> watchPendingCount() => _db.watchPendingCount();
+
+  /// O que o servidor recusou e não vai voltar a tentar.
+  Future<List<DiscardedWrite>> discarded() => _db.discarded();
+
+  Future<void> clearDiscarded() => _db.clearDiscarded();
 }

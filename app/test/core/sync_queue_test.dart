@@ -182,6 +182,57 @@ void main() {
       expect(await queue.pendingCount(), 0);
     });
 
+    test('o que foi recusado sai da fila mas não some', () async {
+      // Este é o teste que o descarte não tinha: ele saía da fila, e pronto. O registro
+      // evaporava — junto com o motivo, porque a linha que acabara de guardá-lo era apagada
+      // em seguida. Um treino inteiro sumia sem nada na tela, e numa sincronização em
+      // background isso acontecia com o app fechado.
+      adapter.onPost(
+        '/api/measurements',
+        (server) => server.reply(422, {'error': 'Peso fora da faixa válida.'}),
+        data: Matchers.any,
+      );
+
+      await db.enqueue('/api/measurements', '{"date":"2026-07-28","weightKg":8}');
+
+      expect(await queue.flush(), 0);
+      expect(await queue.pendingCount(), 0);
+
+      final descartada = (await queue.discarded()).single;
+      expect(descartada.endpoint, '/api/measurements');
+      // O payload vai junto: é a diferença entre "um registro falhou" e "a pesagem do dia 28".
+      expect(descartada.payload, contains('weightKg'));
+      expect(descartada.error, contains('faixa'));
+    });
+
+    test('o 401 não vai para as recusadas — ele continua na fila', () async {
+      adapter.onPost(
+        '/api/sessions',
+        (server) => server.reply(401, {'error': 'Sua sessão expirou.'}),
+        data: Matchers.any,
+      );
+
+      await db.enqueue('/api/sessions', '{"a":1}');
+      await queue.flush();
+
+      // Avisar que o treino foi recusado quando ele só está esperando um login seria assustar
+      // à toa — e pior, o texto do aviso manda refazer um registro que não se perdeu.
+      expect(await queue.discarded(), isEmpty);
+      expect(await queue.pendingCount(), 1);
+    });
+
+    test('dispensar o aviso apaga as recusadas', () async {
+      await db.enqueue('/api/sessions', '{"a":1}');
+      await db.discardPending((await db.pending()).single, 'recusado');
+      expect(await queue.discarded(), hasLength(1));
+
+      await queue.clearDiscarded();
+
+      // O payload de uma escrita recusada é dado pessoal guardado sem prazo, e existia só
+      // para poder ser mostrado uma vez.
+      expect(await queue.discarded(), isEmpty);
+    });
+
     test('401 mantém a escrita na fila — é sessão, não conteúdo', () async {
       // O 4xx que se descarta é o corpo recusado. O 401 é outra coisa: o treino continua
       // válido e sobe assim que houver login. Descartar aqui perderia o treino inteiro por
