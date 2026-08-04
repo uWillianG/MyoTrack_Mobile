@@ -59,6 +59,19 @@ final pendingWritesProvider = StreamProvider<int>(
   (ref) => ref.watch(syncQueueProvider).watchPendingCount(),
 );
 
+/// O que o servidor recusou e não vai voltar a tentar sozinho.
+///
+/// Leitura única com `autoDispose`, e não um stream sobre a tabela. São duas razões: o
+/// `watch` do drift deixa um timer pendente que faz teste de widget falhar por "Pending
+/// timers", e o descarte não é um evento que precise chegar à tela no instante em que
+/// acontece — ele quase sempre ocorre numa sincronização em background, com o app fechado.
+/// `autoDispose` faz a leitura acontecer quando alguém abre a folha da conta, que é o único
+/// momento em que há alguém olhando.
+final discardedWritesProvider =
+    FutureProvider.autoDispose<List<DiscardedWrite>>(
+      (ref) => ref.watch(syncQueueProvider).discarded(),
+    );
+
 /// Há sessão válida guardada? É o que a guarda de rota do go_router observa.
 final authStateProvider = FutureProvider<bool>(
   (ref) => ref.watch(tokenStoreProvider).isAuthenticated,

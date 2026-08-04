@@ -141,6 +141,64 @@ void main() {
     expect(captured.weightKg, closeTo(83.1, 0.001));
   });
 
+  testWidgets('peso inválido explica em vez de fechar o diálogo', (
+    tester,
+  ) async {
+    // O "Salvar" devolvia direto o resultado de `parseWeightKg`, então um valor recusado
+    // fechava o diálogo com null — exatamente o que "Cancelar" faz. Quem digitasse "8o" em
+    // vez de "80" via a tela avançar sem ter registrado nada e sem nenhuma pista do motivo.
+    await pump(tester);
+
+    await tester.tap(find.text('Puxado'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Outro valor'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), '8o');
+    await tester.tap(find.widgetWithText(FilledButton, 'Salvar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Digite um peso entre 1 e 500 kg. Ex.: 82,4'), findsOne);
+    // O diálogo continua aberto — é isso que o "Cancelar" acidental fazia diferente.
+    expect(find.byType(AlertDialog), findsOne);
+    verifyNever(() => repository.logMeasurement(any()));
+
+    // Corrigido, o erro sai de cena e o valor sobe.
+    await tester.enterText(find.byType(TextField), '80');
+    await tester.pumpAndSettle();
+    expect(find.text('Digite um peso entre 1 e 500 kg. Ex.: 82,4'), findsNothing);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Salvar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Como está sua energia?'), findsOne);
+    final captured =
+        verify(() => repository.logMeasurement(captureAny())).captured.single
+            as MeasurementRequest;
+    expect(captured.weightKg, closeTo(80, 0.001));
+  });
+
+  testWidgets('600 kg é recusado no aparelho, sem ida ao servidor', (
+    tester,
+  ) async {
+    // A mesma faixa que o servidor valida. Barrar aqui evita a ida e volta só para receber
+    // "Peso fora da faixa válida" de volta — e, com a fila de escrita no caminho, evita que
+    // o registro fique pendente para ser recusado depois, longe da tela.
+    await pump(tester);
+
+    await tester.tap(find.text('Puxado'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Outro valor'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), '600');
+    await tester.tap(find.widgetWithText(FilledButton, 'Salvar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Digite um peso entre 1 e 500 kg. Ex.: 82,4'), findsOne);
+    verifyNever(() => repository.logMeasurement(any()));
+  });
+
   testWidgets('a pesagem termina mesmo depois de a pergunta sair da tela', (
     tester,
   ) async {

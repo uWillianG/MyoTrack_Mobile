@@ -5,11 +5,16 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myotrack/core/db/local_database.dart';
 
-/// A subida de v1 para v2 é o único caminho deste banco que roda na máquina de alguém que já
-/// usava o app — e é o único que pode destruir dado que ninguém tem de volta: a fila de
+/// As subidas de versão são os únicos caminhos deste banco que rodam na máquina de alguém que
+/// já usava o app — e os únicos que podem destruir dado que ninguém tem de volta: a fila de
 /// escrita guarda séries registradas sem rede, na academia, que ainda não subiram.
 ///
 /// Um teste que só abre o banco do zero não passa por aqui: ele cai no `onCreate`.
+///
+/// O salto de v1 direto para a atual tem teste próprio porque é o caso real de quem instalou e
+/// ficou meses sem atualizar: os `if` do `onUpgrade` precisam rodar todos na mesma passagem, e
+/// um `else` acidental entre eles deixaria esse usuário sem a tabela mais nova — com o banco
+/// se declarando na versão certa, que é a falha que só aparece na primeira query.
 void main() {
   late Directory dir;
   late File file;
@@ -51,20 +56,54 @@ void main() {
     await db.close();
   }
 
-  test('a subida para v2 cria a tabela nova e preserva a fila', () async {
+  /// A v2, que é a v1 mais `seen_achievements`. Quem atualizou uma vez e parou está aqui.
+  Future<void> seedV2() async {
+    await seedV1();
+    final db = NativeDatabase(file);
+    await db.ensureOpen(_NoopUser());
+    await db.runCustom('''
+      CREATE TABLE seen_achievements (
+        id TEXT NOT NULL,
+        seen_at INTEGER NOT NULL DEFAULT (strftime('%s', CURRENT_TIMESTAMP)),
+        PRIMARY KEY (id)
+      )''', const []);
+    await db.runCustom('PRAGMA user_version = 2', const []);
+    await db.close();
+  }
+
+  test('da v1 direto para a atual: as duas tabelas novas existem', () async {
     await seedV1();
 
     final db = LocalDatabase.forTesting(NativeDatabase(file));
     addTearDown(db.close);
 
-    // O que a migração acrescenta.
+    // O que a v2 acrescentou.
     await db.markAchievementsSeen(const ['quatro-semanas']);
     expect(await db.seenAchievementIds(), {'quatro-semanas'});
 
-    // O que ela não pode ter tocado: a série registrada na academia, sem rede.
+    // E o que a v3 acrescentou, na mesma passagem.
+    expect(await db.discarded(), isEmpty);
+
+    // O que nenhuma delas pode ter tocado: a série registrada na academia, sem rede.
     expect(await db.countPending(), 1);
     final pending = await db.pending();
     expect(pending.single.endpoint, '/api/sessions');
+  });
+
+  test('da v2 para a atual, sem recriar a tabela que já existia', () async {
+    await seedV2();
+
+    final db = LocalDatabase.forTesting(NativeDatabase(file));
+    addTearDown(db.close);
+    await db.markAchievementsSeen(const ['primeiro-treino']);
+
+    final pending = (await db.pending()).single;
+    await db.discardPending(pending, 'Exercício inexistente na sessão.');
+
+    // A tabela nova funciona, e a antiga veio junto com o que tinha dentro — um `createTable`
+    // sem guarda de versão teria estourado aqui, ou pior, apagado as conquistas já vistas.
+    expect(await db.discarded(), hasLength(1));
+    expect(await db.seenAchievementIds(), {'primeiro-treino'});
   });
 
   test('marcar duas vezes não duplica nem reescreve a primeira vez', () async {

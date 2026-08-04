@@ -29,6 +29,11 @@ double? parseWeightKg(String value) {
 ///
 /// Existe uma vez só porque as duas portas de entrada da pesagem — o fechamento do dia e a
 /// captura rápida — pedem exatamente o mesmo campo, e só o título muda.
+///
+/// **Null significa cancelou, e só isso.** Enquanto o "Salvar" devolvia direto o resultado de
+/// [parseWeightKg], quem digitasse "8o" via o diálogo fechar sem nada acontecer — indistinguível
+/// de ter tocado em "Cancelar", e sem pista do que estava errado. Agora o valor inválido não sai
+/// do diálogo.
 Future<double?> askWeightKg(BuildContext context, {required String title}) {
   return showDialog<double>(
     context: context,
@@ -59,13 +64,26 @@ class _WeightDialog extends StatefulWidget {
 class _WeightDialogState extends State<_WeightDialog> {
   final _controller = TextEditingController();
 
+  /// Só aparece depois de uma tentativa de salvar.
+  ///
+  /// Validar a cada tecla acusaria "82," como erro no meio da digitação de "82,4" — o campo
+  /// ficaria vermelho durante o uso normal e a mensagem perderia o sentido.
+  String? _error;
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
 
-  void _submit() => Navigator.of(context).pop(parseWeightKg(_controller.text));
+  void _submit() {
+    final weight = parseWeightKg(_controller.text);
+    if (weight == null) {
+      setState(() => _error = 'Digite um peso entre 1 e 500 kg. Ex.: 82,4');
+      return;
+    }
+    Navigator.of(context).pop(weight);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -75,10 +93,16 @@ class _WeightDialogState extends State<_WeightDialog> {
         controller: _controller,
         autofocus: true,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           labelText: 'Peso (kg)',
           hintText: '82,4',
+          errorText: _error,
         ),
+        // Some assim que a pessoa começa a corrigir: manter o vermelho enquanto ela digita a
+        // correção é acusar de novo um erro que já está sendo consertado.
+        onChanged: _error == null
+            ? null
+            : (_) => setState(() => _error = null),
         onSubmitted: (_) => _submit(),
       ),
       actions: [

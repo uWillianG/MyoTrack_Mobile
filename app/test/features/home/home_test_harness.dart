@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:myotrack/core/db/local_database.dart';
 import 'package:myotrack/core/providers.dart';
 import 'package:myotrack/features/achievements/data/rewards_repository.dart';
 import 'package:myotrack/features/dashboard/dashboard_controller.dart';
@@ -132,6 +133,10 @@ List<Override> homeOverrides({
   /// isso a sequência viria zerada e as duas conquistas de constância ficariam trancadas num
   /// fixture que diz o contrário.
   RewardStatus? rewards,
+
+  /// Escritas que o servidor recusou. Vazio no caso comum: o aviso é excepcional e não pode
+  /// aparecer no meio dos testes que não são sobre ele.
+  List<DiscardedWrite> discarded = const [],
 }) => [
   diaryDayProvider.overrideWith((ref) async => day ?? diaryDay()),
   dashboardStatsProvider.overrideWith((ref) async => stats ?? dashboardStats()),
@@ -150,6 +155,8 @@ List<Override> homeOverrides({
   mealHistoryProvider.overrideWith((ref) async => const []),
   videoHistoryProvider.overrideWith((ref) async => const []),
   pendingWritesProvider.overrideWith((ref) => Stream.value(0)),
+  // Sem este override o provider real abriria o SQLite do aparelho, que não existe no teste.
+  discardedWritesProvider.overrideWith((ref) async => discarded),
   userProfileProvider.overrideWith((ref) async => profile),
   profileRepositoryProvider.overrideWithValue(_profileRepository(profile)),
   userEmailProvider.overrideWith((ref) async => email),
