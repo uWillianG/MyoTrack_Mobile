@@ -3,16 +3,15 @@ package com.myotrack.worker.handlers;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myotrack.domain.AnalysisJobType;
 import com.myotrack.domain.PlanStatus;
-import com.myotrack.domain.entity.AiUsageLog;
 import com.myotrack.domain.entity.AnalysisJob;
 import com.myotrack.domain.entity.CoachMessage;
 import com.myotrack.domain.entity.DietPlan;
 import com.myotrack.domain.entity.UserProfile;
 import com.myotrack.domain.entity.WorkoutPlan;
 import com.myotrack.domain.entity.WorkoutSession;
+import com.myotrack.infrastructure.ai.AiUsageRecorder;
 import com.myotrack.infrastructure.ai.LlmJsonClient;
 import com.myotrack.infrastructure.ai.LlmJsonClient.LlmJsonResult;
-import com.myotrack.infrastructure.repository.AiUsageLogRepository;
 import com.myotrack.infrastructure.repository.CoachMessageRepository;
 import com.myotrack.infrastructure.repository.DietPlanRepository;
 import com.myotrack.infrastructure.repository.UserProfileRepository;
@@ -55,7 +54,7 @@ public class CoachChatHandler implements JobHandler {
     private final WorkoutPlanRepository workoutPlans;
     private final DietPlanRepository dietPlans;
     private final WorkoutSessionRepository sessions;
-    private final AiUsageLogRepository aiUsage;
+    private final AiUsageRecorder aiUsage;
     private final LlmJsonClient llm;
 
     public CoachChatHandler(
@@ -64,7 +63,7 @@ public class CoachChatHandler implements JobHandler {
             WorkoutPlanRepository workoutPlans,
             DietPlanRepository dietPlans,
             WorkoutSessionRepository sessions,
-            AiUsageLogRepository aiUsage,
+            AiUsageRecorder aiUsage,
             LlmJsonClient llm) {
         this.messages = messages;
         this.profiles = profiles;
@@ -218,13 +217,7 @@ public class CoachChatHandler implements JobHandler {
     }
 
     private void recordUsage(UUID userId, LlmJsonResult result) {
-        final AiUsageLog usage = new AiUsageLog();
-        usage.setUserId(userId);
-        usage.setOperation(AnalysisJobType.COACH_CHAT);
-        usage.setModel(llm.model());
-        usage.setInputTokens(result.inputTokens());
-        usage.setOutputTokens(result.outputTokens());
-        aiUsage.save(usage);
+        aiUsage.record(userId, AnalysisJobType.COACH_CHAT, llm, result);
     }
 
     /**

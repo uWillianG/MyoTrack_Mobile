@@ -56,6 +56,11 @@ public class GeminiJsonClient implements LlmJsonClient {
     }
 
     @Override
+    public String provider() {
+        return "gemini";
+    }
+
+    @Override
     public String model() {
         return properties.geminiModel();
     }

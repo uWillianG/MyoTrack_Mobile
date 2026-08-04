@@ -3,7 +3,6 @@ package com.myotrack.worker.handlers;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myotrack.domain.AnalysisJobType;
 import com.myotrack.domain.PlanStatus;
-import com.myotrack.domain.entity.AiUsageLog;
 import com.myotrack.domain.entity.AnalysisJob;
 import com.myotrack.domain.entity.Exercise;
 import com.myotrack.domain.entity.UserProfile;
@@ -15,10 +14,10 @@ import com.myotrack.domain.service.LlmWorkoutValidator.LlmWorkout;
 import com.myotrack.domain.service.WorkoutGeneration.GeneratedWorkout;
 import com.myotrack.domain.service.WorkoutGeneration.Input;
 import com.myotrack.domain.service.WorkoutRuleEngine;
+import com.myotrack.infrastructure.ai.AiUsageRecorder;
 import com.myotrack.infrastructure.ai.LlmJsonClient;
 import com.myotrack.infrastructure.ai.LlmJsonClient.LlmJsonResult;
 import com.myotrack.infrastructure.ai.TikTokVideoService;
-import com.myotrack.infrastructure.repository.AiUsageLogRepository;
 import com.myotrack.infrastructure.repository.ExerciseRepository;
 import com.myotrack.infrastructure.repository.SetLogRepository;
 import com.myotrack.infrastructure.repository.SetLogRepository.ExerciseProgression;
@@ -68,7 +67,7 @@ public class WorkoutGenerationHandler implements JobHandler {
     private final ExerciseRepository exercises;
     private final WorkoutPlanRepository plans;
     private final SetLogRepository setLogs;
-    private final AiUsageLogRepository aiUsage;
+    private final AiUsageRecorder aiUsage;
     private final LlmJsonClient llm;
     private final TikTokVideoService tikTok;
 
@@ -77,7 +76,7 @@ public class WorkoutGenerationHandler implements JobHandler {
             ExerciseRepository exercises,
             WorkoutPlanRepository plans,
             SetLogRepository setLogs,
-            AiUsageLogRepository aiUsage,
+            AiUsageRecorder aiUsage,
             LlmJsonClient llm,
             TikTokVideoService tikTok) {
         this.profiles = profiles;
@@ -262,13 +261,7 @@ public class WorkoutGenerationHandler implements JobHandler {
     }
 
     private void recordUsage(UUID userId, LlmJsonResult result) {
-        final AiUsageLog usage = new AiUsageLog();
-        usage.setUserId(userId);
-        usage.setOperation(AnalysisJobType.WORKOUT_GENERATION);
-        usage.setModel(llm.model());
-        usage.setInputTokens(result.inputTokens());
-        usage.setOutputTokens(result.outputTokens());
-        aiUsage.save(usage);
+        aiUsage.record(userId, AnalysisJobType.WORKOUT_GENERATION, llm, result);
     }
 
     /**

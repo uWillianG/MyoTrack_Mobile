@@ -5,7 +5,6 @@ import com.myotrack.domain.AnalysisJobType;
 import com.myotrack.domain.CalorieGoal;
 import com.myotrack.domain.FitnessGoal;
 import com.myotrack.domain.PlanStatus;
-import com.myotrack.domain.entity.AiUsageLog;
 import com.myotrack.domain.entity.AnalysisJob;
 import com.myotrack.domain.entity.BodyMeasurement;
 import com.myotrack.domain.entity.DietPlan;
@@ -19,9 +18,9 @@ import com.myotrack.domain.service.LlmDietValidator;
 import com.myotrack.domain.service.LlmDietValidator.LlmDiet;
 import com.myotrack.domain.service.MacroTargets;
 import com.myotrack.domain.service.TdeeCalculator;
+import com.myotrack.infrastructure.ai.AiUsageRecorder;
 import com.myotrack.infrastructure.ai.LlmJsonClient;
 import com.myotrack.infrastructure.ai.LlmJsonClient.LlmJsonResult;
-import com.myotrack.infrastructure.repository.AiUsageLogRepository;
 import com.myotrack.infrastructure.repository.BodyMeasurementRepository;
 import com.myotrack.infrastructure.repository.DietPlanRepository;
 import com.myotrack.infrastructure.repository.FoodItemRepository;
@@ -70,7 +69,7 @@ public class DietGenerationHandler implements JobHandler {
     private final BodyMeasurementRepository measurements;
     private final FoodItemRepository foods;
     private final DietPlanRepository plans;
-    private final AiUsageLogRepository aiUsage;
+    private final AiUsageRecorder aiUsage;
     private final LlmJsonClient llm;
 
     public DietGenerationHandler(
@@ -78,7 +77,7 @@ public class DietGenerationHandler implements JobHandler {
             BodyMeasurementRepository measurements,
             FoodItemRepository foods,
             DietPlanRepository plans,
-            AiUsageLogRepository aiUsage,
+            AiUsageRecorder aiUsage,
             LlmJsonClient llm) {
         this.profiles = profiles;
         this.measurements = measurements;
@@ -272,13 +271,7 @@ public class DietGenerationHandler implements JobHandler {
     }
 
     private void recordUsage(UUID userId, LlmJsonResult result) {
-        final AiUsageLog usage = new AiUsageLog();
-        usage.setUserId(userId);
-        usage.setOperation(AnalysisJobType.DIET_GENERATION);
-        usage.setModel(llm.model());
-        usage.setInputTokens(result.inputTokens());
-        usage.setOutputTokens(result.outputTokens());
-        aiUsage.save(usage);
+        aiUsage.record(userId, AnalysisJobType.DIET_GENERATION, llm, result);
     }
 
     private static String toJson(Object value) {
