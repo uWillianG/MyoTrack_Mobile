@@ -8,7 +8,8 @@ public record StorageProperties(
         String publicEndpoint,
         String accessKey,
         String secretKey,
-        String bucket) {
+        String bucket,
+        String region) {
 
     public StorageProperties {
         endpoint = blankToDefault(endpoint, "http://localhost:9000");
@@ -16,6 +17,9 @@ public record StorageProperties(
         accessKey = blankToDefault(accessKey, "myotrack");
         secretKey = blankToDefault(secretKey, "dev-only-password");
         bucket = blankToDefault(bucket, "myotrack-media");
+        // Região do MinIO quando não se configura nada. É o mesmo valor que aparece no
+        // escopo da credencial das URLs assinadas hoje.
+        region = blankToDefault(region, "us-east-1");
     }
 
     /**

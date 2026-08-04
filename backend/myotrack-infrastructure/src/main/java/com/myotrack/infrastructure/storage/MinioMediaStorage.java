@@ -50,9 +50,20 @@ public class MinioMediaStorage implements MediaStorage {
                 : build(properties, publicEndpoint);
     }
 
+    /**
+     * A região <b>precisa</b> ser declarada, e não é otimização.
+     *
+     * <p>Sem ela o SDK descobre a região perguntando ao servidor antes de assinar — e o
+     * cliente de assinatura aponta para um endereço que existe para o cliente, não para o
+     * backend. No emulador Android isso é literal: {@code 10.0.2.2} só significa alguma coisa
+     * dentro do emulador, então a consulta falhava, a assinatura ia junto, e a foto sumia do
+     * app sem erro nenhum — o controller devolve null quando não consegue assinar. Declarada,
+     * a assinatura é conta local e não depende de alcançar o endereço público.
+     */
     private static MinioClient build(StorageProperties properties, String endpoint) {
         return MinioClient.builder()
                 .endpoint(endpoint)
+                .region(properties.region())
                 .credentials(properties.accessKey(), properties.secretKey())
                 .build();
     }

@@ -34,3 +34,7 @@ myotrack:
     access-key: ${MYOTRACK_STORAGE_ACCESS_KEY:myotrack}
     secret-key: ${MYOTRACK_STORAGE_SECRET_KEY:dev-only-password}
     bucket: ${MYOTRACK_STORAGE_BUCKET:myotrack-media}
+    # Precisa estar certa para o public-endpoint funcionar: sem região declarada o SDK vai
+    # perguntá-la ao servidor antes de assinar, e o endereço público costuma não ser
+    # alcançável de dentro do backend.
+    region: ${MYOTRACK_STORAGE_REGION:us-east-1}
