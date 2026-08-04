@@ -193,7 +193,10 @@ void main() {
         data: Matchers.any,
       );
 
-      await db.enqueue('/api/measurements', '{"date":"2026-07-28","weightKg":8}');
+      await db.enqueue(
+        '/api/measurements',
+        '{"date":"2026-07-28","weightKg":8}',
+      );
 
       expect(await queue.flush(), 0);
       expect(await queue.pendingCount(), 0);

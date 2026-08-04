@@ -47,14 +47,20 @@ void main() {
     expect(DiscardedWriteSummary.of(write).what, 'Medida corporal (28/07)');
   });
 
-  test('treino vira a contagem de séries, que é o que a pessoa refaz', () async {
-    final write = await arquivar(
-      '/api/sessions',
-      '{"date":"2026-07-28","sets":[{"a":1},{"b":2},{"c":3}]}',
-    );
+  test(
+    'treino vira a contagem de séries, que é o que a pessoa refaz',
+    () async {
+      final write = await arquivar(
+        '/api/sessions',
+        '{"date":"2026-07-28","sets":[{"a":1},{"b":2},{"c":3}]}',
+      );
 
-    expect(DiscardedWriteSummary.of(write).what, 'Treino com 3 séries (28/07)');
-  });
+      expect(
+        DiscardedWriteSummary.of(write).what,
+        'Treino com 3 séries (28/07)',
+      );
+    },
+  );
 
   test('uma série só não vira "1 séries"', () async {
     final write = await arquivar(

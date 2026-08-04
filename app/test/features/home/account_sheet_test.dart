@@ -66,10 +66,7 @@ void main() {
   });
 
   testWidgets('o aviso diz o que se perdeu, não o endpoint', (tester) async {
-    await recusar(
-      '/api/measurements',
-      '{"date":"2026-07-28","weightKg":82.4}',
-    );
+    await recusar('/api/measurements', '{"date":"2026-07-28","weightKg":82.4}');
     await pump(tester);
 
     expect(

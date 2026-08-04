@@ -89,7 +89,8 @@ class AccountSheet extends ConsumerWidget {
     final canReview =
         ref.watch(reviewableKindsProvider).valueOrNull?.isNotEmpty ?? false;
     final pending = ref.watch(pendingWritesProvider).valueOrNull ?? 0;
-    final discarded = ref.watch(discardedWritesProvider).valueOrNull ?? const [];
+    final discarded =
+        ref.watch(discardedWritesProvider).valueOrNull ?? const [];
 
     return SafeArea(
       child: SingleChildScrollView(

@@ -100,9 +100,7 @@ class _WeightDialogState extends State<_WeightDialog> {
         ),
         // Some assim que a pessoa começa a corrigir: manter o vermelho enquanto ela digita a
         // correção é acusar de novo um erro que já está sendo consertado.
-        onChanged: _error == null
-            ? null
-            : (_) => setState(() => _error = null),
+        onChanged: _error == null ? null : (_) => setState(() => _error = null),
         onSubmitted: (_) => _submit(),
       ),
       actions: [

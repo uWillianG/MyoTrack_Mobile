@@ -53,7 +53,8 @@ class DiscardedWrites extends Table {
   /// Quando o servidor recusou — e não quando o usuário registrou. As duas datas podem estar a
   /// dias de distância se a escrita passou uma viagem inteira na fila, e o que a pessoa precisa
   /// para se localizar é a data do registro, que está no [payload].
-  DateTimeColumn get discardedAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get discardedAt =>
+      dateTime().withDefault(currentDateAndTime)();
 }
 
 /// Catálogo de exercícios espelhado localmente.

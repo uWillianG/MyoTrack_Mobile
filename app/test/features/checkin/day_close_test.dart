@@ -166,7 +166,10 @@ void main() {
     // Corrigido, o erro sai de cena e o valor sobe.
     await tester.enterText(find.byType(TextField), '80');
     await tester.pumpAndSettle();
-    expect(find.text('Digite um peso entre 1 e 500 kg. Ex.: 82,4'), findsNothing);
+    expect(
+      find.text('Digite um peso entre 1 e 500 kg. Ex.: 82,4'),
+      findsNothing,
+    );
 
     await tester.tap(find.widgetWithText(FilledButton, 'Salvar'));
     await tester.pumpAndSettle();
