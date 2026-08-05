@@ -655,15 +655,74 @@ regras de número: formatação é design, e design mora num lugar só.
 
 ---
 
-## 17. O que falta converter
+## 17. Uma conversa não tem manchete
+
+O coach (`coach/coach_page.dart`) é a **única tela convertida sem herói**, e é de propósito. O
+bloco de cor cheia promove um assunto entre vários; numa conversa não há vários — a conversa é a
+tela inteira, e um bloco no topo tomaria o espaço das mensagens para repetir o que a barra de
+título já diz.
+
+Ele aparece num caso só: **enquanto não há conversa**. Aí o bloco é o que a tela tem — diz o que
+o coach sabe e o que ele não é — e some para sempre na primeira pergunta. A regra que fica:
+**o herói pode ser o estado vazio**, quando o cheio não tem lugar para ele.
+
+### Sem família, e o saturado é o que você disse
+
+O coach fala de treino, de dieta e de constância. Pintá-lo de esmeralda ou de índigo diria que
+ele pertence a um desses assuntos, então ele é neutro (§4). Isso libera o único destaque da tela
+para o balão **do usuário**: quem escreve não é um assunto, e por isso nenhuma das quatro
+famílias serve — o contraste sai do neutro, que no escuro é claro e no claro é escuro.
+
+O do coach fica lavado. Ele fala muito mais, e um mural de balões cheios cansaria antes da
+terceira resposta.
+
+### O lavado neutro do tema claro estava fraco, e o balão provou
+
+Uma seção tem rótulo e ícone ancorando a forma; um balão não tem nada — é uma mancha solta no
+meio da tela. Foi ali que ficou impossível não ver: `surfaceContainerHigh` (#F0F2F1) sobre a
+página (#F7F8F8) são sete pontos de diferença, e no Perfil as seções sem cor já apareciam como
+retângulos fantasmas ao lado das coloridas.
+
+A correção foi **na fonte** — `Blocks.neutral` sobe um degrau no claro — e não na tela. No
+escuro fica como estava: contra o #000 qualquer superfície se afirma, e subir mais faria o
+neutro gritar mais alto que as famílias, invertendo a hierarquia.
+
+Vale como método: quando uma tela nova expõe um defeito do sistema, o conserto é no sistema. A
+correção local teria deixado o Perfil errado do mesmo jeito.
+
+### Lista de conversa é invertida
+
+Com três mensagens, uma lista normal encosta tudo no topo e deixa meia tela de vazio entre a
+última resposta e o campo de escrever — como se a conversa tivesse acabado e o resto fosse
+outra coisa. Com `reverse: true` ela se apoia no compositor, e mensagem nova entra sem mexer na
+posição de rolagem.
+
+O preço é que a ordem inverte: nessa lista, **"depois" significa "acima"**. A conversa é
+percorrida do fim para o começo, a régua de dia sai depois da primeira mensagem dele, e o
+`_toBottom` anima para `0`, não para `maxScrollExtent`.
+
+### A régua entre um dia e outro
+
+Uma conversa com o coach dura meses. Sem a separação, a resposta de três semanas atrás encosta
+na pergunta de hoje — que é como um conselho antigo volta a ser lido como atual. `daySeparator`
+é pura, no topo do arquivo, e devolve "Hoje", "Ontem" ou a data.
+
+### Sugestão que não é tocável é trabalho em dobro
+
+O estado vazio já sugeria três perguntas, mas como texto: ler e ter que redigitar. Agora são
+linhas de uma seção, cada uma com ícone e seta — o toque manda a pergunta.
+
+---
+
+## 18. O que falta converter
 
 Convertidas: **Hoje** (`today_page.dart`), **Nutrição** — diário (`diary_page.dart`) e plano
 (`diet_plan_page.dart`) —, **Perfil** (`profile_page.dart`), **Progresso**
 (`progress_page.dart`, que absorveu as conquistas), **Treino** — plano
 (`workout_plan_page.dart`), modo treino (`workout_mode_page.dart`) e registro
-(`log_session_page.dart`) — e a **Analisar** inteira: refeição
+(`log_session_page.dart`) —, a **Analisar** inteira — refeição
 (`meals/meal_analysis_page.dart`, esmeralda) e execução (`videos/video_analysis_page.dart`,
-índigo).
+índigo) — e o **Coach** (`coach/coach_page.dart`, neutro).
 
 O Perfil também absorveu a gaveta do avatar: `accountDestinations`
 (`features/home/account_destinations.dart`) alimenta a folha **e** a aba, de um lugar só. Duas
@@ -694,14 +753,13 @@ Em ordem de retorno, o que falta:
 
 | Tela | Família | O que fazer |
 |---|---|---|
-| `features/coach/coach_page.dart` | neutro | Conversão direta |
 | `features/reviews/review_page.dart` | neutro | Conversão direta |
 | `features/billing/billing_page.dart` | neutro | Conversão direta |
 | `features/privacy/account_page.dart` | neutro | Conversão direta |
 | `features/auth/` | — | Tem `auth_scaffold` próprio; alinhar tipografia e alvo de toque |
 | `features/splash/splash_page.dart` | — | Trivial |
 
-Quatro dessas são destinos da aba Perfil (`accountDestinations`): quem toca num item da lista
+Três dessas são destinos da aba Perfil (`accountDestinations`): quem toca num item da lista
 sai de uma tela nova e entra numa antiga, que é a costura que mais se sente.
 
 **Um caso meio-termo:** `checkin/day_close_page.dart` pegou a Manrope, o fundo preto e o `Fmt`,

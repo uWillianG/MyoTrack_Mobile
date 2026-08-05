@@ -14,6 +14,7 @@ import 'package:myotrack/core/providers.dart';
 import 'package:myotrack/core/sync/sync_queue.dart';
 import 'package:myotrack/core/theme.dart';
 import 'package:myotrack/features/analysis/analysis_page.dart';
+import 'package:myotrack/features/coach/coach_page.dart';
 import 'package:myotrack/features/dashboard/progress_page.dart';
 import 'package:myotrack/features/workout/workout_plan_page.dart';
 import 'package:myotrack/features/workout/workout_plan_controller.dart';
@@ -255,6 +256,27 @@ void main() {
       container.read(analysisTabProvider.notifier).state = AnalysisTab.form;
       await tester.pumpAndSettle();
       await shoot(tester, 'analisar-execucoes-$mode');
+    });
+
+    // O coach é a única tela sem herói — a conversa é a tela —, e por isso as duas capturas
+    // não são variações da mesma coisa: a vazia julga o bloco de convite, a cheia julga a
+    // conversa, que é o que existe no resto da vida do app.
+    testWidgets('coach ($mode)', (tester) async {
+      await pump(tester, brightness, const CoachPage());
+      await shoot(tester, 'coach-$mode');
+    });
+
+    testWidgets('coach — conversa ($mode)', (tester) async {
+      await pump(
+        tester,
+        brightness,
+        const CoachPage(),
+        extra: [
+          ...homeOverrides(coachMessages: conversaComOCoach),
+          nowProvider.overrideWithValue(() => DateTime(2026, 8, 4, 15)),
+        ],
+      );
+      await shoot(tester, 'coach-conversa-$mode');
     });
 
     // As duas caras do perfil. O cadastro é o que só quem chega vê, e a razão de a galeria

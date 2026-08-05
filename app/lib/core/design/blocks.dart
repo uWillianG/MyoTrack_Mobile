@@ -118,11 +118,22 @@ abstract final class Blocks {
         );
 
   /// **Sem família.** Para o que é procedimento e não assunto — fechar o dia, a fila do
-  /// revisor, um passo de configuração. Dar cor a tudo é o mesmo que não dar cor a nada.
+  /// revisor, um passo de configuração, a conversa com o coach. Dar cor a tudo é o mesmo que
+  /// não dar cor a nada.
+  ///
+  /// **O lavado sobe um degrau no tema claro**, e o motivo é o mesmo que fez os lavados escuros
+  /// subirem quando o fundo virou preto: separação. As quatro famílias se destacam pelo matiz,
+  /// e o neutro só tem a luminância — com `surfaceContainerHigh` (#F0F2F1) sobre a página
+  /// (#F7F8F8) sobram sete pontos de diferença, e no Perfil as seções sem cor apareciam como
+  /// retângulos fantasmas ao lado das coloridas. No escuro o degrau atual já basta: contra o
+  /// #000 qualquer superfície se afirma, e subir mais faria o neutro gritar mais alto que as
+  /// famílias, invertendo a hierarquia.
   static BlockColors neutral(ColorScheme scheme) => BlockColors(
     tone: scheme.inverseSurface,
     onTone: scheme.onInverseSurface,
-    wash: scheme.surfaceContainerHigh,
+    wash: scheme.brightness == Brightness.light
+        ? scheme.surfaceContainerHighest
+        : scheme.surfaceContainerHigh,
     ink: scheme.onSurface,
   );
 }

@@ -6,6 +6,7 @@ import 'package:myotrack/core/providers.dart';
 import 'package:myotrack/features/achievements/achievements_controller.dart'
     as achievements;
 import 'package:myotrack/features/achievements/data/rewards_repository.dart';
+import 'package:myotrack/features/coach/coach_controller.dart';
 import 'package:myotrack/features/dashboard/dashboard_controller.dart';
 import 'package:myotrack/features/dashboard/dashboard_stats.dart';
 import 'package:myotrack/features/diary/data/diary_models.dart';
@@ -353,6 +354,42 @@ const analisesDeVideo = [
   ),
 ];
 
+/// Uma conversa com o coach que atravessa dois dias.
+///
+/// **Os dois dias são o ponto.** É o que faz a régua de data aparecer — sem ela a resposta de
+/// ontem encosta na pergunta de hoje —, e uma conversa de quatro mensagens no mesmo minuto não
+/// mostraria isso.
+const conversaComOCoach = [
+  CoachMessage(
+    id: 'msg-1',
+    fromUser: true,
+    createdAt: '2026-08-03T19:12:00',
+    content: 'Posso treinar com dor no ombro?',
+  ),
+  CoachMessage(
+    id: 'msg-2',
+    createdAt: '2026-08-03T19:12:40',
+    content:
+        'Dor no ombro durante o movimento não é para ser vencida no braço: pare a série. '
+        'Como seu treino B tem supino e desenvolvimento no mesmo dia, troque os dois por '
+        'remada e puxada esta semana e veja se a dor cede. Se persistir por mais de alguns '
+        'dias, procure um profissional — isso eu não consigo avaliar por aqui.',
+  ),
+  CoachMessage(
+    id: 'msg-3',
+    fromUser: true,
+    createdAt: '2026-08-04T08:03:00',
+    content: 'Como está minha evolução no supino?',
+  ),
+  CoachMessage(
+    id: 'msg-4',
+    createdAt: '2026-08-04T08:03:30',
+    content:
+        'Você subiu de 62,5 kg para 70 kg em oito semanas, com as três séries fechando as '
+        'repetições nas últimas duas sessões. É hora de subir para 72,5 kg.',
+  ),
+];
+
 class _MockProfileRepository extends Mock implements ProfileRepository {}
 
 /// Repositório de perfil que responde na hora.
@@ -409,7 +446,12 @@ List<Override> homeOverrides({
 
   /// O histórico de execuções analisadas. Vazio pelo mesmo motivo.
   List<VideoAnalysis> analyzedVideos = const [],
+
+  /// A conversa com o coach. Vazia no caso comum — é o primeiro acesso, e é onde a tela
+  /// sugere o que perguntar.
+  List<CoachMessage> coachMessages = const [],
 }) => [
+  coachMessagesProvider.overrideWith((ref) async => coachMessages),
   diaryDayProvider.overrideWith((ref) async => day ?? diaryDay()),
   dashboardStatsProvider.overrideWith((ref) async => stats ?? dashboardStats()),
   nextWorkoutProvider.overrideWith(
