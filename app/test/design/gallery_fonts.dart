@@ -2,49 +2,41 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:myotrack/core/design/typography.dart';
 
-/// Carrega Roboto e os ícones do Material na galeria visual.
+/// Carrega a fonte do app e os ícones do Material na galeria visual.
 ///
-/// Sem isto o `flutter test` desenha tudo com a fonte de teste, que é um retângulo por
-/// glifo: dá para conferir layout, mas não é possível julgar peso, entrelinha ou
-/// espaçamento — que é justamente o que a galeria existe para mostrar. As fontes vêm do
-/// cache do SDK em vez de irem para `assets/`, porque só os testes precisam delas e um
-/// binário de fonte no repositório é peso morto no app.
+/// Sem isto o `flutter test` desenha tudo com a fonte de teste, que é um retângulo por glifo:
+/// dá para conferir layout, mas não é possível julgar peso, entrelinha ou espaçamento — que é
+/// justamente o que a galeria existe para mostrar.
+///
+/// **A Manrope vem de `assets/`, lida do disco.** Ela é a fonte do app agora, então a captura
+/// mostra o que o usuário vê. Ler o arquivo direto, em vez de pelo `rootBundle`, evita
+/// depender de o manifesto de assets estar montado no ambiente de teste — o caminho relativo
+/// funciona porque o `flutter test` roda com o diretório do pacote como raiz.
+///
+/// Os ícones continuam vindo do cache do SDK: eles não moram no repositório.
 Future<void> loadGalleryFonts() async {
+  await _loadFile(AppTypography.family, 'assets/fonts/Manrope-Variable.ttf');
+
   final root = _materialFontsDir();
   if (root == null) {
     return;
   }
-
-  await _load('Roboto', root, {
-    'roboto-regular.ttf': FontWeight.w400,
-    'roboto-medium.ttf': FontWeight.w500,
-    'roboto-bold.ttf': FontWeight.w700,
-    'roboto-light.ttf': FontWeight.w300,
-    'roboto-black.ttf': FontWeight.w900,
-  });
-  await _load('MaterialIcons', root, {
-    'materialicons-regular.otf': FontWeight.w400,
-  });
+  await _loadFile(
+    'MaterialIcons',
+    '${root.path}${Platform.pathSeparator}materialicons-regular.otf',
+  );
 }
 
-Future<void> _load(
-  String family,
-  Directory root,
-  Map<String, FontWeight> files,
-) async {
-  // Um FontLoader por peso: o `load()` de um loader só aceita variações da mesma família, e
-  // registrar todos os pesos num loader só faria o Flutter tratar o primeiro como único.
-  for (final entry in files.entries) {
-    final file = File('${root.path}${Platform.pathSeparator}${entry.key}');
-    if (!file.existsSync()) {
-      continue;
-    }
-    final loader = FontLoader(
-      family,
-    )..addFont(file.readAsBytes().then((bytes) => ByteData.view(bytes.buffer)));
-    await loader.load();
+Future<void> _loadFile(String family, String path) async {
+  final file = File(path);
+  if (!file.existsSync()) {
+    return;
   }
+  final loader = FontLoader(family)
+    ..addFont(file.readAsBytes().then((bytes) => ByteData.view(bytes.buffer)));
+  await loader.load();
 }
 
 /// O diretório `material_fonts` do cache do SDK, achado a partir do executável do Dart.

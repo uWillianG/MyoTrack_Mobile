@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:myotrack/core/db/local_database.dart';
 import 'package:myotrack/core/providers.dart';
 import 'package:myotrack/core/theme.dart';
-import 'package:myotrack/features/achievements/achievements_page.dart';
+import 'package:myotrack/features/dashboard/progress_page.dart';
 import 'package:myotrack/features/achievements/data/rewards_repository.dart';
 import 'package:myotrack/features/dashboard/dashboard_controller.dart';
 import 'package:myotrack/features/dashboard/dashboard_stats.dart';
@@ -15,9 +15,12 @@ import 'package:myotrack/features/home/home_page.dart';
 
 import '../home/home_test_harness.dart';
 
-/// A tela de conquistas tem uma responsabilidade que nenhuma outra tem: decidir o que é
-/// "novo". Errar isso estraga as duas pontas — comemorar de novo o que já foi comemorado, ou
-/// engolir em silêncio a conquista que a pessoa acabou de ganhar.
+/// As conquistas viraram parte do Progresso, e a responsabilidade que nenhuma outra tela tem
+/// veio junto: decidir o que é "novo". Errar isso estraga as duas pontas — comemorar de novo o
+/// que já foi comemorado, ou engolir em silêncio a conquista que a pessoa acabou de ganhar.
+///
+/// A fusão criou um risco novo: abrir o Progresso marca tudo como visto. Por isso a comemoração
+/// mora **acima da dobra**, e é isso que estes testes fixam junto com o resto.
 void main() {
   const smallPhone = Size(360, 800);
 
@@ -34,7 +37,7 @@ void main() {
   Future<void> pump(
     WidgetTester tester, {
     List<Override> extra = const [],
-    Widget home = const AchievementsPage(),
+    Widget home = const Scaffold(body: ProgressView()),
   }) async {
     tester.view.physicalSize = smallPhone;
     tester.view.devicePixelRatio = 1;
@@ -52,9 +55,11 @@ void main() {
           routerConfig: GoRouter(
             routes: [
               GoRoute(path: '/', builder: (_, _) => home),
+              // A página de verdade, com barra de título: é o que dá o botão de voltar que o
+              // caminho "abrir e voltar" exercita.
               GoRoute(
-                path: '/conquistas',
-                builder: (_, _) => const AchievementsPage(),
+                path: '/progresso',
+                builder: (_, _) => const ProgressPage(),
               ),
             ],
           ),
@@ -71,17 +76,23 @@ void main() {
     // recorde nenhum: sequência longa, semana incompleta.
     await pump(tester);
 
-    expect(find.text('Conquistas'), findsWidgets);
-    expect(find.text('A caminho'.toUpperCase()), findsOne);
+    await tester.scrollUntilVisible(
+      find.text('A caminho'),
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('A caminho'), findsOne);
 
     // A caminho, com o progresso à vista — é o que faz disto uma recompensa por evolução.
     expect(find.text('3 de 4 treinos'), findsOne);
 
-    // A seção das ganhas fica abaixo da dobra num celular de 800 dp, e a `ListView` não
-    // constrói o que não vai desenhar. Rola-se até o próprio item, e não até o cabeçalho: o
-    // cabeçalho entra na tela um quadro antes do que vem depois dele.
-    expect(find.text('CONQUISTADAS'), findsNothing);
-    await tester.scrollUntilVisible(find.text('CONQUISTADAS'), 200);
+    // As duas listas moram no mesmo bloco: rolar até "A caminho" já traz "Conquistadas"
+    // junto, e a asserção de preguiça que existia aqui deixou de descrever a tela.
+    await tester.scrollUntilVisible(
+      find.text('Conquistadas'),
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
     // Mais um empurrão: o cabeçalho entra na tela um quadro antes dos itens abaixo dele, e a
     // `ListView` não constrói o que ainda não vai desenhar.
     await tester.drag(find.byType(ListView).first, const Offset(0, -240));
@@ -98,6 +109,11 @@ void main() {
     // ganha — é o que transforma a barra de progresso em motivo para treinar.
     await pump(tester);
 
+    await tester.scrollUntilVisible(
+      find.text('1 MÊS DE PRO'),
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('1 MÊS DE PRO'), findsOne);
   });
 
@@ -174,31 +190,33 @@ void main() {
     expect(find.text('NOVO'), findsWidgets);
   });
 
-  testWidgets('o cartão da Hoje leva às conquistas e some depois', (
+  testWidgets('o ladrilho da Hoje leva às conquistas e some depois', (
     tester,
   ) async {
-    // O caminho inteiro, como o usuário faz: o hub avisa, ele abre, e o aviso não volta.
+    // O caminho inteiro, como o usuário faz: o mosaico avisa, ele abre, e o aviso não volta.
+    // O destino é o Progresso, que absorveu as conquistas — e é lá que a comemoração mora,
+    // acima da dobra, para que marcar como visto seja honesto.
     await pump(tester, home: const HomePage());
 
-    final card = find.textContaining('Você desbloqueou');
-    await tester.scrollUntilVisible(card, 200);
-    expect(card, findsOne);
+    final tile = find.text('Conquista');
+    await tester.scrollUntilVisible(tile, 200);
+    expect(tile, findsOne);
 
-    // Mais um empurrão: o `scrollUntilVisible` para assim que o cartão entra na tela, e
-    // nessa posição ele fica embaixo do botão flutuante de registrar — que intercepta o
-    // toque. É a mesma sobreposição que o usuário resolve rolando mais um pouco.
+    // Mais um empurrão: o `scrollUntilVisible` para assim que o ladrilho entra na tela, e
+    // nessa posição ele pode ficar embaixo do botão flutuante de registrar — que intercepta
+    // o toque. É a mesma sobreposição que o usuário resolve rolando mais um pouco.
     await tester.drag(find.byType(ListView).first, const Offset(0, -160));
     await tester.pumpAndSettle();
 
-    await tester.tap(card);
+    await tester.tap(tile);
     await tester.pumpAndSettle();
-    expect(find.text('Conquistas'), findsWidgets);
+    expect(find.textContaining('Você desbloqueou'), findsOne);
 
-    // Voltar ao hub: o cartão cumpriu o papel e não pode continuar ocupando a tela.
+    // Voltar ao hub: o aviso cumpriu o papel e não pode continuar ocupando a tela.
     await tester.pageBack();
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Você desbloqueou'), findsNothing);
+    expect(find.text('Conquista'), findsNothing);
   });
 
   testWidgets('sem histórico a tela não promete nada', (tester) async {
@@ -217,8 +235,8 @@ void main() {
       ],
     );
 
-    expect(find.text('Registre um treino para começar.'), findsOne);
-    expect(find.text('Conquistadas'.toUpperCase()), findsNothing);
+    expect(find.textContaining('Ainda não há'), findsOne);
+    expect(find.text('Conquistadas'), findsNothing);
     expect(find.textContaining('Você desbloqueou'), findsNothing);
   });
 }

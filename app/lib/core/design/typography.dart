@@ -2,30 +2,46 @@ import 'package:flutter/material.dart';
 
 /// A escala tipográfica do app.
 ///
-/// Parte da Roboto, que é a fonte do sistema no Android e não custa um byte de download —
-/// num app que se usa no subsolo de uma academia, uma fonte que chega pela rede é uma fonte
-/// que às vezes não chega. O que muda em relação ao padrão do Material é o ajuste fino, e é
-/// ele que separa "texto" de "tipografia":
+/// **A fonte é a Manrope, empacotada no APK** (ver `pubspec.yaml`). O projeto usou a fonte de
+/// cada plataforma por muito tempo, com o argumento de que fonte que chega pela rede às vezes
+/// não chega. O argumento continua verdadeiro e não se aplica a uma fonte que viaja dentro do
+/// binário: 165 KB, disponível no primeiro frame, offline.
 ///
-/// - **Entreletra negativa nos tamanhos grandes.** A Roboto é desenhada para corpo de texto;
-///   a 28 ou 32 px o espaçamento pensado para 14 px vira frouxidão. Quanto maior o tamanho,
-///   mais fecha — é a mesma lógica de tamanho óptico das fontes com eixo variável.
+/// A troca é a peça isolada que mais muda a cara do app. A fonte do sistema é o carimbo mais
+/// visível de "aplicativo Flutter recém-criado", e nenhum arranjo de layout o remove — foi a
+/// lição de duas rodadas de redesenho que mexeram só em espaço e cor.
+///
+/// **Por que a Manrope.** Grotesca geométrica de altura-x muito alta, que é o que mantém 12 px
+/// legível numa tela suada; bojo de lado reto, que dá à palavra um contorno que a Roboto não
+/// tem; e algarismos largos e confiantes, que é o que este app mais desenha grande. Não é
+/// Inter, Poppins nem Montserrat — as três que aparecem em qualquer template.
+///
+/// O ajuste fino em cima dela é o que separa "texto" de "tipografia":
+///
+/// - **Entreletra negativa nos tamanhos grandes.** O espaçamento pensado para 14 px vira
+///   frouxidão a 28 ou 32. Quanto maior o tamanho, mais fecha — a mesma lógica de tamanho
+///   óptico das fontes com eixo variável.
 /// - **Corpo em 15, não 14.** O `bodyMedium` do Material nasceu em 14 px, medida de tela de
 ///   desktop de 2014. Em celular, 15/22 é o que se lê sem aproximar o aparelho.
 /// - **Peso 600 nos títulos.** O 500 do padrão desaparece contra um número grande ao lado.
 ///
-/// [numeric] é o desvio deliberado: os números desta tela são o produto (calorias restantes,
+/// [numeric] é o desvio deliberado: os números deste app são o produto (calorias restantes,
 /// carga, peso), e merecem um estilo próprio em vez de herdar o do título.
 abstract final class AppTypography {
-  /// [family] normalmente é nulo: sem família declarada, cada plataforma usa a sua (Roboto
-  /// no Android, San Francisco no iOS), que é o que faz o app parecer nativo em vez de
-  /// portado. Quem passa um nome é a galeria visual, que precisa da mesma fonte em qualquer
-  /// máquina para as capturas serem comparáveis.
+  /// A família de todo o app.
+  ///
+  /// O arquivo é variável e cobre 200–800 num binário só; o Flutter interpola o eixo `wght` a
+  /// partir do `fontWeight` do `TextStyle`. Quem confere se isso está funcionando é a galeria
+  /// visual — um peso que não pega sai como texto todo do mesmo tom, e é invisível no código.
+  static const String family = 'Manrope';
+
+  /// [family] é sobrescrevível só para permitir uma comparação lado a lado na galeria. No
+  /// app ele é sempre a Manrope: uma tela com outra fonte é uma tela de outro produto.
   static TextTheme scale(ColorScheme scheme, {String? family}) {
     final ink = scheme.onSurface;
     final muted = scheme.onSurfaceVariant;
 
-    return _withFamily(family, _build(ink, muted));
+    return _withFamily(family ?? AppTypography.family, _build(ink, muted));
   }
 
   static TextTheme _withFamily(String? family, TextTheme scale) =>
@@ -148,7 +164,7 @@ abstract final class AppTypography {
     );
   }
 
-  /// O estilo dos números que são o assunto da tela.
+  /// O estilo do número que é o assunto da tela.
   ///
   /// `FontFeature.tabularFigures` para que 1.476 e 624 ocupem a mesma largura por dígito: sem
   /// isso o número dança horizontalmente a cada atualização, e num anel de calorias que muda
@@ -157,10 +173,10 @@ abstract final class AppTypography {
   static TextStyle numeric({
     required double size,
     required Color color,
-    FontWeight weight = FontWeight.w700,
+    FontWeight weight = FontWeight.w800,
     String? family,
   }) => TextStyle(
-    fontFamily: family,
+    fontFamily: family ?? AppTypography.family,
     fontSize: size,
     height: 1.05,
     fontWeight: weight,

@@ -149,14 +149,24 @@ class ProfileOptions {
     (value: 'Aesthetics', label: 'Estética'),
   ];
 
+  /// **Rótulo curto, explicação à parte.**
+  ///
+  /// Os três traziam a definição dentro do próprio rótulo — "Ectomorfo (magro, dificuldade de
+  /// ganhar peso)" —, e cada chip ocupava uma linha inteira da tela, cortado no fim. Três
+  /// palavras cabem numa linha só, e a definição do que **está escolhido** cabe embaixo, onde
+  /// é lida sem competir com as outras duas.
   static const List<Option> biotypes = [
-    (
-      value: 'Ectomorph',
-      label: 'Ectomorfo (magro, dificuldade de ganhar peso)',
-    ),
-    (value: 'Mesomorph', label: 'Mesomorfo (ganha músculo com facilidade)'),
-    (value: 'Endomorph', label: 'Endomorfo (ganha peso com facilidade)'),
+    (value: 'Ectomorph', label: 'Ectomorfo'),
+    (value: 'Mesomorph', label: 'Mesomorfo'),
+    (value: 'Endomorph', label: 'Endomorfo'),
   ];
+
+  /// O que cada biotipo quer dizer. Aparece só para o escolhido.
+  static const Map<String, String> biotypeHints = {
+    'Ectomorph': 'Magro, com dificuldade de ganhar peso.',
+    'Mesomorph': 'Ganha músculo com facilidade.',
+    'Endomorph': 'Ganha peso com facilidade.',
+  };
 
   static const List<Option> sexes = [
     (value: 'M', label: 'Masculino'),

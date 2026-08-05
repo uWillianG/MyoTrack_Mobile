@@ -5,9 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../../core/db/local_database.dart';
 import '../../core/design/tokens.dart';
 import '../../core/providers.dart';
-import '../../core/router.dart';
 import '../../core/sync/discarded_write_summary.dart';
 import '../reviews/review_controller.dart';
+import 'account_destinations.dart';
 
 /// O que fica atrás do avatar da barra superior.
 ///
@@ -28,60 +28,6 @@ Future<void> showAccountSheet(BuildContext context) {
 
 class AccountSheet extends ConsumerWidget {
   const AccountSheet({super.key});
-
-  static const _destinations = <_Destination>[
-    _Destination(
-      icon: Icons.insights_outlined,
-      title: 'Progresso',
-      subtitle: 'Volume por semana, peso corporal e seus recordes',
-      route: Routes.progress,
-    ),
-    _Destination(
-      icon: Icons.emoji_events_outlined,
-      title: 'Conquistas',
-      subtitle: 'O que sua evolução já rendeu, e o que está a um passo',
-      route: Routes.achievements,
-    ),
-    _Destination(
-      icon: Icons.fitness_center_outlined,
-      title: 'Meu treino',
-      subtitle: 'O plano inteiro, dia a dia',
-      route: Routes.workoutPlan,
-    ),
-    _Destination(
-      icon: Icons.edit_note_outlined,
-      title: 'Registrar treino',
-      subtitle: 'Séries, cargas e peso corporal — funciona offline',
-      route: Routes.logSession,
-    ),
-    _Destination(
-      icon: Icons.chat_bubble_outline,
-      title: 'Coach',
-      subtitle: 'Tire dúvidas com quem conhece seu treino e sua dieta',
-      route: Routes.coach,
-    ),
-    _Destination(
-      icon: Icons.workspace_premium_outlined,
-      title: 'Assinatura',
-      subtitle: 'Seu plano e os limites diários de análise',
-      route: Routes.billing,
-    ),
-    _Destination(
-      icon: Icons.shield_outlined,
-      title: 'Conta e privacidade',
-      subtitle: 'Excluir sua conta e todos os seus dados',
-      route: Routes.account,
-    ),
-  ];
-
-  /// A revisão só aparece para quem pode revisar: mostrar para o aluno o levaria a uma tela
-  /// que o servidor recusa com 403, e item de menu que dá erro é pior que item nenhum.
-  static const _reviewDestination = _Destination(
-    icon: Icons.fact_check_outlined,
-    title: 'Revisão',
-    subtitle: 'Fila de planos aguardando sua aprovação',
-    route: Routes.review,
-  );
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -105,8 +51,8 @@ class AccountSheet extends ConsumerWidget {
             // lugar do app que ele abre sem estar no meio de outra coisa.
             if (pending > 0) _PendingWritesNotice(count: pending),
             for (final destination in [
-              ..._destinations,
-              if (canReview) _reviewDestination,
+              ...accountDestinations,
+              if (canReview) reviewDestination,
             ])
               ListTile(
                 leading: Icon(destination.icon),
@@ -260,18 +206,4 @@ class _DiscardedWritesNotice extends ConsumerWidget {
       ),
     );
   }
-}
-
-class _Destination {
-  const _Destination({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.route,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final String route;
 }

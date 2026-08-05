@@ -31,6 +31,52 @@ abstract final class Fmt {
     return '${NumberFormat(pattern, 'pt_BR').format(asDouble)} kg';
   }
 
+  /// "4 de agosto".
+  ///
+  /// **Os nomes vão escritos e não pelo `DateFormat`.** Um formato de data exige que os
+  /// símbolos do locale já tenham sido carregados, e onde isso não acontece — um teste de
+  /// widget que não chama `initializeDateFormatting` — a data sai em inglês em vez de falhar
+  /// visivelmente. O app é pt-BR e só.
+  ///
+  /// Estava escrito à mão em cada tela que mostra data por extenso; a terceira cópia é o que
+  /// trouxe para cá.
+  static String dayMonth(DateTime date) =>
+      '${date.day} de ${_months[date.month - 1]}';
+
+  /// "terça, 4 de agosto".
+  static String weekdayDayMonth(DateTime date) =>
+      '${_weekdays[date.weekday - 1]}, ${dayMonth(date)}';
+
+  /// "12:34", em 24 horas — o relógio que o Brasil lê.
+  static String time(DateTime at) =>
+      '${at.hour.toString().padLeft(2, '0')}:'
+      '${at.minute.toString().padLeft(2, '0')}';
+
+  static const _weekdays = [
+    'segunda',
+    'terça',
+    'quarta',
+    'quinta',
+    'sexta',
+    'sábado',
+    'domingo',
+  ];
+
+  static const _months = [
+    'janeiro',
+    'fevereiro',
+    'março',
+    'abril',
+    'maio',
+    'junho',
+    'julho',
+    'agosto',
+    'setembro',
+    'outubro',
+    'novembro',
+    'dezembro',
+  ];
+
   /// Diferença com o sinal sempre explícito: "+0,3 kg", "−624 kcal".
   ///
   /// O sinal vai escrito, e o de menos é o traço matemático (−, U+2212) e não o hífen: no

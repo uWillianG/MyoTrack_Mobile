@@ -8,7 +8,6 @@ import '../../core/sync/sync_queue.dart';
 import '../../core/widgets/review_badge.dart';
 import '../dashboard/dashboard_controller.dart';
 import '../dashboard/dashboard_stats.dart';
-import '../dashboard/dashboard_view.dart' show formatKg;
 import '../diary/data/diary_models.dart';
 import '../diary/diary_controller.dart';
 import '../diet/diet_plan_controller.dart';
@@ -165,7 +164,7 @@ class _WeightStep extends ConsumerWidget {
         if (last != null)
           _Option(
             icon: Icons.monitor_weight_outlined,
-            label: formatKg(last),
+            label: Fmt.kg(last),
             detail: 'Igual à última pesagem',
             selected: chosen == last,
             onTap: () => _save(context, ref, last),
@@ -315,7 +314,7 @@ class _Tiles extends StatelessWidget {
           Expanded(
             child: _Tile(
               label: 'Peso',
-              value: weight == null ? '—' : formatKg(weight),
+              value: weight == null ? '—' : Fmt.kg(weight),
               // O sinal vai explícito porque "+0,3" e "−0,3" contam histórias opostas, e
               // cor sozinha não diria qual é qual para quem não distingue verde de vermelho.
               detail: delta == null

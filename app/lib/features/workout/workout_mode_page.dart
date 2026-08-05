@@ -3,9 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/design/blocks.dart';
+import '../../core/design/format.dart';
 import '../../core/design/tokens.dart';
+import '../../core/design/typography.dart';
 import '../../core/notifications/rest_alarm.dart';
 import '../../core/router.dart';
+import '../../core/widgets/blocks.dart';
 import '../../core/widgets/empty_state.dart';
 import '../logging/log_session_controller.dart';
 import 'data/workout_models.dart';
@@ -15,9 +19,18 @@ import 'workout_plan_controller.dart';
 
 /// Modo treino: conduz o dia escolhido série a série, com o descanso entre elas.
 ///
-/// Separado da tela de plano (`/treino`, que é consulta) e da de registro (`/registrar`,
-/// que é lançamento depois do fato) porque o uso é outro: aqui o aparelho fica apoiado no
-/// banco, a mão está ocupada e cada toque precisa ser grande e óbvio.
+/// Separado da tela de plano (`/treino`, que é consulta) e da de registro (`/registrar`, que é
+/// lançamento depois do fato) porque o uso é outro: aqui o aparelho fica apoiado no banco, a
+/// mão está ocupada e cada toque precisa ser grande e óbvio.
+///
+/// **A manchete troca de assunto quando o descanso começa.** Durante a série ela é a série —
+/// exercício, número e alvo, legíveis de longe. Quando o cronômetro parte, ele toma o bloco em
+/// cor cheia: é a única coisa que muda sozinha na tela, e é justamente para vê-la que a pessoa
+/// olha o aparelho de dois metros de distância.
+///
+/// **Os campos ficam fora do herói.** Caixa de texto sobre cor cheia perde o contraste que o
+/// tema garante no fundo normal, e digitar carga com a mão suada é a operação que menos pode
+/// falhar aqui.
 class WorkoutModePage extends ConsumerWidget {
   const WorkoutModePage({super.key});
 
@@ -48,8 +61,8 @@ class WorkoutModePage extends ConsumerWidget {
   }
 }
 
-/// Escolha do dia. Um plano tem vários, e adivinhar qual é o de hoje erraria: a semana de
-/// quem treina não segue o calendário.
+/// Escolha do dia. Um plano tem vários, e adivinhar qual é o de hoje erraria: a semana de quem
+/// treina não segue o calendário.
 class _DayPicker extends ConsumerWidget {
   const _DayPicker({required this.plan});
 
@@ -57,7 +70,10 @@ class _DayPicker extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final colors = Blocks.workout(theme.brightness);
     final workout = plan;
+
     if (workout == null || workout.days.isEmpty) {
       return EmptyState(
         icon: Icons.fitness_center_outlined,
@@ -71,37 +87,49 @@ class _DayPicker extends ConsumerWidget {
     }
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(Space.gutter, 8, Space.gutter, 16),
+      padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 32),
       children: [
-        Text(
-          'Qual treino é o de hoje?',
-          style: Theme.of(context).textTheme.titleMedium,
+        HeroBlock(
+          colors: colors,
+          label: 'Treinar',
+          icon: Icons.fitness_center,
+          child: Text(
+            'Qual treino\né o de hoje?',
+            style: theme.textTheme.displaySmall?.copyWith(color: colors.onTone),
+          ),
         ),
-        const SizedBox(height: 12),
-        for (final day in workout.days)
-          Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 8,
-              ),
-              title: Text(day.label),
-              subtitle: Text('${day.exercises.length} exercícios'),
-              trailing: const Icon(Icons.play_arrow),
-              onTap: () async {
-                ref.read(workoutModeProvider.notifier).startDay(day);
-                // O pedido de permissão sai aqui, com o treino começando: é o momento em
-                // que o aviso de fim de descanso faz sentido para quem lê o diálogo.
-                final alarm = ref.read(restAlarmProvider);
-                if (alarm is RestNotifications) {
-                  await alarm.requestPermission();
-                }
-              },
+        for (final day in workout.days) ...[
+          const SizedBox(height: Space.sm),
+          BlockSection(
+            colors: colors,
+            label: day.label,
+            icon: Icons.play_circle_outline,
+            trailing: day.exercises.length == 1
+                ? '1 exercício'
+                : '${day.exercises.length} exercícios',
+            onEdit: () => _start(ref, day),
+            child: Text(
+              // Os primeiros exercícios: é o que distingue dois dias com nomes parecidos
+              // quando a pessoa não lembra qual era o A e qual era o B.
+              day.exercises.take(3).map((e) => e.exerciseName).join(' · '),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall,
             ),
           ),
+        ],
       ],
     );
+  }
+
+  Future<void> _start(WidgetRef ref, WorkoutDay day) async {
+    ref.read(workoutModeProvider.notifier).startDay(day);
+    // O pedido de permissão sai aqui, com o treino começando: é o momento em que o aviso de
+    // fim de descanso faz sentido para quem lê o diálogo.
+    final alarm = ref.read(restAlarmProvider);
+    if (alarm is RestNotifications) {
+      await alarm.requestPermission();
+    }
   }
 }
 
@@ -112,9 +140,10 @@ class _SessionView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final progress = session.current;
-    final exercise = progress.exercise;
     final theme = Theme.of(context);
+    final colors = Blocks.workout(theme.brightness);
+    final progress = session.current;
+    final timer = ref.watch(restTimerProvider);
 
     return PopScope(
       // Sair no meio do treino joga fora as séries registradas — elas só existem em memória
@@ -146,51 +175,37 @@ class _SessionView extends ConsumerWidget {
           ),
         ),
         body: ListView(
-          padding: const EdgeInsets.fromLTRB(Space.gutter, 8, Space.gutter, 16),
+          padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 32),
           children: [
-            Text(exercise.exerciseName, style: theme.textTheme.headlineSmall),
-            const SizedBox(height: 4),
-            Text(
-              '${exercise.sets} × ${exercise.repsMin}–${exercise.repsMax}'
-              '  ·  ${exercise.restSeconds}s de descanso',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            if (exercise.notes != null && exercise.notes!.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(exercise.notes!, style: theme.textTheme.bodySmall),
-            ],
-            const SizedBox(height: 16),
-
-            _SetList(progress: progress),
-            const SizedBox(height: 16),
-
-            const _RestTimerCard(),
-            const SizedBox(height: 16),
-
-            _SetEntryForm(progress: progress),
-            const SizedBox(height: 24),
-
+            // O herói: o descanso quando ele corre, a série quando não.
+            if (timer.isIdle)
+              _CurrentSetHero(progress: progress, colors: colors)
+            else
+              _RestHero(progress: progress, colors: colors),
+            const SizedBox(height: Space.sm),
+            _SetEntrySection(progress: progress, colors: colors),
+            const SizedBox(height: Space.sm),
+            _SetListSection(progress: progress, colors: colors),
+            const SizedBox(height: Space.lg),
             Row(
               children: [
-                if (!session.isFirstExercise)
+                if (!session.isFirstExercise) ...[
                   Expanded(
-                    child: OutlinedButton.icon(
+                    child: OutlinedButton(
                       onPressed: () =>
                           ref.read(workoutModeProvider.notifier).previous(),
-                      icon: const Icon(Icons.chevron_left),
-                      label: const Text('Anterior'),
+                      child: const Text('Anterior'),
                     ),
                   ),
-                if (!session.isFirstExercise) const SizedBox(width: 8),
+                  const SizedBox(width: Space.xs),
+                ],
                 Expanded(
                   child: session.isLastExercise
-                      ? FilledButton.icon(
+                      ? FilledButton(
                           onPressed: session.submitting
                               ? null
                               : () => _finish(context, ref),
-                          icon: session.submitting
+                          child: session.submitting
                               ? const SizedBox(
                                   width: 18,
                                   height: 18,
@@ -198,20 +213,18 @@ class _SessionView extends ConsumerWidget {
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : const Icon(Icons.check),
-                          label: const Text('Concluir treino'),
+                              : const Text('Concluir treino'),
                         )
-                      : FilledButton.icon(
+                      : FilledButton(
                           onPressed: () =>
                               ref.read(workoutModeProvider.notifier).next(),
-                          icon: const Icon(Icons.chevron_right),
-                          label: const Text('Próximo'),
+                          child: const Text('Próximo exercício'),
                         ),
                 ),
               ],
             ),
             if (!session.isLastExercise) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: Space.xs),
               TextButton(
                 onPressed: session.submitting
                     ? null
@@ -299,88 +312,287 @@ class _SessionView extends ConsumerWidget {
   }
 }
 
-class _SetList extends ConsumerWidget {
-  const _SetList({required this.progress});
+// ---------------------------------------------------------------------------------------
+// As duas manchetes
+// ---------------------------------------------------------------------------------------
+
+/// A série que vem agora.
+class _CurrentSetHero extends StatelessWidget {
+  const _CurrentSetHero({required this.progress, required this.colors});
 
   final ExerciseProgress progress;
+  final BlockColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final exercise = progress.exercise;
+
+    return HeroBlock(
+      colors: colors,
+      label: progress.isComplete
+          ? 'Série extra'
+          : 'Série ${progress.nextSetNumber} de ${exercise.sets}',
+      icon: Icons.fitness_center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            exercise.exerciseName,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: colors.onTone,
+            ),
+          ),
+          const SizedBox(height: Space.xs),
+          Text(
+            '${exercise.repsMin}–${exercise.repsMax} repetições'
+            '  ·  ${exercise.restSeconds}s de descanso',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colors.onTone.withValues(alpha: 0.85),
+            ),
+          ),
+          if (exercise.notes case final notes? when notes.isNotEmpty) ...[
+            const SizedBox(height: Space.xs),
+            Text(
+              notes,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onTone.withValues(alpha: 0.85),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// O descanso, enquanto ele corre.
+///
+/// **É o maior número do app**, e de propósito: o aparelho está apoiado no banco a dois metros
+/// de distância, e o tempo restante é a única informação que a pessoa precisa dali.
+class _RestHero extends ConsumerWidget {
+  const _RestHero({required this.progress, required this.colors});
+
+  final ExerciseProgress progress;
+  final BlockColors colors;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final timer = ref.watch(restTimerProvider);
+    final controller = ref.read(restTimerProvider.notifier);
+    final finished = timer.isFinished;
+
+    return HeroBlock(
+      colors: colors,
+      label: finished ? 'Descanso terminado' : 'Descanso',
+      icon: Icons.timer_outlined,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            finished ? 'Pode ir' : timer.label,
+            style: AppTypography.numeric(
+              size: finished ? 44 : 64,
+              color: colors.onTone,
+            ),
+          ),
+          const SizedBox(height: Space.sm),
+          if (!finished)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: timer.progress,
+                minHeight: 8,
+                color: colors.onTone,
+                backgroundColor: colors.onTone.withValues(alpha: 0.25),
+              ),
+            ),
+          const SizedBox(height: Space.sm),
+          // A próxima série fica à vista durante o descanso: é o que a pessoa precisa saber
+          // antes de voltar para a barra, e procurar por isso rolando com a mão ocupada é o
+          // atrito que o modo treino existe para evitar.
+          Text(
+            progress.isComplete
+                ? 'Depois: próximo exercício'
+                : 'Depois: série ${progress.nextSetNumber} de '
+                      '${progress.exercise.sets} · ${progress.exercise.exerciseName}',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colors.onTone.withValues(alpha: 0.85),
+            ),
+          ),
+          const SizedBox(height: Space.md),
+          Row(
+            children: [
+              Expanded(
+                child: _RestButton(
+                  label: '+30 s',
+                  colors: colors,
+                  onPressed: () =>
+                      controller.extend(const Duration(seconds: 30)),
+                ),
+              ),
+              if (!finished) ...[
+                const SizedBox(width: Space.xs),
+                Expanded(
+                  child: _RestButton(
+                    label: timer.isPaused ? 'Retomar' : 'Pausar',
+                    colors: colors,
+                    onPressed: timer.isPaused
+                        ? controller.resume
+                        : controller.pause,
+                  ),
+                ),
+              ],
+              const SizedBox(width: Space.xs),
+              Expanded(
+                child: _RestButton(
+                  label: finished ? 'Dispensar' : 'Pular',
+                  colors: colors,
+                  filled: true,
+                  onPressed: controller.stop,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Botão do bloco de descanso. 48 dp de altura: é tocado com a mão suada, de pé.
+class _RestButton extends StatelessWidget {
+  const _RestButton({
+    required this.label,
+    required this.colors,
+    required this.onPressed,
+    this.filled = false,
+  });
+
+  final String label;
+  final BlockColors colors;
+  final VoidCallback onPressed;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = ButtonStyle(
+      minimumSize: const WidgetStatePropertyAll(Size.fromHeight(48)),
+      padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+    );
+
+    return filled
+        ? FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: colors.onTone,
+              foregroundColor: colors.tone,
+            ).merge(style),
+            onPressed: onPressed,
+            child: Text(label),
+          )
+        : OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: colors.onTone,
+              side: BorderSide(color: colors.onTone.withValues(alpha: 0.45)),
+            ).merge(style),
+            onPressed: onPressed,
+            child: Text(label),
+          );
+  }
+}
+
+// ---------------------------------------------------------------------------------------
+// As séries
+// ---------------------------------------------------------------------------------------
+
+/// O que já foi feito e o que falta, neste exercício.
+class _SetListSection extends ConsumerWidget {
+  const _SetListSection({required this.progress, required this.colors});
+
+  final ExerciseProgress progress;
+  final BlockColors colors;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (var i = 0; i < progress.done.length; i++)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.check_circle,
-                  size: 18,
-                  color: theme.colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Série ${i + 1}  ·  ${progress.done[i].reps} reps  ·  '
-                    '${_kg(progress.done[i].loadKg)} kg'
-                    '${progress.done[i].rpe != null ? '  ·  RPE ${progress.done[i].rpe}' : ''}',
-                    style: theme.textTheme.bodyMedium,
+    return BlockSection(
+      colors: colors,
+      label: 'Séries',
+      icon: Icons.format_list_numbered,
+      trailing: '${progress.done.length} de ${progress.exercise.sets}',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < progress.done.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: Space.xxs),
+              child: Row(
+                children: [
+                  Icon(Icons.check_circle, size: 18, color: colors.ink),
+                  const SizedBox(width: Space.xs),
+                  Expanded(
+                    child: Text(
+                      'Série ${i + 1}  ·  ${progress.done[i].reps} reps  ·  '
+                      '${Fmt.kg(progress.done[i].loadKg)}'
+                      '${progress.done[i].rpe != null ? '  ·  RPE ${progress.done[i].rpe}' : ''}',
+                      style: theme.textTheme.bodyMedium,
+                    ),
                   ),
-                ),
-                if (i == progress.done.length - 1)
-                  IconButton(
-                    onPressed: () =>
-                        ref.read(workoutModeProvider.notifier).undoLastSet(),
-                    icon: const Icon(Icons.undo, size: 18),
-                    tooltip: 'Desfazer última série',
-                  ),
-              ],
+                  if (i == progress.done.length - 1)
+                    IconButton(
+                      onPressed: () =>
+                          ref.read(workoutModeProvider.notifier).undoLastSet(),
+                      icon: const Icon(Icons.undo, size: 18),
+                      tooltip: 'Desfazer última série',
+                    ),
+                ],
+              ),
             ),
-          ),
-        for (var i = 0; i < progress.remainingSets; i++)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.circle_outlined,
-                  size: 18,
-                  color: theme.colorScheme.outline,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Série ${progress.done.length + i + 1}',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+          for (var i = 0; i < progress.remainingSets; i++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: Space.xxs),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.circle_outlined,
+                    size: 18,
+                    color: theme.colorScheme.outline,
                   ),
-                ),
-              ],
+                  const SizedBox(width: Space.xs),
+                  Text(
+                    'Série ${progress.done.length + i + 1}',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
-
-  /// Sem casa decimal quando é inteiro: "60 kg" e não "60.0 kg".
-  static String _kg(double value) =>
-      value == value.roundToDouble() ? '${value.round()}' : '$value';
 }
 
-/// Campos da série atual. `StatefulWidget` porque os controladores de texto precisam
-/// sobreviver aos rebuilds do timer, que acontecem a cada segundo.
-class _SetEntryForm extends ConsumerStatefulWidget {
-  const _SetEntryForm({required this.progress});
+/// Campos da série atual.
+///
+/// `StatefulWidget` porque os controladores de texto precisam sobreviver aos rebuilds do
+/// timer, que acontecem a cada segundo.
+class _SetEntrySection extends ConsumerStatefulWidget {
+  const _SetEntrySection({required this.progress, required this.colors});
 
   final ExerciseProgress progress;
+  final BlockColors colors;
 
   @override
-  ConsumerState<_SetEntryForm> createState() => _SetEntryFormState();
+  ConsumerState<_SetEntrySection> createState() => _SetEntrySectionState();
 }
 
-class _SetEntryFormState extends ConsumerState<_SetEntryForm> {
+class _SetEntrySectionState extends ConsumerState<_SetEntrySection> {
   final _reps = TextEditingController();
   final _load = TextEditingController();
   int? _rpe;
@@ -393,7 +605,7 @@ class _SetEntryFormState extends ConsumerState<_SetEntryForm> {
   }
 
   @override
-  void didUpdateWidget(_SetEntryForm oldWidget) {
+  void didUpdateWidget(_SetEntrySection oldWidget) {
     super.didUpdateWidget(oldWidget);
     // Trocou de exercício: a carga do anterior não serve de sugestão para o próximo.
     if (oldWidget.progress.exercise.id != widget.progress.exercise.id) {
@@ -420,8 +632,8 @@ class _SetEntryFormState extends ConsumerState<_SetEntryForm> {
         .read(workoutModeProvider.notifier)
         .recordSet(reps: reps, loadKg: load, rpe: _rpe);
 
-    // A carga fica: a série seguinte quase sempre repete o peso, e redigitar com a mão
-    // suada é o tipo de atrito que faz a pessoa parar de registrar.
+    // A carga fica: a série seguinte quase sempre repete o peso, e redigitar com a mão suada
+    // é o tipo de atrito que faz a pessoa parar de registrar.
     _reps.clear();
 
     if (rest != null) {
@@ -433,157 +645,81 @@ class _SetEntryFormState extends ConsumerState<_SetEntryForm> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final progress = widget.progress;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          progress.isComplete
-              ? 'Série extra'
-              : 'Série ${progress.nextSetNumber}',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _reps,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(
-                  labelText: 'Repetições',
-                  isDense: true,
+    return BlockSection(
+      colors: widget.colors,
+      label: progress.isComplete
+          ? 'Registrar série extra'
+          : 'Registrar a série ${progress.nextSetNumber}',
+      icon: Icons.add_circle_outline,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _reps,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(labelText: 'Repetições'),
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                controller: _load,
-                // Vírgula é o separador decimal do teclado brasileiro; o ponto entra
-                // para quem usa teclado físico ou layout de outro idioma.
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
-                ],
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) => _record(),
-                decoration: const InputDecoration(
-                  labelText: 'Carga (kg)',
-                  isDense: true,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Text('RPE', style: Theme.of(context).textTheme.labelLarge),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Wrap(
-                spacing: 4,
-                children: [
-                  for (final value in const [6, 7, 8, 9, 10])
-                    ChoiceChip(
-                      label: Text('$value'),
-                      selected: _rpe == value,
-                      onSelected: (selected) =>
-                          setState(() => _rpe = selected ? value : null),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        FilledButton.tonalIcon(
-          onPressed: _record,
-          icon: const Icon(Icons.add),
-          label: Text(
-            progress.isComplete ? 'Registrar série extra' : 'Concluir série',
-          ),
-          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
-        ),
-      ],
-    );
-  }
-}
-
-class _RestTimerCard extends ConsumerWidget {
-  const _RestTimerCard();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final timer = ref.watch(restTimerProvider);
-    final controller = ref.read(restTimerProvider.notifier);
-    final theme = Theme.of(context);
-
-    if (timer.isIdle) {
-      return const SizedBox.shrink();
-    }
-
-    final finished = timer.isFinished;
-    return Card(
-      color: finished
-          ? theme.colorScheme.primaryContainer
-          : theme.colorScheme.surfaceContainerHighest,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Text(
-              finished ? 'Descanso terminado' : 'Descanso',
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: finished ? theme.colorScheme.onPrimaryContainer : null,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              finished ? 'Pode ir' : timer.label,
-              style: theme.textTheme.displaySmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                fontFeatures: const [FontFeature.tabularFigures()],
-                color: finished ? theme.colorScheme.onPrimaryContainer : null,
-              ),
-            ),
-            if (!finished) ...[
-              const SizedBox(height: 12),
-              LinearProgressIndicator(value: timer.progress),
-            ],
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                TextButton.icon(
-                  onPressed: () =>
-                      controller.extend(const Duration(seconds: 30)),
-                  icon: const Icon(Icons.more_time),
-                  label: const Text('+30s'),
-                ),
-                if (!finished)
-                  TextButton.icon(
-                    onPressed: timer.isPaused
-                        ? controller.resume
-                        : controller.pause,
-                    icon: Icon(timer.isPaused ? Icons.play_arrow : Icons.pause),
-                    label: Text(timer.isPaused ? 'Retomar' : 'Pausar'),
+              const SizedBox(width: Space.sm),
+              Expanded(
+                child: TextField(
+                  controller: _load,
+                  // Vírgula é o separador decimal do teclado brasileiro; o ponto entra para
+                  // quem usa teclado físico ou layout de outro idioma.
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
                   ),
-                TextButton.icon(
-                  onPressed: controller.stop,
-                  icon: const Icon(Icons.skip_next),
-                  label: Text(finished ? 'Dispensar' : 'Pular'),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                  ],
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => _record(),
+                  decoration: const InputDecoration(labelText: 'Carga (kg)'),
                 ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: Space.md),
+          Row(
+            children: [
+              Text('RPE', style: theme.textTheme.titleSmall),
+              const SizedBox(width: Space.xs),
+              Expanded(
+                child: Wrap(
+                  spacing: 4,
+                  children: [
+                    for (final value in const [6, 7, 8, 9, 10])
+                      ChoiceChip(
+                        label: Text('$value'),
+                        selected: _rpe == value,
+                        onSelected: (selected) =>
+                            setState(() => _rpe = selected ? value : null),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: Space.md),
+          FilledButton(
+            onPressed: _record,
+            // 56 dp: é o alvo mais tocado da tela, com a mão suada e de pé.
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(56),
             ),
-          ],
-        ),
+            child: Text(
+              progress.isComplete ? 'Registrar série extra' : 'Concluir série',
+            ),
+          ),
+        ],
       ),
     );
   }

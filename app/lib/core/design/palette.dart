@@ -94,21 +94,34 @@ abstract final class Palette {
     errorContainer: Color(0xFF8C1D18),
     onErrorContainer: Color(0xFFFFDAD6),
 
-    // Quase preto, não preto. OLED puro (#000) faz o texto claro "vibrar" na rolagem, e o
-    // cartão logo acima dele não tem para onde escurecer.
-    surface: Color(0xFF0A0D0C),
+    // **Preto puro.** Era um quase-preto (#0A0D0C), e o argumento contra o #000 continua
+    // válido em geral: em OLED, texto claro sobre preto absoluto "vibra" na rolagem, e um
+    // cartão escuro sobre um fundo já no fim da escala não tem para onde escurecer.
+    //
+    // Duas coisas resolvem os dois problemas neste app, e é por isso que a troca cabe aqui:
+    //
+    // - **O texto não é branco puro.** `onSurface` é #E6EBE8; o halo que faz a letra vibrar
+    //   vem do par #FFFFFF sobre #000000, e três degraus abaixo do branco ele some.
+    // - **Nada precisa escurecer.** O sistema de blocos empilha para **cima** — ladrilho
+    //   lavado e herói em cor cheia, sempre mais claros que o fundo. A escada de containers
+    //   abaixo existe para diálogo, folha e campo, e todos eles sobem.
+    //
+    // O que se ganha: em tela OLED o pixel preto está desligado, então o fundo desaparece de
+    // verdade e os blocos coloridos ficam suspensos no escuro. É o que faz o mosaico ler como
+    // objeto iluminado em vez de retângulo pintado.
+    surface: Color(0xFF000000),
     onSurface: Color(0xFFE6EBE8),
-    surfaceDim: Color(0xFF0A0D0C),
-    surfaceBright: Color(0xFF303634),
-    surfaceContainerLowest: Color(0xFF050807),
-    surfaceContainerLow: Color(0xFF111514),
-    surfaceContainer: Color(0xFF161A18),
-    surfaceContainerHigh: Color(0xFF1E2321),
-    surfaceContainerHighest: Color(0xFF29302D),
+    surfaceDim: Color(0xFF000000),
+    surfaceBright: Color(0xFF2A302E),
+    surfaceContainerLowest: Color(0xFF000000),
+    surfaceContainerLow: Color(0xFF0B0F0D),
+    surfaceContainer: Color(0xFF111614),
+    surfaceContainerHigh: Color(0xFF1A201D),
+    surfaceContainerHighest: Color(0xFF262D2A),
     onSurfaceVariant: Color(0xFF9BA7A1),
 
-    outline: Color(0xFF65706A),
-    outlineVariant: Color(0xFF2A312E),
+    outline: Color(0xFF67726C),
+    outlineVariant: Color(0xFF232A27),
 
     shadow: Color(0xFF000000),
     scrim: Color(0xFF000000),

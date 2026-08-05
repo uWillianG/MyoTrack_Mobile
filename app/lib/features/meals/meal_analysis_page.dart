@@ -5,8 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/design/blocks.dart';
+import '../../core/design/format.dart';
 import '../../core/design/tokens.dart';
+import '../../core/design/typography.dart';
+import '../../core/widgets/blocks.dart';
 import '../../core/widgets/empty_state.dart';
+// O relógio do app, injetável: sem ele o rótulo "Hoje" de uma refeição mudaria de valor entre
+// a captura da galeria e a execução do teste.
+import '../home/today_controller.dart' show nowProvider;
 import 'data/meal_models.dart';
 import 'meal_analysis_controller.dart';
 
@@ -24,10 +31,15 @@ class MealAnalysisPage extends StatelessWidget {
   );
 }
 
-/// A análise de refeição sem a barra de título, com os botões de captura presos embaixo.
+/// A análise de refeição sem a barra de título.
 ///
-/// Os botões vêm no fim de uma `Column` e não num `bottomNavigationBar`: dentro da aba
-/// Analisar o rodapé do `Scaffold` já é a barra de navegação do app.
+/// **Esmeralda, a família da nutrição.** A aba Analisar hospeda duas telas que alimentam
+/// assuntos diferentes — a foto do prato vira caloria no diário, o vídeo vira correção de
+/// execução no treino —, e cada metade usa a cor do que alimenta. Quem manda na cor é o destino
+/// do dado, não o segmentado que hospeda as duas.
+///
+/// **A captura saiu do rodapé e virou a ação do herói.** Presa embaixo, ela competia com a barra
+/// de navegação do app e ficava tão longe do resultado que a tela vazia não parecia ter começo.
 class MealAnalysisView extends ConsumerStatefulWidget {
   const MealAnalysisView({super.key});
 
@@ -58,92 +70,35 @@ class _MealAnalysisViewState extends ConsumerState<MealAnalysisView> {
       }
     });
 
-    return Column(
-      children: [
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: () async {
-              ref.invalidate(mealHistoryProvider);
-              await ref.read(mealHistoryProvider.future);
-            },
-            child: history.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => EmptyState(
-                icon: Icons.cloud_off_outlined,
-                title: 'Não foi possível carregar suas refeições.',
-                detail: '$error',
-                action: FilledButton.tonal(
-                  onPressed: () => ref.invalidate(mealHistoryProvider),
-                  child: const Text('Tentar de novo'),
-                ),
-              ),
-              data: (meals) => _Body(
-                meals: meals,
-                running: state.running,
-                step: state.step,
-                progress: controller.uploadProgress,
-              ),
-            ),
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(mealHistoryProvider);
+        await ref.read(mealHistoryProvider.future);
+      },
+      child: history.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, _) => EmptyState(
+          icon: Icons.cloud_off_outlined,
+          title: 'Não foi possível carregar suas refeições.',
+          detail: '$error',
+          action: FilledButton.tonal(
+            onPressed: () => ref.invalidate(mealHistoryProvider),
+            child: const Text('Tentar de novo'),
           ),
         ),
-        SafeArea(
-          top: false,
-          minimum: const EdgeInsets.fromLTRB(Space.gutter, 0, Space.gutter, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-                value: _illustrated,
-                onChanged: state.running
-                    ? null
-                    : (v) => setState(() => _illustrated = v),
-                title: const Text('Análise ilustrada'),
-                subtitle: const Text(
-                  'Marca os alimentos e os macros na própria foto',
-                ),
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: state.running
-                          ? null
-                          : () => controller.analyzeFrom(
-                              ImageSource.camera,
-                              illustrated: _illustrated,
-                            ),
-                      icon: const Icon(Icons.photo_camera_outlined),
-                      label: const Text('Fotografar'),
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size.fromHeight(48),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    onPressed: state.running
-                        ? null
-                        : () => controller.analyzeFrom(
-                            ImageSource.gallery,
-                            illustrated: _illustrated,
-                          ),
-                    icon: const Icon(Icons.photo_library_outlined),
-                    label: const Text('Galeria'),
-                    // Altura mínima, largura pelo conteúdo. `Size.fromHeight` põe largura
-                    // infinita no mínimo, e dentro de uma `Row` — que não limita o eixo
-                    // principal dos filhos sem flex — isso estoura o layout.
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(0, 48),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+        data: (meals) => _Body(
+          meals: meals,
+          running: state.running,
+          step: state.step,
+          progress: controller.uploadProgress,
+          illustrated: _illustrated,
+          onIllustrated: state.running
+              ? null
+              : (v) => setState(() => _illustrated = v),
+          onCapture: (source) =>
+              controller.analyzeFrom(source, illustrated: _illustrated),
         ),
-      ],
+      ),
     );
   }
 }
@@ -154,128 +109,187 @@ class _Body extends StatelessWidget {
     required this.running,
     required this.step,
     required this.progress,
+    required this.illustrated,
+    required this.onIllustrated,
+    required this.onCapture,
   });
 
   final List<MealAnalysis> meals;
   final bool running;
   final String? step;
   final double progress;
+  final bool illustrated;
+
+  /// Nulo enquanto a análise corre: o modo vale para a próxima captura, e mudá-lo no meio de
+  /// uma que já subiu com a decisão tomada não teria efeito nenhum.
+  final ValueChanged<bool>? onIllustrated;
+
+  final ValueChanged<ImageSource> onCapture;
 
   @override
   Widget build(BuildContext context) {
-    if (meals.isEmpty && !running) {
-      return ListView(
-        padding: const EdgeInsets.fromLTRB(Space.gutter, 8, Space.gutter, 16),
-        children: const [_PhotoPlaceholder()],
-      );
-    }
+    final colors = Blocks.nutrition(Theme.of(context).brightness);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(Space.gutter, 8, Space.gutter, 16),
+      padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 32),
       children: [
-        if (running) _ProgressCard(step: step, progress: progress),
-        for (final meal in meals) _MealCard(meal: meal),
+        // O herói é o estado do trabalho: o convite enquanto nada corre, o progresso enquanto
+        // a análise acontece. Mesma mecânica do modo treino — o que muda sozinho ocupa o bloco
+        // durante o tempo em que está mudando, e devolve o lugar quando termina.
+        if (running)
+          _ProgressHero(step: step, progress: progress, colors: colors)
+        else
+          _CaptureHero(
+            colors: colors,
+            analyzed: meals.length,
+            onCapture: onCapture,
+          ),
+        for (final meal in meals) ...[
+          const SizedBox(height: Space.sm),
+          _MealCard(meal: meal, colors: colors),
+        ],
+        // O interruptor fecha a lista em vez de abri-la: é ajuste da próxima captura, e entre
+        // o herói e as refeições ele empurrava para baixo justamente o que a pessoa veio ver.
+        const SizedBox(height: Space.sm),
+        _IllustratedSection(
+          colors: colors,
+          value: illustrated,
+          onChanged: onIllustrated,
+        ),
       ],
     );
   }
 }
 
-/// O lugar da foto, antes de existir foto.
+/// O convite — e o que a IA faz com a foto.
 ///
-/// Um retângulo tracejado no formato do resultado diz o que vai aparecer ali e onde — a
-/// mensagem centralizada de estado vazio que estava aqui explicava com palavras o que a
-/// forma explica sozinha, e deixava a tela parecendo um erro em vez de um começo.
-class _PhotoPlaceholder extends StatelessWidget {
-  const _PhotoPlaceholder();
+/// **Diz também o que ela não faz.** "A estimativa fica editável" é a dúvida de quem nunca usou
+/// e o antídoto de quem confia demais: sem essa linha, um número errado vira motivo para
+/// desinstalar em vez de motivo para tocar em "Ajustar". A frase só aparece na primeira vez —
+/// quem já tem refeições no histórico descobriu isso na primeira, e repetir vira ruído.
+class _CaptureHero extends StatelessWidget {
+  const _CaptureHero({
+    required this.colors,
+    required this.analyzed,
+    required this.onCapture,
+  });
+
+  final BlockColors colors;
+  final int analyzed;
+  final ValueChanged<ImageSource> onCapture;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Column(
-      children: [
-        CustomPaint(
-          painter: _DashedBorderPainter(color: theme.colorScheme.outline),
-          child: SizedBox(
-            height: 200,
-            width: double.infinity,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.restaurant_outlined,
-                  size: 40,
-                  color: theme.colorScheme.outline,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'foto do prato',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.outline,
-                  ),
-                ),
-              ],
+    return HeroBlock(
+      colors: colors,
+      label: 'Refeição',
+      icon: Icons.photo_camera_outlined,
+      action: HeroAction(
+        label: 'Fotografar prato',
+        onPressed: () => onCapture(ImageSource.camera),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (analyzed == 0) ...[
+            Text(
+              'Fotografe\nseu prato.',
+              style: theme.textTheme.displaySmall?.copyWith(
+                color: colors.onTone,
+              ),
+            ),
+            const SizedBox(height: Space.sm),
+            Text(
+              'A IA estima as calorias e os macros — e a estimativa fica editável, item por '
+              'item, antes de contar no seu dia.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colors.onTone.withValues(alpha: 0.85),
+              ),
+            ),
+          ] else
+            HeroFigure(
+              value: '$analyzed',
+              unit: analyzed == 1 ? 'refeição' : 'refeições',
+              colors: colors,
+              detail: 'analisadas por foto',
+            ),
+          const SizedBox(height: Space.xs),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => onCapture(ImageSource.gallery),
+              // Sem o respiro padrão do botão: com ele o ícone começa 12 dp à direita de tudo
+              // o mais do bloco, e um item fora da margem é o que faz uma coluna parecer
+              // desalinhada sem que se saiba dizer onde.
+              style: TextButton.styleFrom(
+                foregroundColor: colors.onTone,
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(0, 44),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              icon: const Icon(Icons.photo_library_outlined, size: 18),
+              label: const Text('Escolher da galeria'),
             ),
           ),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          'Fotografe seu prato e a IA estima as calorias e os macros. A estimativa fica '
-          'editável no fim.',
-          textAlign: TextAlign.center,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-class _DashedBorderPainter extends CustomPainter {
-  const _DashedBorderPainter({required this.color});
+/// O modo ilustrado, fora do herói.
+///
+/// É uma preferência da próxima captura, não parte do convite: dentro do bloco ele competiria
+/// com a ação, e um interruptor sobre cor cheia é o controle que menos se lê de relance.
+class _IllustratedSection extends StatelessWidget {
+  const _IllustratedSection({
+    required this.colors,
+    required this.value,
+    required this.onChanged,
+  });
 
-  final Color color;
+  final BlockColors colors;
+  final bool value;
+  final ValueChanged<bool>? onChanged;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final rect = RRect.fromRectAndRadius(
-      Offset.zero & size,
-      const Radius.circular(16),
+  Widget build(BuildContext context) {
+    return BlockSection(
+      colors: colors,
+      label: 'Análise ilustrada',
+      icon: Icons.auto_fix_high_outlined,
+      padding: EdgeInsets.zero,
+      child: SwitchListTile(
+        value: value,
+        onChanged: onChanged,
+        title: const Text('Marcar os alimentos na foto'),
+        subtitle: const Text(
+          'Custa uma chamada a mais e nem sempre está disponível.',
+        ),
+      ),
     );
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1
-      ..color = color;
-
-    // Traço de 6 dp com 6 de intervalo, percorrendo o contorno arredondado. Desenhado à mão
-    // porque o Flutter não tem borda tracejada — e um `Container` com borda sólida não diria
-    // "aqui ainda não tem nada".
-    for (final metric in (Path()..addRRect(rect)).computeMetrics()) {
-      var distance = 0.0;
-      while (distance < metric.length) {
-        final end = math.min(distance + 6, metric.length);
-        canvas.drawPath(metric.extractPath(distance, end), paint);
-        distance = end + 6;
-      }
-    }
   }
-
-  @override
-  bool shouldRepaint(_DashedBorderPainter old) => old.color != color;
 }
 
-class _ProgressCard extends StatefulWidget {
-  const _ProgressCard({required this.step, required this.progress});
+/// Enquanto a análise corre, o herói é o trabalho em curso.
+class _ProgressHero extends StatefulWidget {
+  const _ProgressHero({
+    required this.step,
+    required this.progress,
+    required this.colors,
+  });
 
   final String? step;
   final double progress;
+  final BlockColors colors;
 
   @override
-  State<_ProgressCard> createState() => _ProgressCardState();
+  State<_ProgressHero> createState() => _ProgressHeroState();
 }
 
-class _ProgressCardState extends State<_ProgressCard> {
+class _ProgressHeroState extends State<_ProgressHero> {
   /// Segundos desde que a análise começou.
   ///
   /// A barra fica indeterminada depois do upload — o tempo passa a ser do servidor —, e uma
@@ -303,42 +317,60 @@ class _ProgressCardState extends State<_ProgressCard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = widget.colors;
     // Enquanto a foto sobe, a barra mostra o quanto já foi — é a única etapa cuja duração
     // depende da rede do usuário. Depois disso o tempo é do servidor, e aí a barra vira
     // indeterminada em vez de fingir que sabe quanto falta.
     final uploading = widget.progress > 0 && widget.progress < 1;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              widget.step ?? 'Analisando…',
-              style: theme.textTheme.titleSmall,
+    return HeroBlock(
+      colors: colors,
+      label: 'Analisando',
+      icon: Icons.hourglass_top,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // O contador é o número grande porque é o único que anda. A etapa vem embaixo, como
+          // detalhe: ela muda três ou quatro vezes na análise inteira, e um texto que troca
+          // sozinho no lugar do número faria o bloco piscar de tamanho a cada passo.
+          HeroFigure(
+            value: '$_seconds',
+            unit: 's',
+            colors: colors,
+            detail: widget.step ?? 'Enviando a foto',
+          ),
+          const SizedBox(height: Space.md),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: uploading ? widget.progress : null,
+              minHeight: 7,
+              color: colors.onTone,
+              backgroundColor: colors.onTone.withValues(alpha: 0.25),
             ),
-            const SizedBox(height: 12),
-            LinearProgressIndicator(value: uploading ? widget.progress : null),
-            const SizedBox(height: 8),
-            Text(
-              '${_seconds}s — a estimativa fica editável no fim',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+          ),
+          const SizedBox(height: Space.sm),
+          Text(
+            'A estimativa fica editável no fim.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colors.onTone.withValues(alpha: 0.85),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
+/// Uma refeição analisada: a foto, o que a IA contou, e as porções em aberto.
+///
+/// É uma seção e não um ladrilho: as refeições do histórico são o mesmo assunto visto muitas
+/// vezes, e picotá-las em cartões coloridos sugeriria uma independência que elas não têm.
 class _MealCard extends ConsumerStatefulWidget {
-  const _MealCard({required this.meal});
+  const _MealCard({required this.meal, required this.colors});
 
   final MealAnalysis meal;
+  final BlockColors colors;
 
   @override
   ConsumerState<_MealCard> createState() => _MealCardState();
@@ -388,19 +420,31 @@ class _MealCardState extends ConsumerState<_MealCard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = widget.colors;
     final meal = widget.meal;
+    final photo = meal.illustratedPhotoUrl ?? meal.photoUrl;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      clipBehavior: Clip.antiAlias,
+    return BlockSection(
+      colors: colors,
+      label: _label(meal.createdAt, ref.read(nowProvider)()),
+      icon: Icons.restaurant,
+      // Os dois estados da refeição viram texto no rótulo. Eram um chip e um lápis ao lado do
+      // número: o chip repetia a moldura de um bloco que já é uma moldura, e o lápis de 16 dp
+      // dependia de um tooltip que ninguém abre no celular para dizer o que significava.
+      trailing: meal.excludedFromDiary
+          ? 'Fora do diário'
+          : meal.userAdjusted && !_dirty
+          ? 'Você ajustou'
+          : null,
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Quando há versão ilustrada, é ela que aparece: as anotações sobre a comida
           // dizem mais que a foto crua, e a original continua no storage.
-          if ((meal.illustratedPhotoUrl ?? meal.photoUrl) != null)
+          if (photo != null)
             Image.network(
-              meal.illustratedPhotoUrl ?? meal.photoUrl!,
+              photo,
               height: 160,
               fit: BoxFit.cover,
               // A URL é assinada e expira; falhar em carregar não pode quebrar o cartão,
@@ -408,99 +452,122 @@ class _MealCardState extends ConsumerState<_MealCard> {
               errorBuilder: (_, _, _) => const SizedBox.shrink(),
             ),
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(Space.md),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
                   children: [
-                    Expanded(
-                      child: Text(
-                        '${_round(_total((i) => i.kcal, meal.totalKcal))} kcal',
-                        style: theme.textTheme.titleLarge,
+                    Text(
+                      _round(_total((i) => i.kcal, meal.totalKcal)),
+                      style: AppTypography.numeric(size: 28, color: colors.ink),
+                    ),
+                    const SizedBox(width: Space.xs),
+                    Text(
+                      'kcal',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: colors.ink,
                       ),
                     ),
-                    if (meal.userAdjusted && !_dirty)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 4),
-                        child: Tooltip(
-                          message: 'Você ajustou esta estimativa',
-                          child: Icon(
-                            Icons.edit_outlined,
-                            size: 16,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    if (meal.excludedFromDiary)
-                      Chip(
-                        label: const Text('Fora do diário'),
-                        visualDensity: VisualDensity.compact,
-                      ),
                   ],
                 ),
-                const SizedBox(height: 4),
                 Text(
                   'P ${_round(_total((i) => i.proteinG, meal.totalProteinG))} g  ·  '
                   'C ${_round(_total((i) => i.carbsG, meal.totalCarbsG))} g  ·  '
                   'G ${_round(_total((i) => i.fatG, meal.totalFatG))} g',
-                  style: theme.textTheme.bodyMedium?.copyWith(
+                  style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: Space.sm),
 
-                for (var i = 0; i < _items.length; i++)
+                for (var i = 0; i < _items.length; i++) ...[
+                  if (i > 0)
+                    Divider(
+                      height: 1,
+                      color: colors.ink.withValues(alpha: 0.14),
+                    ),
                   _ItemRow(
                     item: _items[i],
+                    colors: colors,
                     enabled: !_saving,
                     onDecrease: () => _bump(i, -10),
                     onIncrease: () => _bump(i, 10),
                   ),
+                ],
 
-                const SizedBox(height: 8),
+                const SizedBox(height: Space.xs),
+                // `Flexible` nos dois lados, e não um `Spacer` no meio: com o corpo do texto
+                // ampliado pela acessibilidade, "Tirar do diário" sozinho passa da largura da
+                // tela — e um `Spacer` empurra o estouro para fora da vista em vez de deixar o
+                // botão encolher.
                 if (_dirty)
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      TextButton(
-                        onPressed: _saving
-                            ? null
-                            : () => setState(() => _draft = null),
-                        child: const Text('Descartar'),
-                      ),
-                      const Spacer(),
-                      FilledButton(
-                        onPressed: _saving ? null : _save,
-                        style: FilledButton.styleFrom(
-                          minimumSize: const Size(0, 40),
+                      Flexible(
+                        child: TextButton(
+                          onPressed: _saving
+                              ? null
+                              : () => setState(() => _draft = null),
+                          style: TextButton.styleFrom(
+                            foregroundColor: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          child: const Text('Descartar'),
                         ),
-                        child: _saving
-                            ? const SizedBox(
-                                height: 18,
-                                width: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text('Salvar ajuste'),
+                      ),
+                      Flexible(
+                        child: FilledButton(
+                          onPressed: _saving ? null : _save,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: colors.ink,
+                            foregroundColor: colors.wash,
+                            minimumSize: const Size(0, 40),
+                          ),
+                          child: _saving
+                              ? SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: colors.wash,
+                                  ),
+                                )
+                              : const Text('Salvar ajuste'),
+                        ),
                       ),
                     ],
                   )
                 else
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      TextButton.icon(
-                        onPressed: _editQuantities,
-                        icon: const Icon(Icons.tune, size: 18),
-                        label: const Text('Ajustar'),
+                      Flexible(
+                        child: TextButton.icon(
+                          onPressed: _editQuantities,
+                          style: TextButton.styleFrom(
+                            foregroundColor: colors.ink,
+                          ),
+                          icon: const Icon(Icons.tune, size: 18),
+                          label: const Text('Ajustar'),
+                        ),
                       ),
-                      const Spacer(),
-                      TextButton(
-                        onPressed: _toggleDiary,
-                        child: Text(
-                          meal.excludedFromDiary
-                              ? 'Voltar ao diário'
-                              : 'Tirar do diário',
+                      // Tirar do diário é o que desfaz o efeito da refeição no dia, e não é o
+                      // que se faz com a maioria delas: fica em texto neutro, longe da cor da
+                      // família, para não disputar com "Ajustar".
+                      Flexible(
+                        child: TextButton(
+                          onPressed: _toggleDiary,
+                          style: TextButton.styleFrom(
+                            foregroundColor: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          child: Text(
+                            meal.excludedFromDiary
+                                ? 'Voltar ao diário'
+                                : 'Tirar do diário',
+                          ),
                         ),
                       ),
                     ],
@@ -511,6 +578,24 @@ class _MealCardState extends ConsumerState<_MealCard> {
         ],
       ),
     );
+  }
+
+  /// O rótulo da refeição: a hora, e a data quando não é de hoje.
+  ///
+  /// O histórico atravessa dias. Sem a data, duas refeições das 12:30 em dias diferentes ficam
+  /// idênticas na lista — e a de ontem passa a parecer um lançamento duplicado de hoje.
+  static String _label(String? createdAt, DateTime now) {
+    final at = createdAt == null
+        ? null
+        : DateTime.tryParse(createdAt)?.toLocal();
+    if (at == null) {
+      return 'Refeição';
+    }
+
+    final hora = Fmt.time(at);
+    final mesmoDia =
+        at.year == now.year && at.month == now.month && at.day == now.day;
+    return mesmoDia ? 'Hoje, $hora' : '${Fmt.dayMonth(at)}, $hora';
   }
 
   Future<void> _save() async {
@@ -590,12 +675,14 @@ class _MealCardState extends ConsumerState<_MealCard> {
 class _ItemRow extends StatelessWidget {
   const _ItemRow({
     required this.item,
+    required this.colors,
     required this.enabled,
     required this.onDecrease,
     required this.onIncrease,
   });
 
   final MealAnalysisItem item;
+  final BlockColors colors;
   final bool enabled;
   final VoidCallback onDecrease;
   final VoidCallback onIncrease;
@@ -603,9 +690,16 @@ class _ItemRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // Sobre um fundo já tingido, o contorno do tema entra como um cinza de outra paleta: os
+    // botões usam a própria cor da família, rebaixada.
+    final buttons = IconButton.styleFrom(
+      foregroundColor: colors.ink,
+      side: BorderSide(color: colors.ink.withValues(alpha: 0.4)),
+      disabledForegroundColor: colors.ink.withValues(alpha: 0.4),
+    );
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
           Expanded(
@@ -626,6 +720,7 @@ class _ItemRow extends StatelessWidget {
             onPressed: enabled ? onDecrease : null,
             icon: const Icon(Icons.remove, size: 16),
             visualDensity: VisualDensity.compact,
+            style: buttons,
             tooltip: 'Menos 10 g de ${item.description}',
           ),
           SizedBox(
@@ -640,6 +735,7 @@ class _ItemRow extends StatelessWidget {
             onPressed: enabled ? onIncrease : null,
             icon: const Icon(Icons.add, size: 16),
             visualDensity: VisualDensity.compact,
+            style: buttons,
             tooltip: 'Mais 10 g de ${item.description}',
           ),
         ],
@@ -738,10 +834,10 @@ class _QuantitySheetState extends State<_QuantitySheet> {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        16,
-        16,
-        16,
-        MediaQuery.of(context).viewInsets.bottom + 16,
+        Space.gutter,
+        Space.gutter,
+        Space.gutter,
+        MediaQuery.of(context).viewInsets.bottom + Space.gutter,
       ),
       child: SingleChildScrollView(
         child: Column(
@@ -752,16 +848,16 @@ class _QuantitySheetState extends State<_QuantitySheet> {
               'Ajustar porções',
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: Space.xs),
             Text(
               'A IA estima pelo tamanho aparente. Corrija o que estiver longe.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: Space.md),
 
             for (var i = 0; i < widget.meal.items.length; i++)
               Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.only(bottom: Space.sm),
                 child: Row(
                   children: [
                     Checkbox(
@@ -779,7 +875,7 @@ class _QuantitySheetState extends State<_QuantitySheet> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: Space.sm),
                     SizedBox(
                       width: 90,
                       child: TextField(
@@ -797,9 +893,12 @@ class _QuantitySheetState extends State<_QuantitySheet> {
                 ),
               ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: Space.md),
             FilledButton(
               onPressed: _submit,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(46),
+              ),
               child: const Text('Salvar ajuste'),
             ),
           ],

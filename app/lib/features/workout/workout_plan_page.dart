@@ -3,26 +3,34 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/design/blocks.dart';
+import '../../core/design/format.dart';
 import '../../core/design/tokens.dart';
 import '../../core/jobs/generation_controller.dart';
 import '../../core/router.dart';
+import '../../core/widgets/blocks.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/review_badge.dart';
 import '../progress/progress_controller.dart';
 import 'data/workout_models.dart';
 import 'workout_plan_controller.dart';
 
-/// Plano de treino ativo. Porte de `frontend/src/pages/WorkoutPlanPage.tsx`.
+/// Plano de treino ativo.
 ///
-/// A tabela da SPA vira cartão por dia com uma linha por exercício: em 360 dp de largura,
-/// cinco colunas lado a lado ficariam ilegíveis ou exigiriam rolagem horizontal.
+/// **Pergunta: o que eu faço em cada dia? Ação: treinar agora.**
+///
+/// É a tela de consulta do treino — a de execução é `/treinar` e a de lançamento é
+/// `/registrar`. As três continuam separadas de propósito: aqui a pessoa está sentada
+/// escolhendo, lá ela está com a mão na barra, e na terceira está lançando o que já fez.
+///
+/// **A carga sugerida fica junto do exercício**, e não numa tela de "progressão": o número só é
+/// útil no momento em que se olha o que vai fazer.
 class WorkoutPlanPage extends ConsumerWidget {
   const WorkoutPlanPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final planAsync = ref.watch(activeWorkoutPlanProvider);
-    final generation = ref.watch(workoutGenerationProvider);
 
     // O erro vira snackbar em vez de ocupar espaço fixo: a mensagem é passageira e a tela
     // continua útil (o plano anterior segue lá).
@@ -36,151 +44,251 @@ class WorkoutPlanPage extends ConsumerWidget {
     });
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(planAsync.valueOrNull?.name ?? 'Seu treino'),
-        actions: [
-          // Quem está olhando o plano é candidato a começar o treino agora.
-          if (planAsync.valueOrNull != null)
-            IconButton(
-              onPressed: () => context.push(Routes.workoutMode),
-              icon: const Icon(Icons.play_circle_outline),
-              tooltip: 'Treinar este plano',
-            ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(activeWorkoutPlanProvider);
-          await ref.read(activeWorkoutPlanProvider.future);
-        },
-        child: planAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => EmptyState(
-            icon: Icons.cloud_off_outlined,
-            title: 'Não foi possível carregar seu treino.',
-            detail: '$error',
-            action: FilledButton.tonal(
-              onPressed: () => ref.invalidate(activeWorkoutPlanProvider),
-              child: const Text('Tentar de novo'),
-            ),
-          ),
-          data: (plan) => _PlanBody(plan: plan, generation: generation),
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(Space.gutter, 0, Space.gutter, 12),
-        child: FilledButton.icon(
-          onPressed: generation.running
-              ? null
-              : () => ref.read(workoutGenerationProvider.notifier).start(),
-          icon: generation.running
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.auto_awesome),
-          label: Text(
-            generation.running
-                ? (generation.step ?? 'Gerando…')
-                : planAsync.valueOrNull == null
-                ? 'Gerar treino'
-                : 'Regenerar treino',
+      appBar: AppBar(title: Text(planAsync.valueOrNull?.name ?? 'Seu treino')),
+      body: const WorkoutPlanView(),
+    );
+  }
+}
+
+/// O plano sem a barra de título.
+class WorkoutPlanView extends ConsumerWidget {
+  const WorkoutPlanView({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final planAsync = ref.watch(activeWorkoutPlanProvider);
+    final generation = ref.watch(workoutGenerationProvider);
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(activeWorkoutPlanProvider);
+        await ref.read(activeWorkoutPlanProvider.future);
+      },
+      child: planAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, _) => EmptyState(
+          icon: Icons.cloud_off_outlined,
+          title: 'Não foi possível carregar seu treino.',
+          detail: '$error',
+          action: FilledButton.tonal(
+            onPressed: () => ref.invalidate(activeWorkoutPlanProvider),
+            child: const Text('Tentar de novo'),
           ),
         ),
+        data: (plan) => _Body(plan: plan, generation: generation),
       ),
     );
   }
 }
 
-class _PlanBody extends StatelessWidget {
-  const _PlanBody({required this.plan, required this.generation});
+class _Body extends ConsumerWidget {
+  const _Body({required this.plan, required this.generation});
 
   final WorkoutPlan? plan;
   final GenerationState generation;
 
   @override
-  Widget build(BuildContext context) {
-    if (plan == null) {
-      return EmptyState(
-        icon: Icons.fitness_center_outlined,
-        title: 'Você ainda não tem um treino ativo.',
-        detail: generation.running
-            ? 'Isso pode levar até um minuto.'
-            : 'Complete o perfil e toque em "Gerar treino".',
-        action: generation.running
-            ? null
-            : TextButton(
-                onPressed: () => context.push(Routes.profile),
-                child: const Text('Ir para o perfil'),
-              ),
-      );
-    }
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final colors = Blocks.workout(theme.brightness);
 
-    final workout = plan!;
+    final regenerate = generation.running
+        ? null
+        : () => ref.read(workoutGenerationProvider.notifier).start();
+    final regenerateLabel = generation.running
+        ? (generation.step ?? 'Gerando…')
+        : plan == null
+        ? 'Gerar treino'
+        : 'Regenerar treino';
+
     return ListView(
-      padding: const EdgeInsets.fromLTRB(Space.gutter, 8, Space.gutter, 16),
+      padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 32),
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: ReviewBadge(
-                reviewStatus: workout.reviewStatus,
-                reviewNote: workout.reviewNote,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'v${workout.version} · ${workout.split}',
-              style: Theme.of(context).textTheme.labelMedium,
-            ),
+        if (plan == null)
+          _NoPlanHero(
+            generation: generation,
+            colors: colors,
+            action: HeroAction(label: regenerateLabel, onPressed: regenerate),
+          )
+        else ...[
+          _PlanHero(plan: plan!, colors: colors),
+          for (final day in plan!.days) ...[
+            const SizedBox(height: Space.sm),
+            _DaySection(day: day, colors: colors),
           ],
-        ),
-        const SizedBox(height: 12),
-        for (final day in workout.days) _DayCard(day: day),
+          const SizedBox(height: Space.lg),
+          // Regenerar fica no fim, e não na ação do herói: a ação frequente desta tela é
+          // treinar, e refazer o plano é o que se faz uma vez por bloco. Trocar as duas de
+          // lugar poria a operação destrutiva no alvo mais fácil de acertar.
+          OutlinedButton.icon(
+            onPressed: regenerate,
+            icon: generation.running
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.auto_awesome),
+            label: Text(regenerateLabel),
+          ),
+        ],
       ],
     );
   }
 }
 
-class _DayCard extends StatelessWidget {
-  const _DayCard({required this.day});
+/// O plano em uma linha: quantos dias, qual divisão, e o caminho para começar.
+class _PlanHero extends StatelessWidget {
+  const _PlanHero({required this.plan, required this.colors});
 
-  final WorkoutDay day;
+  final WorkoutPlan plan;
+  final BlockColors colors;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      clipBehavior: Clip.antiAlias,
+    final exercises = plan.days.fold<int>(
+      0,
+      (total, day) => total + day.exercises.length,
+    );
+
+    return HeroBlock(
+      colors: colors,
+      label: 'Seu treino',
+      icon: Icons.fitness_center,
+      // Quem está olhando o plano é candidato a começar o treino agora — e a escolha do dia
+      // acontece lá, porque a semana de quem treina não segue o calendário.
+      action: HeroAction(
+        label: 'Treinar agora',
+        onPressed: () => context.push(Routes.workoutMode),
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: double.infinity,
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Text(
-              day.label,
-              style: Theme.of(context).textTheme.titleMedium,
+          HeroFigure(
+            value: '${plan.days.length}',
+            unit: plan.days.length == 1 ? 'dia' : 'dias',
+            colors: colors,
+            detail: [
+              plan.split,
+              exercises == 1 ? '1 exercício' : '$exercises exercícios',
+              'v${plan.version}',
+            ].join(' · '),
+          ),
+          // O selo da revisão fica no herói: ele diz se este plano já passou por um humano, e
+          // é a primeira coisa que muda a confiança de quem vai seguir.
+          const SizedBox(height: Space.sm),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: ReviewBadge(
+              reviewStatus: plan.reviewStatus,
+              reviewNote: plan.reviewNote,
+              onTone: colors.onTone,
             ),
           ),
-          for (final exercise in day.exercises)
-            _ExerciseTile(
-              exercise: exercise,
-              isLast: exercise == day.exercises.last,
-            ),
         ],
       ),
     );
   }
 }
 
-class _ExerciseTile extends ConsumerWidget {
-  const _ExerciseTile({required this.exercise, required this.isLast});
+/// Sem plano, o herói é o convite.
+class _NoPlanHero extends StatelessWidget {
+  const _NoPlanHero({
+    required this.generation,
+    required this.colors,
+    required this.action,
+  });
+
+  final GenerationState generation;
+  final BlockColors colors;
+  final HeroAction action;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        HeroBlock(
+          colors: colors,
+          label: 'Seu treino',
+          icon: Icons.fitness_center,
+          action: action,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Você ainda não\ntem um treino.',
+                style: theme.textTheme.displaySmall?.copyWith(
+                  color: colors.onTone,
+                ),
+              ),
+              const SizedBox(height: Space.sm),
+              Text(
+                generation.running
+                    ? 'Isso pode levar até um minuto.'
+                    : 'Ele é montado a partir do seu perfil: experiência, objetivo, '
+                          'dias por semana e o que você tem à mão.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colors.onTone.withValues(alpha: 0.85),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (!generation.running) ...[
+          const SizedBox(height: Space.sm),
+          TextButton(
+            onPressed: () => context.push(Routes.profile),
+            child: const Text('Ir para o perfil'),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Um dia do plano e os exercícios dele.
+class _DaySection extends StatelessWidget {
+  const _DaySection({required this.day, required this.colors});
+
+  final WorkoutDay day;
+  final BlockColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlockSection(
+      colors: colors,
+      label: day.label,
+      icon: Icons.today_outlined,
+      trailing: day.exercises.length == 1
+          ? '1 exercício'
+          : '${day.exercises.length} exercícios',
+      padding: EdgeInsets.zero,
+      child: Column(
+        children: [
+          for (var i = 0; i < day.exercises.length; i++) ...[
+            if (i > 0)
+              Divider(
+                height: 1,
+                indent: Space.md,
+                endIndent: Space.md,
+                color: colors.ink.withValues(alpha: 0.14),
+              ),
+            _ExerciseRow(exercise: day.exercises[i], colors: colors),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ExerciseRow extends ConsumerWidget {
+  const _ExerciseRow({required this.exercise, required this.colors});
 
   final WorkoutExercise exercise;
-  final bool isLast;
+  final BlockColors colors;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -192,15 +300,13 @@ class _ExerciseTile extends ConsumerWidget {
               .watch(suggestionsByExerciseProvider)
               .valueOrNull?[exercise.exerciseId!];
 
-    return Container(
-      decoration: isLast
-          ? null
-          : BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: theme.colorScheme.outlineVariant),
-              ),
-            ),
-      padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        Space.md,
+        Space.sm,
+        Space.xs,
+        Space.sm,
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -208,27 +314,20 @@ class _ExerciseTile extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(exercise.exerciseName, style: theme.textTheme.bodyLarge),
-                const SizedBox(height: 2),
+                Text(exercise.exerciseName, style: theme.textTheme.titleSmall),
+                const SizedBox(height: 1),
                 Text(
                   '${exercise.sets} × ${exercise.repsMin}–${exercise.repsMax}'
                   '  ·  ${exercise.restSeconds}s de descanso',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                  style: theme.textTheme.bodySmall,
                 ),
-                if (exercise.notes != null && exercise.notes!.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    exercise.notes!,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
+                if (exercise.notes case final notes? when notes.isNotEmpty) ...[
+                  const SizedBox(height: 1),
+                  Text(notes, style: theme.textTheme.bodySmall),
                 ],
                 if (suggestion != null) ...[
-                  const SizedBox(height: 6),
-                  _NextLoad(suggestion: suggestion),
+                  const SizedBox(height: Space.xs),
+                  _NextLoad(suggestion: suggestion, colors: colors),
                 ],
               ],
             ),
@@ -268,13 +367,11 @@ class _ExerciseTile extends ConsumerWidget {
 }
 
 /// A carga da próxima sessão, calculada a partir do que foi registrado.
-///
-/// Fica junto do exercício, e não numa tela separada de "progressão": o número só é útil no
-/// momento em que a pessoa está olhando o que vai fazer.
 class _NextLoad extends StatelessWidget {
-  const _NextLoad({required this.suggestion});
+  const _NextLoad({required this.suggestion, required this.colors});
 
   final ProgressSuggestion suggestion;
+  final BlockColors colors;
 
   @override
   Widget build(BuildContext context) {
@@ -284,24 +381,18 @@ class _NextLoad extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(Icons.trending_up, size: 14, color: theme.colorScheme.primary),
+        Icon(Icons.trending_up, size: 14, color: colors.ink),
         const SizedBox(width: 6),
         Expanded(
           child: Text(
             load == null
                 ? suggestion.label
-                : '${_kg(load)} kg × ${suggestion.targetReps}  ·  ${suggestion.label}',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.primary,
-            ),
+                : '${Fmt.kg(load)} × ${suggestion.targetReps}'
+                      '  ·  ${suggestion.label}',
+            style: theme.textTheme.bodySmall?.copyWith(color: colors.ink),
           ),
         ),
       ],
     );
   }
-
-  /// "62,5" e não "62.5": o separador decimal em pt-BR é a vírgula.
-  static String _kg(num value) => value == value.roundToDouble()
-      ? value.round().toString()
-      : value.toStringAsFixed(1).replaceAll('.', ',');
 }

@@ -138,3 +138,30 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # A FONTE DO APP
+  #
+  # Manrope, empacotada. Durante muito tempo este projeto usou a fonte de cada plataforma
+  # (Roboto no Android, San Francisco no iOS) com o argumento de que "uma fonte que chega pela
+  # rede é uma fonte que às vezes não chega no subsolo de uma academia". O argumento continua
+  # certo — e não se aplica aqui: esta vai **dentro do APK**, disponível no primeiro frame,
+  # sem rede nenhuma. O que se paga são 165 KB, uma vez.
+  #
+  # O que se compra é a diferença entre um app desenhado e um app padrão do Android. A fonte
+  # do sistema é o carimbo mais visível de "Flutter recém-criado", e nenhum arranjo de layout
+  # o remove.
+  #
+  # **Um arquivo variável, e não cinco estáticos.** As instâncias estáticas da Manrope têm
+  # 326 KB cada por causa do charset completo: os cinco pesos dariam 1,6 MB. O arquivo
+  # variável entrega o eixo `wght` inteiro (200–800) em 165 KB, e o Flutter interpola o peso
+  # a partir do `fontWeight` do `TextStyle` — a galeria visual em `test/design` é onde isso
+  # se confere, e é por isso que ela existe.
+  #
+  # Licença OFL, versionada ao lado do binário e registrada em `main.dart`.
+  fonts:
+    - family: Manrope
+      fonts:
+        - asset: assets/fonts/Manrope-Variable.ttf
+
+  assets:
+    - assets/fonts/OFL.txt

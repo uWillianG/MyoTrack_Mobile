@@ -2,17 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/design/blocks.dart';
 import '../../core/design/tokens.dart';
 import '../../core/providers.dart';
+import '../../core/widgets/blocks.dart';
 import '../../core/widgets/empty_state.dart';
 import 'data/logging_models.dart';
 import 'log_session_controller.dart';
 
-/// Registro manual de treino. Porte de `frontend/src/pages/LogSessionPage.tsx`.
+/// Registro manual de treino.
+///
+/// **Pergunta: o que eu fiz? Ação: salvar as séries.**
 ///
 /// Funciona sem rede: a lista de exercícios vem do cache local e as séries entram na fila de
-/// sincronização. É o requisito que define a tela — quase todo treino é registrado na
-/// academia, onde o sinal costuma faltar.
+/// sincronização. É o requisito que define a tela — quase todo treino é registrado na academia,
+/// onde o sinal costuma faltar.
+///
+/// Separada de `/treinar` de propósito, e a diferença é de postura: lá a pessoa está de pé com
+/// o cronômetro correndo e lança uma série por vez; aqui ela está sentada lançando o que já fez,
+/// e precisa ver a sessão inteira de uma vez para conferir.
 class LogSessionPage extends ConsumerWidget {
   const LogSessionPage({super.key});
 
@@ -153,9 +161,30 @@ class _Form extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(logSessionProvider.notifier);
 
+    final theme = Theme.of(context);
+    final colors = Blocks.workout(theme.brightness);
+
     return ListView(
-      padding: const EdgeInsets.fromLTRB(Space.gutter, 12, Space.gutter, 16),
+      padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 32),
       children: [
+        HeroBlock(
+          colors: colors,
+          label: 'Registrar treino',
+          icon: Icons.edit_note,
+          child: HeroFigure(
+            value: '${form.completeSets.length}',
+            unit: form.completeSets.length == 1
+                ? 'série pronta'
+                : 'séries prontas',
+            colors: colors,
+            // O que falta para poder salvar, em vez de um botão morto sem explicação: uma
+            // série só conta quando tem exercício, repetições e carga.
+            detail: form.canSubmit
+                ? 'De ${form.sets.length} lançadas'
+                : 'Uma série conta quando tem exercício, reps e carga',
+          ),
+        ),
+        const SizedBox(height: Space.md),
         Row(
           children: [
             Expanded(
@@ -248,10 +277,14 @@ class _SetRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(logSessionProvider.notifier);
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 4, 12),
+    final colors = Blocks.workout(Theme.of(context).brightness);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Space.sm),
+      child: BlockSection(
+        colors: colors,
+        label: 'Série ${index + 1}',
+        icon: Icons.repeat,
         child: Column(
           children: [
             Row(
@@ -260,10 +293,7 @@ class _SetRow extends ConsumerWidget {
                   child: DropdownButtonFormField<int>(
                     initialValue: entry.exerciseId,
                     isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Exercício',
-                      isDense: true,
-                    ),
+                    decoration: const InputDecoration(labelText: 'Exercício'),
                     items: exercises
                         .map(
                           (e) => DropdownMenuItem(
@@ -286,7 +316,7 @@ class _SetRow extends ConsumerWidget {
                       ? () => controller.removeSet(index)
                       : null,
                   icon: const Icon(Icons.close),
-                  tooltip: 'Remover série',
+                  tooltip: 'Remover série ${index + 1}',
                 ),
               ],
             ),
@@ -322,10 +352,7 @@ class _SetRow extends ConsumerWidget {
                 Expanded(
                   child: DropdownButtonFormField<int?>(
                     initialValue: entry.rpe,
-                    decoration: const InputDecoration(
-                      labelText: 'RPE',
-                      isDense: true,
-                    ),
+                    decoration: const InputDecoration(labelText: 'RPE'),
                     items: [
                       const DropdownMenuItem<int?>(
                         value: null,
@@ -342,7 +369,6 @@ class _SetRow extends ConsumerWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
               ],
             ),
           ],
@@ -378,7 +404,7 @@ class _NumberField extends StatelessWidget {
           decimal ? RegExp(r'[0-9.,]') : RegExp(r'[0-9]'),
         ),
       ],
-      decoration: InputDecoration(labelText: label, isDense: true),
+      decoration: InputDecoration(labelText: label),
     );
   }
 }

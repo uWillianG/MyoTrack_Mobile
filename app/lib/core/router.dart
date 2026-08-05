@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../features/achievements/achievements_page.dart';
 import '../features/auth/forgot_password_page.dart';
 import '../features/auth/login_page.dart';
 import '../features/auth/reset_password_page.dart';
@@ -16,7 +15,7 @@ import '../features/home/home_page.dart';
 import '../features/logging/log_session_page.dart';
 import '../features/meals/meal_analysis_page.dart';
 import '../features/privacy/account_page.dart';
-import '../features/profile/onboarding_page.dart';
+import '../features/profile/profile_page.dart';
 import '../features/reviews/review_page.dart';
 import '../features/splash/splash_page.dart';
 import '../features/videos/video_analysis_page.dart';
@@ -121,7 +120,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           token: state.uri.queryParameters['token'] ?? '',
         ),
       ),
-      GoRoute(path: Routes.profile, builder: (_, _) => const OnboardingPage()),
+      GoRoute(path: Routes.profile, builder: (_, _) => const ProfilePage()),
       GoRoute(
         path: Routes.workoutPlan,
         builder: (_, _) => const WorkoutPlanPage(),
@@ -148,10 +147,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.review, builder: (_, _) => const ReviewPage()),
       GoRoute(path: Routes.dayClose, builder: (_, _) => const DayClosePage()),
       GoRoute(path: Routes.progress, builder: (_, _) => const ProgressPage()),
-      GoRoute(
-        path: Routes.achievements,
-        builder: (_, _) => const AchievementsPage(),
-      ),
+      // As conquistas viraram uma seção do Progresso: as duas telas respondiam "estou
+      // evoluindo?" e obrigavam a pessoa a escolher entre conferir o número e ver o que ele
+      // rendeu. A rota fica de pé porque link de e-mail e notificação apontam para ela.
+      GoRoute(path: Routes.achievements, redirect: (_, _) => Routes.progress),
       GoRoute(path: Routes.billing, builder: (_, _) => const BillingPage()),
       GoRoute(path: Routes.account, builder: (_, _) => const AccountPage()),
       GoRoute(path: Routes.home, builder: (_, _) => const HomePage()),

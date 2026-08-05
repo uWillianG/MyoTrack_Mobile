@@ -2,53 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../data/profile_models.dart';
 
-/// Bloco do formulário com título e, quando útil, uma explicação de por que se pergunta.
-class FormSection extends StatelessWidget {
-  const FormSection({
-    required this.title,
-    required this.children,
-    this.description,
-    super.key,
-  });
-
-  final String title;
-  final String? description;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            if (description != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                description!,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-            const SizedBox(height: 16),
-            ...children,
-          ],
-        ),
-      ),
-    );
-  }
-}
+/// Os dois controles de escolha do perfil.
+///
+/// Chips e não menu suspenso: as opções são poucas e curtas, e um menu esconderia atrás de um
+/// toque justamente a informação que a pessoa precisa comparar para escolher.
 
 /// Múltipla escolha em forma de chips — cabe muito mais opção na tela que uma lista.
 class OptionChips extends StatelessWidget {

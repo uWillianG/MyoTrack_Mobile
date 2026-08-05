@@ -3,14 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/design/tokens.dart';
-import '../../core/providers.dart';
 import '../../core/router.dart';
 import '../../core/sync/sync_queue.dart';
 import '../analysis/analysis_page.dart';
 import '../checkin/weigh_in.dart';
 import '../nutrition/nutrition_page.dart';
-import '../profile/onboarding_page.dart';
-import 'account_sheet.dart';
+import '../profile/profile_page.dart';
+import 'account_avatar.dart';
 import 'today_page.dart';
 
 /// As quatro abas do app.
@@ -19,7 +18,10 @@ import 'today_page.dart';
 /// para quem revisa planos — e revisor é minoria. A fila dele entra como cartão na aba Hoje,
 /// que é onde ele já vai olhar.
 enum HomeTab {
-  today('Hoje', Icons.today_outlined, Icons.today, 'MyoTrack'),
+  /// Sem título: a Hoje desenha o próprio cabeçalho — o painel escuro com a data e as
+  /// calorias, que ocupa o lugar da barra superior. Uma barra escrevendo "MyoTrack" acima
+  /// dele gastaria a tira mais valiosa da tela repetindo o que o usuário já sabe.
+  today('Hoje', Icons.today_outlined, Icons.today, null),
   nutrition(
     'Nutrição',
     Icons.restaurant_outlined,
@@ -42,8 +44,9 @@ enum HomeTab {
   final IconData icon;
   final IconData selectedIcon;
 
-  /// Título da barra superior enquanto a aba está aberta.
-  final String title;
+  /// Título da barra superior enquanto a aba está aberta. Null na aba que traz o próprio
+  /// cabeçalho.
+  final String? title;
 }
 
 /// Aba aberta no shell.
@@ -65,17 +68,24 @@ class HomePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tab = ref.watch(homeTabProvider);
 
+    final title = tab.title;
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text(tab.title),
-        // A margem da direita é a mesma do conteúdo (`Space.gutter`) menos o respiro que o
-        // próprio `IconButton` já reserva: sem ela o avatar encosta na borda da tela e some
-        // pela metade no recorte da câmera.
-        actions: const [
-          _AccountAvatar(),
-          SizedBox(width: Space.gutter - Space.sm),
-        ],
-      ),
+      // A Hoje abre com o painel do dia, que sangra até o topo da tela e leva o avatar no
+      // próprio canto. As outras três continuam com a barra do Material: elas são destinos,
+      // e destino precisa dizer o nome.
+      appBar: title == null
+          ? null
+          : AppBar(
+              title: Text(title),
+              // A margem da direita é a mesma do conteúdo (`Space.gutter`) menos o respiro
+              // que o próprio `IconButton` já reserva: sem ela o avatar encosta na borda da
+              // tela e some pela metade no recorte da câmera.
+              actions: const [
+                AccountAvatar(),
+                SizedBox(width: Space.gutter - Space.sm),
+              ],
+            ),
       // `IndexedStack` e não uma troca de filho: o diário rolado, a foto em análise e o
       // formulário do perfil pela metade sobrevivem à ida e volta entre abas. Refazer esse
       // estado a cada toque é o que faz um app parecer que esqueceu o que a pessoa fazia.
@@ -85,7 +95,7 @@ class HomePage extends ConsumerWidget {
           TodayView(),
           NutritionView(),
           AnalysisView(),
-          OnboardingView(),
+          ProfileView(),
         ],
       ),
       // Só na Hoje. Nas outras abas a ação principal já está na tela (fotografar, gerar
@@ -112,54 +122,6 @@ class HomePage extends ConsumerWidget {
       ),
     );
   }
-}
-
-/// Avatar da barra superior: iniciais do e-mail, e a porta para o resto do app.
-///
-/// Iniciais e não foto porque não há upload de avatar em lugar nenhum — um espaço reservado
-/// para uma foto que nunca chega fica pior que a inicial.
-class _AccountAvatar extends ConsumerWidget {
-  const _AccountAvatar();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final email = ref.watch(userEmailProvider).valueOrNull;
-
-    return IconButton(
-      onPressed: () => showAccountSheet(context),
-      tooltip: 'Conta e mais',
-      icon: CircleAvatar(
-        radius: 16,
-        backgroundColor: theme.colorScheme.primaryContainer,
-        child: Text(
-          initialsFrom(email),
-          style: theme.textTheme.labelLarge?.copyWith(
-            color: theme.colorScheme.onPrimaryContainer,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Até duas letras a partir do e-mail: `rafael.souza@x.com` vira "RS", `willian@x.com` vira
-/// "WI". Sem e-mail — sessão ainda carregando — fica o traço, que não parece nome de outra
-/// pessoa.
-String initialsFrom(String? email) {
-  final local = (email ?? '').split('@').first.trim();
-  if (local.isEmpty) {
-    return '—';
-  }
-
-  final parts = local
-      .split(RegExp(r'[._\-+\s]+'))
-      .where((p) => p.isNotEmpty)
-      .toList();
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
-  return local.substring(0, local.length >= 2 ? 2 : 1).toUpperCase();
 }
 
 /// Captura rápida: as quatro coisas que se registra no meio do dia.

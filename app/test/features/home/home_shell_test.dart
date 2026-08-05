@@ -69,7 +69,19 @@ void main() {
         container.read(homeTabProvider.notifier).state = tab;
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull, reason: 'aba ${tab.label}');
-        expect(find.text(tab.title), findsWidgets);
+
+        final title = tab.title;
+        if (title == null) {
+          // A Hoje não tem barra de título: ela abre com o anel, e é a legenda dele que
+          // prova que a aba certa está montada.
+          expect(
+            find.text('kcal restam'),
+            findsOne,
+            reason: 'aba ${tab.label}',
+          );
+        } else {
+          expect(find.text(title), findsWidgets, reason: 'aba ${tab.label}');
+        }
       }
     });
   }
@@ -112,7 +124,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('O que você quer registrar?'), findsOne);
 
-    await tester.tap(find.text('Fotografar refeição'));
+    // O item da folha, e não o botão do bloco de nutrição atrás dela: os dois têm o mesmo
+    // rótulo de propósito — levam ao mesmo recurso, e vocabulário que muda entre dois
+    // caminhos para a mesma coisa é o que faz o usuário achar que são coisas diferentes.
+    await tester.tap(
+      find.descendant(
+        of: find.byType(ListTile),
+        matching: find.text('Fotografar refeição'),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(container.read(homeTabProvider), HomeTab.analysis);
@@ -211,14 +231,14 @@ void main() {
     );
   });
 
-  testWidgets('a aba Perfil abre o assistente em etapas', (tester) async {
-    // O protótipo põe o onboarding aqui, e é o que quem toca em "Perfil" espera achar —
-    // não um menu.
+  testWidgets('a aba Perfil mostra o perfil de quem já o tem', (tester) async {
+    // Ela abria o assistente de cadastro, inclusive para quem já tinha perfil: a aba chamada
+    // "Perfil" era a única do app que nunca mostrava o seu assunto.
     final container = await pump(tester);
     container.read(homeTabProvider.notifier).state = HomeTab.profile;
     await tester.pumpAndSettle();
 
-    expect(find.text('Etapa 1/5 · Você'), findsOne);
-    expect(find.text('Quem está treinando'), findsOne);
+    expect(find.text('Seu plano'), findsOne);
+    expect(find.text('4 dias — ABCD'), findsOne);
   });
 }

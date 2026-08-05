@@ -6,6 +6,14 @@ import '../reviews/review_controller.dart';
 import '../workout/data/workout_models.dart';
 import '../workout/workout_plan_controller.dart';
 
+/// O relógio.
+///
+/// Existe como provider porque a Hoje **muda de assunto conforme a hora**: de manhã ela abre
+/// pelo treino, à tarde pelas calorias, à noite pelo fechamento do dia. Uma tela com esse
+/// comportamento e um `DateTime.now()` cravado no `build` é uma tela cujo teste passa ou falha
+/// dependendo da hora em que o CI rodar — e a versão das dez da noite ninguém conferiria nunca.
+final nowProvider = Provider<DateTime Function()>((ref) => DateTime.now);
+
 /// O treino que a rotação do plano indica como próximo.
 ///
 /// **É sugestão, e a tela diz isso.** A escolha do dia continua sendo do usuário em
