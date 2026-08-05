@@ -52,6 +52,25 @@ abstract final class Fmt {
       '${at.hour.toString().padLeft(2, '0')}:'
       '${at.minute.toString().padLeft(2, '0')}';
 
+  /// "hoje", "ontem", "há 4 dias" — a idade de alguma coisa, em caixa baixa.
+  ///
+  /// Caixa baixa porque isto entra no meio de uma frase ("o mais antigo, há 4 dias"), e não
+  /// como rótulo solto. Conta dias de calendário e não horas: quem revisa uma fila pensa em
+  /// "de anteontem", não em "de 41 horas atrás".
+  static String ago(DateTime at, DateTime now) {
+    final days = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).difference(DateTime(at.year, at.month, at.day)).inDays;
+
+    return switch (days) {
+      <= 0 => 'hoje',
+      1 => 'ontem',
+      _ => 'há $days dias',
+    };
+  }
+
   /// "Hoje, 12:34" — ou "3 de agosto, 20:10" quando não é de hoje.
   ///
   /// O rótulo de um lançamento numa lista que atravessa dias. Sem a data, dois registros das

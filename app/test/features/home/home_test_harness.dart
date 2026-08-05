@@ -390,6 +390,47 @@ const conversaComOCoach = [
   ),
 ];
 
+/// Três planos esperando revisão, de três alunos e de idades diferentes.
+///
+/// **As idades são o ponto.** A manchete promove a ponta da fila, e uma fila em que tudo chegou
+/// no mesmo instante não mostraria nem o "há 6 dias" nem que o mais antigo não é o primeiro da
+/// lista — que é justamente o erro que `oldestPending` existe para evitar.
+const filaDeRevisao = [
+  ReviewQueueItem(
+    id: 'rev-1',
+    name: 'Gerado em 2 de agosto · versão 2',
+    version: 2,
+    createdAt: '2026-08-02T09:15:00',
+    student: 'marina.alves@exemplo.com',
+    split: 'ABC',
+    goal: 'Hipertrofia',
+    targetKcal: 2400,
+    calorieGoal: 'Superávit',
+  ),
+  ReviewQueueItem(
+    id: 'rev-2',
+    name: 'Gerado em 29 de julho · versão 5',
+    version: 5,
+    createdAt: '2026-07-29T18:40:00',
+    student: 'joao.p.ferreira@exemplo.com',
+    split: 'ABCD',
+    goal: 'Emagrecimento',
+    targetKcal: 1800,
+    calorieGoal: 'Déficit',
+  ),
+  ReviewQueueItem(
+    id: 'rev-3',
+    name: 'Gerado em 4 de agosto · versão 1',
+    version: 1,
+    createdAt: '2026-08-04T07:05:00',
+    student: 'c.tanaka@exemplo.com',
+    split: 'AB',
+    goal: 'Condicionamento',
+    targetKcal: 2100,
+    calorieGoal: 'Manutenção',
+  ),
+];
+
 class _MockProfileRepository extends Mock implements ProfileRepository {}
 
 /// Repositório de perfil que responde na hora.
@@ -450,7 +491,12 @@ List<Override> homeOverrides({
   /// A conversa com o coach. Vazia no caso comum — é o primeiro acesso, e é onde a tela
   /// sugere o que perguntar.
   List<CoachMessage> coachMessages = const [],
+
+  /// A fila de revisão. Vazia no caso comum: quase ninguém é revisor, e `reviewableKinds`
+  /// já vem vazio por padrão.
+  List<ReviewQueueItem> reviewQueue = const [],
 }) => [
+  reviewQueueProvider.overrideWith((ref) async => reviewQueue),
   coachMessagesProvider.overrideWith((ref) async => coachMessages),
   diaryDayProvider.overrideWith((ref) async => day ?? diaryDay()),
   dashboardStatsProvider.overrideWith((ref) async => stats ?? dashboardStats()),

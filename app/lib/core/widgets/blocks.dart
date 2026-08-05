@@ -464,6 +464,8 @@ class BlockSection extends StatelessWidget {
     this.trailing,
     this.padding = const EdgeInsets.all(Space.md),
     this.onEdit,
+    this.actionIcon = Icons.edit_outlined,
+    this.actionVerb = 'Editar',
   });
 
   final BlockColors colors;
@@ -482,6 +484,14 @@ class BlockSection extends StatelessWidget {
   /// tem a largura da tela e a pessoa já está olhando para o conteúdo que quer mudar. O lápis
   /// fica como sinal de que dá para tocar, não como o alvo.
   final VoidCallback? onEdit;
+
+  /// O sinal no canto do rótulo, e o verbo que o leitor de tela anuncia.
+  ///
+  /// Existem porque o toque nem sempre é edição: na fila de revisão a seção **abre** um plano
+  /// para decidir sobre ele, e um lápis ali prometeria que o revisor pode reescrever a dieta de
+  /// outra pessoa — que é justamente o que ele não pode.
+  final IconData actionIcon;
+  final String actionVerb;
 
   @override
   Widget build(BuildContext context) {
@@ -526,8 +536,7 @@ class BlockSection extends StatelessWidget {
                     ),
                   ),
                 ),
-              if (onEdit != null)
-                Icon(Icons.edit_outlined, size: 16, color: colors.ink),
+              if (onEdit != null) Icon(actionIcon, size: 16, color: colors.ink),
             ],
           ),
         ),
@@ -548,7 +557,7 @@ class BlockSection extends StatelessWidget {
               onTap: onEdit,
               child: Semantics(
                 button: true,
-                label: 'Editar $label',
+                label: '$actionVerb $label',
                 child: content,
               ),
             ),

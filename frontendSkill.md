@@ -714,7 +714,54 @@ linhas de uma seção, cada uma com ícone e seta — o toque manda a pergunta.
 
 ---
 
-## 18. O que falta converter
+## 18. Uma fila se lê pela ponta
+
+A revisão (`reviews/review_page.dart`) é a primeira tela em que o usuário age sobre o plano de
+**outra pessoa**, e a primeira cuja família de cor **muda dentro da própria tela**: a fila de
+treinos é índigo, a de dietas é esmeralda. Não é contradição com o §4 — o segmentado ali troca
+de assunto, não de estado, e a regra do §17 (*quem manda na cor é o destino do dado*) diz
+exatamente isto. Treino revisado vira plano de treino; dieta revisada vira plano alimentar.
+
+**A manchete promove a ponta, não o total.** `oldestPending` é pura e no topo do arquivo: o
+número grande é quantos esperam, o detalhe é a idade do mais antigo, e a ação abre justamente
+esse. Sem isso o revisor abre o primeiro da lista — que é só a ordem em que o servidor
+respondeu —, e o plano esquecido continua esquecido.
+
+Item sem data fica **fora** da comparação em vez de contar como antiquíssimo: data ausente é
+falta de informação, não urgência. Mas a fila inteira sem data ainda precisa de uma ponta,
+senão a manchete perde a ação.
+
+### Numa fila, o rótulo colorido carrega a espera
+
+A primeira versão pôs o e-mail do aluno no rótulo e a idade no `trailing`. Ficou errado por
+dois motivos: `marina.alves@exemplo.com` disputava espaço e perdia o domínio, e a espera — que
+é a dimensão pela qual se decide o que abrir — virou nota de rodapé. Invertido: **o rótulo é
+"Esperando há 6 dias"**, e o e-mail desce para o corpo, com a largura toda.
+
+**Regra geral: o rótulo do bloco carrega a dimensão pela qual a lista é percorrida.** Num
+histórico é a data; numa fila é a espera.
+
+### Nem todo toque é edição
+
+`BlockSection.onEdit` desenhava sempre um lápis e anunciava sempre "Editar". Aqui a seção
+**abre** um plano para uma decisão — e um lápis prometeria que o revisor pode reescrever a
+dieta de outra pessoa, que é justamente o que ele não pode. O widget ganhou `actionIcon` e
+`actionVerb`; o padrão continua lápis/"Editar".
+
+### O que o servidor já disse não se repete
+
+O nome do plano vem gerado como "Gerado em 2 de agosto · versão 2" — a data e a versão escritas
+por extenso, os dois campos que a linha já mostra em coluna própria. Mostrá-lo era a mesma
+informação três vezes na mesma seção; saiu.
+
+### Condição de botão é `helperText`, não `hintText`
+
+"Obrigatória ao pedir mudanças" estava como dica do campo de observação, e dica some no
+primeiro caractere digitado — exatamente quando a condição passa a importar. `helperText` fica.
+
+---
+
+## 19. O que falta converter
 
 Convertidas: **Hoje** (`today_page.dart`), **Nutrição** — diário (`diary_page.dart`) e plano
 (`diet_plan_page.dart`) —, **Perfil** (`profile_page.dart`), **Progresso**
@@ -722,7 +769,8 @@ Convertidas: **Hoje** (`today_page.dart`), **Nutrição** — diário (`diary_pa
 (`workout_plan_page.dart`), modo treino (`workout_mode_page.dart`) e registro
 (`log_session_page.dart`) —, a **Analisar** inteira — refeição
 (`meals/meal_analysis_page.dart`, esmeralda) e execução (`videos/video_analysis_page.dart`,
-índigo) — e o **Coach** (`coach/coach_page.dart`, neutro).
+índigo) —, o **Coach** (`coach/coach_page.dart`, neutro) e a **Revisão**
+(`reviews/review_page.dart`, índigo ou esmeralda conforme a fila).
 
 O Perfil também absorveu a gaveta do avatar: `accountDestinations`
 (`features/home/account_destinations.dart`) alimenta a folha **e** a aba, de um lugar só. Duas
@@ -753,13 +801,12 @@ Em ordem de retorno, o que falta:
 
 | Tela | Família | O que fazer |
 |---|---|---|
-| `features/reviews/review_page.dart` | neutro | Conversão direta |
 | `features/billing/billing_page.dart` | neutro | Conversão direta |
 | `features/privacy/account_page.dart` | neutro | Conversão direta |
 | `features/auth/` | — | Tem `auth_scaffold` próprio; alinhar tipografia e alvo de toque |
 | `features/splash/splash_page.dart` | — | Trivial |
 
-Três dessas são destinos da aba Perfil (`accountDestinations`): quem toca num item da lista
+Duas dessas são destinos da aba Perfil (`accountDestinations`): quem toca num item da lista
 sai de uma tela nova e entra numa antiga, que é a costura que mais se sente.
 
 **Um caso meio-termo:** `checkin/day_close_page.dart` pegou a Manrope, o fundo preto e o `Fmt`,

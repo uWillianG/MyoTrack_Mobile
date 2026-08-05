@@ -16,6 +16,8 @@ import 'package:myotrack/core/theme.dart';
 import 'package:myotrack/features/analysis/analysis_page.dart';
 import 'package:myotrack/features/coach/coach_page.dart';
 import 'package:myotrack/features/dashboard/progress_page.dart';
+import 'package:myotrack/features/reviews/review_controller.dart';
+import 'package:myotrack/features/reviews/review_page.dart';
 import 'package:myotrack/features/workout/workout_plan_page.dart';
 import 'package:myotrack/features/workout/workout_plan_controller.dart';
 import 'package:myotrack/features/dashboard/dashboard_stats.dart';
@@ -277,6 +279,43 @@ void main() {
         ],
       );
       await shoot(tester, 'coach-conversa-$mode');
+    });
+
+    // A fila de revisão nas duas cores: ela é a única tela cuja família **muda** com o
+    // segmentado, porque o que a fila alimenta muda junto — treino revisado vira plano de
+    // treino, dieta revisada vira plano alimentar.
+    testWidgets('revisão — treinos ($mode)', (tester) async {
+      await pump(
+        tester,
+        brightness,
+        const ReviewPage(),
+        extra: [
+          ...homeOverrides(
+            reviewableKinds: ReviewKind.values,
+            reviewQueue: filaDeRevisao,
+          ),
+          nowProvider.overrideWithValue(() => DateTime(2026, 8, 4, 15)),
+        ],
+      );
+      await shoot(tester, 'revisao-$mode');
+    });
+
+    testWidgets('revisão — dietas ($mode)', (tester) async {
+      final container = await pump(
+        tester,
+        brightness,
+        const ReviewPage(),
+        extra: [
+          ...homeOverrides(
+            reviewableKinds: ReviewKind.values,
+            reviewQueue: filaDeRevisao,
+          ),
+          nowProvider.overrideWithValue(() => DateTime(2026, 8, 4, 15)),
+        ],
+      );
+      container.read(reviewKindProvider.notifier).state = ReviewKind.diet;
+      await tester.pumpAndSettle();
+      await shoot(tester, 'revisao-dietas-$mode');
     });
 
     // As duas caras do perfil. O cadastro é o que só quem chega vê, e a razão de a galeria
