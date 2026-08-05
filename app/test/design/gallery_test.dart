@@ -13,6 +13,7 @@ import 'package:myotrack/core/db/local_database.dart';
 import 'package:myotrack/core/providers.dart';
 import 'package:myotrack/core/sync/sync_queue.dart';
 import 'package:myotrack/core/theme.dart';
+import 'package:myotrack/features/analysis/analysis_page.dart';
 import 'package:myotrack/features/dashboard/progress_page.dart';
 import 'package:myotrack/features/workout/workout_plan_page.dart';
 import 'package:myotrack/features/workout/workout_plan_controller.dart';
@@ -228,6 +229,32 @@ void main() {
       container.read(homeTabProvider.notifier).state = HomeTab.analysis;
       await tester.pumpAndSettle();
       await shoot(tester, 'analisar-refeicoes-$mode');
+    });
+
+    // A outra metade da aba, nas duas caras: o convite e o histórico. A segunda leva uma
+    // execução avaliada e uma que não deu para avaliar, que é o caso em que a nota é nula.
+    testWidgets('analisar — execução ($mode)', (tester) async {
+      final container = await pump(tester, brightness, const HomePage());
+      container.read(homeTabProvider.notifier).state = HomeTab.analysis;
+      container.read(analysisTabProvider.notifier).state = AnalysisTab.form;
+      await tester.pumpAndSettle();
+      await shoot(tester, 'analisar-execucao-$mode');
+    });
+
+    testWidgets('analisar — execuções ($mode)', (tester) async {
+      final container = await pump(
+        tester,
+        brightness,
+        const HomePage(),
+        extra: [
+          ...homeOverrides(analyzedVideos: analisesDeVideo),
+          nowProvider.overrideWithValue(() => DateTime(2026, 8, 4, 15)),
+        ],
+      );
+      container.read(homeTabProvider.notifier).state = HomeTab.analysis;
+      container.read(analysisTabProvider.notifier).state = AnalysisTab.form;
+      await tester.pumpAndSettle();
+      await shoot(tester, 'analisar-execucoes-$mode');
     });
 
     // As duas caras do perfil. O cadastro é o que só quem chega vê, e a razão de a galeria

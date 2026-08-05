@@ -22,6 +22,7 @@ import 'package:myotrack/features/progress/progress_controller.dart';
 import 'package:myotrack/features/reports/data/report_models.dart';
 import 'package:myotrack/features/reports/report_controller.dart';
 import 'package:myotrack/features/reviews/review_controller.dart';
+import 'package:myotrack/features/videos/data/video_models.dart';
 import 'package:myotrack/features/videos/video_analysis_controller.dart';
 import 'package:myotrack/features/workout/data/workout_models.dart';
 
@@ -303,6 +304,55 @@ const refeicoesAnalisadas = [
   ),
 ];
 
+/// Duas execuções analisadas por vídeo: uma avaliada e uma que não deu para avaliar.
+///
+/// A segunda existe porque `score` nulo **não é zero**, e é o caso que a média do herói tem de
+/// pular — uma tela que só mostra o caminho feliz não é bancada de design nenhuma.
+///
+/// A `overlayVideoUrl` aponta para lugar nenhum de propósito: o `_OverlayPlayer` não baixa nada
+/// até alguém tocar, então a captura sai determinística e mostra o lugar do vídeo, que é o que
+/// se quer avaliar.
+const analisesDeVideo = [
+  VideoAnalysis(
+    id: 'video-1',
+    createdAt: '2026-08-04T18:20:00',
+    analyzedExercise: 'Agachamento livre',
+    score: 82,
+    repCount: 8,
+    overlayVideoUrl: 'https://exemplo.invalido/agachamento.mp4',
+    result: VideoResult(
+      issues: [
+        VideoIssue(
+          code: 'knee_valgus',
+          message:
+              'Joelho entrando na subida da terceira e da sexta repetição.',
+          timestampsSec: [4.2, 11.8],
+        ),
+      ],
+      correctPoints: [
+        VideoCorrectPoint(
+          code: 'depth',
+          message: 'Profundidade constante nas oito repetições.',
+        ),
+        VideoCorrectPoint(
+          code: 'spine',
+          message: 'Coluna neutra do início ao fim.',
+        ),
+      ],
+    ),
+  ),
+  VideoAnalysis(
+    id: 'video-2',
+    createdAt: '2026-08-02T07:45:00',
+    analyzedExercise: 'Levantamento terra',
+    repCount: 5,
+    result: VideoResult(
+      notEvaluableReason:
+          'O quadril sai do quadro na subida. Afaste o celular e filme de lado.',
+    ),
+  ),
+];
+
 class _MockProfileRepository extends Mock implements ProfileRepository {}
 
 /// Repositório de perfil que responde na hora.
@@ -356,6 +406,9 @@ List<Override> homeOverrides({
   /// O histórico de fotos analisadas. Vazio no caso comum — é o primeiro acesso da aba
   /// Analisar, e é a tela que precisa explicar o que a IA faz.
   List<MealAnalysis> analyzedMeals = const [],
+
+  /// O histórico de execuções analisadas. Vazio pelo mesmo motivo.
+  List<VideoAnalysis> analyzedVideos = const [],
 }) => [
   diaryDayProvider.overrideWith((ref) async => day ?? diaryDay()),
   dashboardStatsProvider.overrideWith((ref) async => stats ?? dashboardStats()),
@@ -372,7 +425,7 @@ List<Override> homeOverrides({
   reviewableKindsProvider.overrideWith((ref) async => reviewableKinds),
   activeDietPlanProvider.overrideWith((ref) async => diet),
   mealHistoryProvider.overrideWith((ref) async => analyzedMeals),
-  videoHistoryProvider.overrideWith((ref) async => const []),
+  videoHistoryProvider.overrideWith((ref) async => analyzedVideos),
   pendingWritesProvider.overrideWith((ref) => Stream.value(0)),
   // Sem este override o provider real abriria o SQLite do aparelho, que não existe no teste.
   discardedWritesProvider.overrideWith((ref) async => discarded),

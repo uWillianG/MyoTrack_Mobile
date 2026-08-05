@@ -413,6 +413,11 @@ Toda tela convertida entra na galeria **nos dois temas**, e mais:
   primeiro acesso), porque avaliar só uma seria avaliar um quarto do desenho.
 - **o estado de primeiro acesso**, sempre. É o estado que ninguém olha e o primeiro que o
   usuário vê.
+- **a lista cheia, quando a tela tem lista.** A vazia julga o convite; a cheia julga o ritmo
+  entre os itens, e é onde aparecem os estouros de linha e os blocos que empurram o conteúdo
+  para fora da dobra.
+- **o caso torto junto com o feliz.** O histórico de execução leva uma análise avaliada e uma
+  que não deu para avaliar: uma galeria só de caminho feliz não é bancada de design nenhuma.
 
 ### Antes de abrir o PR
 
@@ -584,6 +589,62 @@ ampliado pela acessibilidade. **`Flexible` dos dois lados e `spaceBetween`, nunc
 botões de texto:** o `Spacer` empurra o estouro para fora da vista em vez de deixar o botão
 encolher.
 
+### O número do herói é o que não está em nenhum cartão
+
+A metade de vídeo (`videos/video_analysis_page.dart`) tem um número óbvio para a manchete — a
+nota da última execução —, e ele é o errado: essa nota continua no cartão dela, ao lado do
+vídeo e dos pontos que a explicam, e o herói a mostraria duas vezes. O bloco leva a **média das
+notas** (`scoreAverage`, pura e no topo do arquivo), que só o conjunto sabe dizer e responde
+"estou melhorando?" — a pergunta pela qual se volta à tela.
+
+A regra geral: **quando a lista já mostra os resultados, a manchete carrega o agregado.** É a
+mesma disciplina do "assunto promovido sai do mosaico", aplicada a um número.
+
+E o agregado conta o que entrou nele, não o tamanho da lista: com duas análises e uma nota
+nula, "média de 2 execuções" é uma média que o usuário não consegue refazer de cabeça.
+
+### Nota é grandeza, não semáforo
+
+A nota saía num chip que mudava de cor — verde acima de 80, âmbar no meio, vermelho abaixo de
+60. É cor por estado, que o §4 proíbe: a mesma peça passava a ter três significados, e a
+família do treino sumia justamente no dado principal da tela. Agora é número grande em `ink`
+mais barra proporcional: **quem dá o recado é o tamanho, não o matiz.**
+
+`score` nulo não vira zero em lugar nenhum — nem no cartão, nem na média. "Não deu para
+avaliar" é uma afirmação sobre o vídeo; zero seria uma afirmação sobre o corpo de quem gravou.
+
+### A instrução que decide o sucesso vem antes do gesto, não depois
+
+Gravar exigia duas folhas em sequência — exercício numa, origem do vídeo noutra —, e o
+enquadramento ("de lado, corpo inteiro no quadro, até 30s") estava enterrado como subtítulo na
+segunda. É a instrução que decide se o vídeo vai ser avaliável, e ela chegava depois de a
+decisão estar tomada. Subiu para o herói, como faixa sobre a cor cheia; a folha de origem
+sumiu (gravar é a ação do bloco, galeria é o botão de texto), e só o exercício — que o servidor
+exige — ainda pergunta.
+
+### Erros e acertos são dois grupos com nome, não uma lista colorida
+
+As ocorrências e os pontos corretos vinham na mesma coluna, distinguidos por cor de ícone —
+lê-se como registro de log. Separados sob "O que corrigir" e "O que já está bom", viram duas
+respostas: o que mudar na próxima série e o que não mexer. O vermelho do ícone de erro é a
+única cor fora da família na tela, e não anda sozinho: forma de ícone própria e título escrito.
+
+### Espaço de mídia se paga com mídia
+
+O lugar do vídeo era um 16:9 de largura cheia — um terço da tela por cartão, cinza, empurrando
+a nota e as correções para fora da vista. Virou uma faixa de 96 dp com "Ver com o esqueleto";
+ao tocar, o player abre na proporção verdadeira do arquivo. **Um espaço reservado não deve
+custar o espaço que o conteúdo custaria** — só o suficiente para dizer que ele existe.
+
+Ele também não baixa sozinho: cada vídeo são alguns MB, e uma lista que carrega todos ao abrir
+gasta o pacote de dados de quem está na academia. O toque é o consentimento.
+
+### Lista preguiçosa: o teste precisa rolar
+
+Os cartões do histórico carregam mídia, então a lista é preguiçosa de propósito e o que está
+abaixo da dobra **não existe** na árvore. Um `find.text` de segundo cartão falha por um motivo
+que não é o que o teste quer medir — use `scrollUntilVisible` antes.
+
 ### Data por extenso mora no `Fmt`
 
 `Fmt.dayMonth`, `Fmt.weekdayDayMonth` e `Fmt.time` (`core/design/format.dart`). Os nomes de mês
@@ -600,8 +661,9 @@ Convertidas: **Hoje** (`today_page.dart`), **Nutrição** — diário (`diary_pa
 (`diet_plan_page.dart`) —, **Perfil** (`profile_page.dart`), **Progresso**
 (`progress_page.dart`, que absorveu as conquistas), **Treino** — plano
 (`workout_plan_page.dart`), modo treino (`workout_mode_page.dart`) e registro
-(`log_session_page.dart`) — e a metade de refeição da **Analisar**
-(`meals/meal_analysis_page.dart`).
+(`log_session_page.dart`) — e a **Analisar** inteira: refeição
+(`meals/meal_analysis_page.dart`, esmeralda) e execução (`videos/video_analysis_page.dart`,
+índigo).
 
 O Perfil também absorveu a gaveta do avatar: `accountDestinations`
 (`features/home/account_destinations.dart`) alimenta a folha **e** a aba, de um lugar só. Duas
@@ -632,9 +694,20 @@ Em ordem de retorno, o que falta:
 
 | Tela | Família | O que fazer |
 |---|---|---|
-| `features/videos/video_analysis_page.dart` | índigo | A outra metade da Analisar. Mesmo desenho da foto: manchete de estado do trabalho e o histórico como seções |
-| `features/coach/` · `features/reviews/` · `features/billing/` | neutro | Conversão direta |
+| `features/coach/coach_page.dart` | neutro | Conversão direta |
+| `features/reviews/review_page.dart` | neutro | Conversão direta |
+| `features/billing/billing_page.dart` | neutro | Conversão direta |
+| `features/privacy/account_page.dart` | neutro | Conversão direta |
 | `features/auth/` | — | Tem `auth_scaffold` próprio; alinhar tipografia e alvo de toque |
+| `features/splash/splash_page.dart` | — | Trivial |
+
+Quatro dessas são destinos da aba Perfil (`accountDestinations`): quem toca num item da lista
+sai de uma tela nova e entra numa antiga, que é a costura que mais se sente.
+
+**Um caso meio-termo:** `checkin/day_close_page.dart` pegou a Manrope, o fundo preto e o `Fmt`,
+mas nunca recebeu o vocabulário de blocos — os cartões dele são forma própria. Como é um fluxo
+modal com ritmo próprio, dá para argumentar que está bom; pelo critério de uma linguagem só,
+conta como pendente.
 
 Converta uma por vez e gere a galeria a cada uma. Meia conversão é pior que nenhuma: duas telas
 em padrões diferentes é a sensação de app costurado que este documento existe para eliminar.

@@ -52,6 +52,16 @@ abstract final class Fmt {
       '${at.hour.toString().padLeft(2, '0')}:'
       '${at.minute.toString().padLeft(2, '0')}';
 
+  /// "Hoje, 12:34" — ou "3 de agosto, 20:10" quando não é de hoje.
+  ///
+  /// O rótulo de um lançamento numa lista que atravessa dias. Sem a data, dois registros das
+  /// 12:30 em dias diferentes ficam idênticos, e o de ontem passa a parecer duplicado.
+  static String dayTime(DateTime at, DateTime now) {
+    final mesmoDia =
+        at.year == now.year && at.month == now.month && at.day == now.day;
+    return mesmoDia ? 'Hoje, ${time(at)}' : '${dayMonth(at)}, ${time(at)}';
+  }
+
   static const _weekdays = [
     'segunda',
     'terça',

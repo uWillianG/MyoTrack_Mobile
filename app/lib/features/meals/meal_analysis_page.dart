@@ -588,14 +588,7 @@ class _MealCardState extends ConsumerState<_MealCard> {
     final at = createdAt == null
         ? null
         : DateTime.tryParse(createdAt)?.toLocal();
-    if (at == null) {
-      return 'Refeição';
-    }
-
-    final hora = Fmt.time(at);
-    final mesmoDia =
-        at.year == now.year && at.month == now.month && at.day == now.day;
-    return mesmoDia ? 'Hoje, $hora' : '${Fmt.dayMonth(at)}, $hora';
+    return at == null ? 'Refeição' : Fmt.dayTime(at, now);
   }
 
   Future<void> _save() async {
