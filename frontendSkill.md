@@ -761,7 +761,53 @@ primeiro caractere digitado — exatamente quando a condição passa a importar.
 
 ---
 
-## 19. O que falta converter
+## 19. Contenção numa tela de venda
+
+A assinatura (`billing/billing_page.dart`) é **neutra**, e a tentação era o magenta das
+conquistas — é a família festiva, e um paywall quer festa. Mas magenta significa "você
+conquistou", e aplicá-lo a uma compra seria bajulação: o app estaria parabenizando alguém por
+pagar. Cobrança é procedimento, e procedimento é neutro (§4).
+
+A contenção também cai bem aqui: **quem precisa enfeitar o preço é quem não confia no
+produto.** O bloco neutro no escuro é claro, o que já o torna a coisa mais forte da tela sem
+nenhuma cor.
+
+### O preço mora na ação
+
+Era "Assine o Pro" num cartão e "Assinar por R$ 24,90" num botão abaixo — duas metades da mesma
+frase, que a leitura tem de juntar. O preço é a única coisa que o usuário precisa saber para
+decidir, e ele vem da loja já com moeda e imposto da região. O app nunca o monta.
+
+**Sem produto, não há botão.** Loja indisponível deixa a ação nula e uma faixa explica; um
+"Assinar" sem preço é o que faz alguém tocar sem saber quanto vai pagar.
+
+### A letra miúda vem antes do botão
+
+"A cobrança é feita pela loja e renova sozinha" estava abaixo do botão. Quem já tocou não a lê.
+Condição de compra fica **acima** do que a executa.
+
+### O que falhou mora no herói
+
+Cobrança recusada era uma faixa vermelha no meio do cartão. É a coisa mais importante da tela
+naquele momento, então vive no bloco, como faixa sobre a cor cheia. Continua sendo **aviso e
+não bloqueio**: o acesso vale durante a tolerância da loja, e cortar antes puniria quem só
+precisa trocar o cartão.
+
+### Ação obrigatória não é ação principal
+
+"Restaurar compras" saía na cor do tema — a única coisa saturada de uma tela neutra, e portanto
+a mais chamativa. As duas lojas exigem esse botão, mas ele não é a decisão da tela. Foi para
+cor de texto.
+
+### Um recado repetido virou peça
+
+`BlockNotice` (`core/widgets/blocks.dart`) nasceu duas vezes igual — o "não deu para avaliar"
+do vídeo e o "gerenciada pela loja" da cobrança. A terceira cópia teria divergido no raio ou no
+alfa. Mesmo princípio do §17: o que se repete sobe para o sistema.
+
+---
+
+## 20. O que falta converter
 
 Convertidas: **Hoje** (`today_page.dart`), **Nutrição** — diário (`diary_page.dart`) e plano
 (`diet_plan_page.dart`) —, **Perfil** (`profile_page.dart`), **Progresso**
@@ -770,7 +816,8 @@ Convertidas: **Hoje** (`today_page.dart`), **Nutrição** — diário (`diary_pa
 (`log_session_page.dart`) —, a **Analisar** inteira — refeição
 (`meals/meal_analysis_page.dart`, esmeralda) e execução (`videos/video_analysis_page.dart`,
 índigo) —, o **Coach** (`coach/coach_page.dart`, neutro) e a **Revisão**
-(`reviews/review_page.dart`, índigo ou esmeralda conforme a fila).
+(`reviews/review_page.dart`, índigo ou esmeralda conforme a fila) e a **Assinatura**
+(`billing/billing_page.dart`, neutra).
 
 O Perfil também absorveu a gaveta do avatar: `accountDestinations`
 (`features/home/account_destinations.dart`) alimenta a folha **e** a aba, de um lugar só. Duas
@@ -801,12 +848,11 @@ Em ordem de retorno, o que falta:
 
 | Tela | Família | O que fazer |
 |---|---|---|
-| `features/billing/billing_page.dart` | neutro | Conversão direta |
 | `features/privacy/account_page.dart` | neutro | Conversão direta |
 | `features/auth/` | — | Tem `auth_scaffold` próprio; alinhar tipografia e alvo de toque |
 | `features/splash/splash_page.dart` | — | Trivial |
 
-Duas dessas são destinos da aba Perfil (`accountDestinations`): quem toca num item da lista
+Uma dessas é destino da aba Perfil (`accountDestinations`): quem toca num item da lista
 sai de uma tela nova e entra numa antiga, que é a costura que mais se sente.
 
 **Um caso meio-termo:** `checkin/day_close_page.dart` pegou a Manrope, o fundo preto e o `Fmt`,

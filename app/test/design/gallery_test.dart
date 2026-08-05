@@ -14,6 +14,7 @@ import 'package:myotrack/core/providers.dart';
 import 'package:myotrack/core/sync/sync_queue.dart';
 import 'package:myotrack/core/theme.dart';
 import 'package:myotrack/features/analysis/analysis_page.dart';
+import 'package:myotrack/features/billing/billing_page.dart';
 import 'package:myotrack/features/coach/coach_page.dart';
 import 'package:myotrack/features/dashboard/progress_page.dart';
 import 'package:myotrack/features/reviews/review_controller.dart';
@@ -316,6 +317,34 @@ void main() {
       container.read(reviewKindProvider.notifier).state = ReviewKind.diet;
       await tester.pumpAndSettle();
       await shoot(tester, 'revisao-dietas-$mode');
+    });
+
+    // As duas caras da assinatura. A gratuita é a que vende, e a paga é a que a maioria de
+    // quem abre esta tela já tem — julgar só uma seria julgar metade da decisão.
+    testWidgets('assinatura — gratuito ($mode)', (tester) async {
+      await pump(
+        tester,
+        brightness,
+        const BillingPage(),
+        extra: [
+          ...billingOverrides(),
+          nowProvider.overrideWithValue(() => DateTime(2026, 8, 4, 15)),
+        ],
+      );
+      await shoot(tester, 'assinatura-$mode');
+    });
+
+    testWidgets('assinatura — pro ($mode)', (tester) async {
+      await pump(
+        tester,
+        brightness,
+        const BillingPage(),
+        extra: [
+          ...billingOverrides(status: assinaturaPro),
+          nowProvider.overrideWithValue(() => DateTime(2026, 8, 4, 15)),
+        ],
+      );
+      await shoot(tester, 'assinatura-pro-$mode');
     });
 
     // As duas caras do perfil. O cadastro é o que só quem chega vê, e a razão de a galeria

@@ -453,7 +453,7 @@ class _AnalysisSection extends StatelessWidget {
                 ),
                 if (notEvaluable != null && notEvaluable.isNotEmpty) ...[
                   const SizedBox(height: Space.md),
-                  _Notice(message: notEvaluable, colors: colors),
+                  BlockNotice(message: notEvaluable, colors: colors),
                 ],
                 if (result.issues.isNotEmpty) ...[
                   const SizedBox(height: Space.md),
@@ -588,37 +588,6 @@ class _Score extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// O aviso de "não deu para avaliar", com o motivo que o servidor deu.
-class _Notice extends StatelessWidget {
-  const _Notice({required this.message, required this.colors});
-
-  final String message;
-  final BlockColors colors;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.ink.withValues(alpha: 0.12),
-        borderRadius: Radii.mdAll,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(Space.sm + 2),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(Icons.info_outline, size: 18, color: colors.ink),
-            const SizedBox(width: Space.sm),
-            Expanded(child: Text(message, style: theme.textTheme.bodySmall)),
-          ],
-        ),
-      ),
     );
   }
 }

@@ -6,6 +6,9 @@ import 'package:myotrack/core/providers.dart';
 import 'package:myotrack/features/achievements/achievements_controller.dart'
     as achievements;
 import 'package:myotrack/features/achievements/data/rewards_repository.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:myotrack/features/billing/billing_controller.dart';
+import 'package:myotrack/features/billing/data/billing_models.dart';
 import 'package:myotrack/features/coach/coach_controller.dart';
 import 'package:myotrack/features/dashboard/dashboard_controller.dart';
 import 'package:myotrack/features/dashboard/dashboard_stats.dart';
@@ -430,6 +433,64 @@ const filaDeRevisao = [
     calorieGoal: 'Manutenção',
   ),
 ];
+
+/// A assinatura, e o estado da loja — desligados da rede e da Play Store.
+///
+/// **O `build` do controller de verdade abre o fluxo de compras do aparelho**, e num teste isso
+/// é um stream que nunca responde: sobrescrevê-lo inteiro é a única forma de a tela existir
+/// fora de um celular com conta de loja configurada.
+List<Override> billingOverrides({
+  SubscriptionStatus status = const SubscriptionStatus(
+    maxMealAnalysesPerDay: 3,
+    maxVideoAnalysesPerDay: 1,
+    maxCoachMessagesPerDay: 5,
+  ),
+  // `ProductDetails` não tem construtor const, então o padrão é montado no corpo.
+  BillingState? state,
+}) => [
+  subscriptionStatusProvider.overrideWith((ref) async => status),
+  billingControllerProvider.overrideWith(
+    () => _FakeBilling(state ?? lojaComProduto()),
+  ),
+];
+
+/// A loja respondeu com o produto e o preço.
+///
+/// O preço vem formatado pela loja, com moeda e imposto da região. O fixture imita o formato
+/// brasileiro porque é o que o app mostra — deixar "9.99" faria a captura avaliar uma tela que
+/// nenhum usuário vê.
+BillingState lojaComProduto() => BillingState(
+  loadingStore: false,
+  storeAvailable: true,
+  product: ProductDetails(
+    id: 'pro_monthly',
+    title: 'MyoTrack Pro',
+    description: 'Assinatura mensal',
+    price: 'R\$ 24,90',
+    rawPrice: 24.9,
+    currencyCode: 'BRL',
+  ),
+);
+
+/// O plano pago, renovando no fim do mês e gerenciado pela loja.
+const assinaturaPro = SubscriptionStatus(
+  plan: 'Pro',
+  maxMealAnalysesPerDay: 20,
+  maxVideoAnalysesPerDay: 10,
+  maxCoachMessagesPerDay: 50,
+  currentPeriodEnd: '2026-08-28T00:00:00',
+  provider: 'GooglePlay',
+  managedByStore: true,
+);
+
+class _FakeBilling extends BillingController {
+  _FakeBilling(this._state);
+
+  final BillingState _state;
+
+  @override
+  BillingState build() => _state;
+}
 
 class _MockProfileRepository extends Mock implements ProfileRepository {}
 

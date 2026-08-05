@@ -565,6 +565,53 @@ class BlockSection extends StatelessWidget {
   }
 }
 
+/// Um recado dentro de um bloco: ícone, uma frase, fundo um pouco mais tingido que o do bloco.
+///
+/// É para o que a tela precisa dizer e não é dado: "não deu para avaliar", "sua assinatura é
+/// gerenciada pela loja". Existe como peça porque nasceu duas vezes igual — na análise de vídeo
+/// e na cobrança — e a terceira cópia teria divergido no raio ou no alfa.
+///
+/// [iconColor] sai da família por padrão. Passe a cor de erro do tema quando o recado for um
+/// problema: aí o ícone é o único elemento fora da família, e nunca sozinho — a frase diz a
+/// mesma coisa por escrito.
+class BlockNotice extends StatelessWidget {
+  const BlockNotice({
+    super.key,
+    required this.colors,
+    required this.message,
+    this.icon = Icons.info_outline,
+    this.iconColor,
+  });
+
+  final BlockColors colors;
+  final String message;
+  final IconData icon;
+  final Color? iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.ink.withValues(alpha: 0.12),
+        borderRadius: Radii.mdAll,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(Space.sm + 2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 18, color: iconColor ?? colors.ink),
+            const SizedBox(width: Space.sm),
+            Expanded(child: Text(message, style: theme.textTheme.bodySmall)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Um medidor: rótulo, valor contra a meta, e a barra.
 ///
 /// **Passar da meta não é pintado de vermelho.** Comer acima do alvo num dia não é erro, e o
