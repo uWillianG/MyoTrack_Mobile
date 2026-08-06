@@ -71,3 +71,9 @@ app/android/key.properties
 .env
 .env.*
 !.env.example
+
+# Python — o serviço de visão (`vision/`).
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/

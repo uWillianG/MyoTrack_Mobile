@@ -16,6 +16,7 @@ pelo EF Core no ponto `V1`, sem recriar nada.
 | `backend/myotrack-worker/` | Processa a fila de jobs: análise de foto, de vídeo, coach, relatório semanal. |
 | `backend/myotrack-domain/` | Regras que não dependem de banco nem de framework. É onde ficam os cálculos. |
 | `backend/myotrack-infrastructure/` | Banco, armazenamento de mídia, acesso a LLM. |
+| `vision/` | Serviço Python que analisa a execução no vídeo (FastAPI + MediaPipe Pose). |
 
 **A chave do LLM só existe no Worker.** A API é o processo exposto à internet e nunca a vê.
 Se você configurar a chave no lugar errado, a geração continua funcionando — pelo motor de
@@ -26,7 +27,7 @@ regras, sem IA — e nada avisa.
 Precisa de: Docker, JDK 21 e o SDK do Flutter.
 
 ```bash
-docker compose up -d          # Postgres na 5433 e MinIO na 9000
+docker compose up -d          # Postgres na 5433, MinIO na 9000, visão na 8000
 cd backend && ./gradlew :myotrack-api:bootRun
 ```
 
@@ -59,13 +60,38 @@ De propósito. Eles rodam por `bootRun`, com recompilação a cada mudança — 
 desenvolve aqui. Containerizá-los passa a valer no dia em que houver deploy, e um Dockerfile
 que ninguém executa apodrece sem avisar.
 
-### O serviço de visão fica em outro repositório
+### O serviço de visão
 
-A análise de execução por vídeo depende de um serviço Python (FastAPI + MediaPipe Pose) que
-vive no repositório `MyoTrack`, em `vision/`. O Worker o procura em `http://localhost:8000`
+A análise de execução por vídeo é um serviço Python (FastAPI + MediaPipe Pose) em `vision/`.
+Sobe com o resto no `docker compose up -d`, e o Worker o procura em `http://localhost:8000`
 (`MYOTRACK_VISION_BASE_URL`).
 
-Sem ele de pé, os jobs de vídeo falham; o resto do sistema funciona normalmente.
+Ele **é deste repositório**. Já viveu no `MyoTrack` e a distância cobrava caro: o container era
+criado à mão contra a rede do outro projeto, morria junto com o Docker Desktop sem que nenhum
+`compose up` o trouxesse de volta, e o sintoma no app era "o serviço de análise não respondeu"
+— que parece falha de servidor, não container faltando. Custou o mesmo diagnóstico duas vezes
+no mesmo dia. Se você mexer na cópia do outro repositório, ela não vale mais para nada aqui.
+
+Depois de mudar algo em `vision/`, reconstrua:
+
+```bash
+docker compose build vision && docker compose up -d vision
+```
+
+As heurísticas têm teste, e ele é um **script**, não pytest. A imagem não carrega a pasta
+`tests/` — o que roda em produção não precisa dela —, então monte na hora:
+
+```bash
+docker compose run --rm --no-deps -v "$PWD/vision/tests:/srv/tests" vision \
+  python tests/test_heuristics.py
+```
+
+Ele monta quadros sintéticos por exercício e confere os dois lados: execução boa não gera
+ocorrência, execução ruim gera a ocorrência certa. É onde um limiar novo se calibra sem
+precisar gravar vídeo.
+
+Sem o serviço de pé, os jobs de vídeo falham; o resto do sistema funciona normalmente. E job
+que falhou não reprocessa sozinho — `MAX_ATTEMPTS` é 3, e depois disso ele fica `Failed`.
 
 ## Configuração
 

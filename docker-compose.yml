@@ -11,8 +11,11 @@ name: myotrack-mobile
 # Containerizá-los só passa a valer no dia em que houver deploy, e um Dockerfile que ninguém
 # executa apodrece sem avisar.
 #
-# O serviço de visão (FastAPI + MediaPipe) também não está aqui: ele vive em outro
-# repositório. Veja o README.
+# O serviço de visão está aqui, e o código dele também, em `vision/`. É a exceção à regra
+# acima, e por um motivo diferente: ele não é recompilado a cada mudança como a API e o Worker
+# — é um processo Python que sobe uma vez e fica. Fora do compose, ele era um container criado
+# à mão que morria junto com o Docker Desktop e não voltava, e o sintoma no app era "o serviço
+# de análise não respondeu", que parece problema de servidor.
 #
 # Os valores abaixo são exatamente os padrões de myotrack-shared.yml. Isso é intencional:
 # `docker compose up -d` seguido de `gradlew bootRun` funciona sem configurar nada.
@@ -55,6 +58,40 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+
+  # Análise de execução por vídeo (FastAPI + MediaPipe Pose).
+  #
+  # O código está em `vision/`, neste repositório. Ele já viveu fora — no repo `MyoTrack` —, e
+  # a distância cobrava caro: o container era criado à mão contra a rede do outro projeto, uma
+  # heurística só se conferia abrindo dois repositórios, e ninguém tinha como saber, olhando
+  # daqui, qual versão estava rodando.
+  vision:
+    build:
+      context: ./vision
+    environment:
+      # Pelo nome do serviço, não por localhost: dentro do container, `localhost` é ele mesmo.
+      # É o erro que fazia o download do vídeo falhar e virar "o serviço não respondeu".
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-myotrack}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-dev-only-password}
+      S3_BUCKET: myotrack-media
+    ports:
+      # Preso a 127.0.0.1 como os demais. O Worker roda no host e procura o serviço em
+      # `http://localhost:8000` (`MYOTRACK_VISION_BASE_URL`), que é este mapeamento.
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      minio:
+        condition: service_healthy
+    # Sem `curl` na imagem (python:3.11-slim), então a checagem usa a stdlib.
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      # Analisar vídeo é pesado; o serviço aceita conexão bem antes de estar ocioso.
+      start_period: 20s
+    restart: unless-stopped
 
 # O bucket `myotrack-media` não é criado aqui: quem o cria é o MinioMediaStorage, na primeira
 # escrita. Um container de bootstrap com `mc mb` seria uma segunda coisa a manter em sincronia
