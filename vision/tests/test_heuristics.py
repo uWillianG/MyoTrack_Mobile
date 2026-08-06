@@ -193,15 +193,16 @@ check("squat constante: sem inconsistent_depth", "inconsistent_depth" in ok_code
 r = run("squat", make_squat_fading([70, 120]))
 check("squat com 2 reps: consistencia nao acusa", "inconsistent_depth" in ok_codes(r), f"(ok={ok_codes(r)})")
 
-# LIMITE CONHECIDO, preso aqui para não virar surpresa: uma repetição muito mais curta que as
-# outras não passa do corte do `_find_bottoms` (35% da faixa do vídeo) e não é contada como
-# repetição. Quatro agachamentos com as duas últimas rasas viram DOIS, e a consistência não
-# tem o que apontar — o sintoma é contagem baixa, não ocorrência. Consertar isso é mexer no
-# detector, não nas checagens.
+# O caso que o detector antigo perdia. Ele normalizava pela faixa do vídeo e só fechava ciclo
+# abaixo de 35% dela: as duas repetições rasas não cruzavam esse corte e sumiam da contagem —
+# quatro agachamentos viravam DOIS, e a consistência não tinha o que apontar. As piores
+# repetições eram justamente as que desapareciam.
 r = run("squat", make_squat_fading([70, 72, 105, 120]))
-check("squat muito raso no fim: as reps rasas somem da contagem", r.rep_count == 2, f"(reps={r.rep_count})")
-check("squat muito raso no fim: e por isso a consistencia se cala",
-      "inconsistent_depth" in ok_codes(r), f"(ok={ok_codes(r)})")
+check("squat muito raso no fim: conta as 4 repeticoes", r.rep_count == 4, f"(reps={r.rep_count})")
+check("squat muito raso no fim: acusa a inconsistencia", "inconsistent_depth" in codes(r), f"(issues={codes(r)})")
+check("squat muito raso no fim: aponta as duas rasas",
+      len([i for i in r.issues if i.code == "inconsistent_depth"][0].timestamps_sec) == 2,
+      f"(marcas={[i.timestamps_sec for i in r.issues if i.code == 'inconsistent_depth']})")
 
 r = run("squat", [neutral(i / FPS) for i in range(60)])
 check("squat parado: nao avaliavel", r.not_evaluable_reason is not None and r.rep_count == 0)

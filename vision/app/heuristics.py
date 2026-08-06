@@ -109,29 +109,51 @@ def _smooth(values: list[float], window: int = 5) -> list[float]:
     ]
 
 
-def _find_bottoms(values: list[float], times: list[float], low: float = 0.35, high: float = 0.65) -> list[float]:
-    """Máquina de estados com histerese sobre o sinal normalizado.
+def _find_bottoms(values: list[float], times: list[float], min_swing: float) -> list[float]:
+    """Instantes dos fundos do sinal — uma repetição por fundo.
 
-    Conta um ciclo a cada descida abaixo de `low` seguida de subida acima de
-    `high`, devolvendo o instante do ponto mais baixo de cada ciclo.
+    Alterna entre procurar fundo e procurar topo, e só confirma uma virada quando o sinal já
+    andou `min_swing` **em unidades do próprio sinal** (graus, ou fração da altura da imagem)
+    no sentido contrário. É o mesmo princípio da histerese, aplicado ao trecho e não ao vídeo.
+
+    **A versão anterior normalizava o sinal pela faixa do vídeo inteiro** e disparava em 35% e
+    65% dela. Isso fazia a repetição ser medida contra a *melhor* repetição da série, e o
+    efeito era perverso:
+
+    - Uma repetição bem mais curta que as outras não cruzava os 35% e **não virava repetição
+      nenhuma** — as piores eram exatamente as que sumiam, e o sintoma chegava ao usuário como
+      contagem baixa em vez de "profundidade caiu".
+    - Repetições sem extensão completa entre elas nunca voltavam aos 65%, e a máquina de
+      estados fundia a série toda num ciclo só. Era o que contava uma rosca de 23,5 s como
+      uma repetição.
+    - E uma única repetição muito funda esticava a faixa, levantando a régua para todas as
+      outras.
+
+    Em unidades absolutas nada disso acontece: cada oscilação vale por si.
     """
-    vmin, vmax = min(values), max(values)
-    if vmax - vmin < 1e-6:
+    if len(values) < 2 or min_swing <= 0:
         return []
-    norm = [(v - vmin) / (vmax - vmin) for v in values]
 
     bottoms: list[float] = []
-    state = "up"
-    bottom_t = bottom_v = 0.0
-    for t, v in zip(times, norm):
-        if state == "up" and v < low:
-            state, bottom_t, bottom_v = "down", t, v
-        elif state == "down":
-            if v < bottom_v:
-                bottom_t, bottom_v = t, v
-            if v > high:
-                bottoms.append(bottom_t)
-                state = "up"
+    # Começa procurando fundo, com o primeiro ponto como candidato: um vídeo que começa no
+    # fundo do movimento tem essa primeira repetição contada, e um que começa em pé não gera
+    # fundo falso — de pé, o sinal só sobe depois de descer.
+    seeking_bottom = True
+    best_t, best_v = times[0], values[0]
+
+    for t, v in zip(times, values):
+        if seeking_bottom:
+            if v < best_v:
+                best_t, best_v = t, v
+            elif v - best_v >= min_swing:
+                bottoms.append(best_t)
+                seeking_bottom, best_t, best_v = False, t, v
+        else:
+            if v > best_v:
+                best_t, best_v = t, v
+            elif best_v - v >= min_swing:
+                seeking_bottom, best_t, best_v = True, t, v
+
     return bottoms
 
 
@@ -149,9 +171,13 @@ def analyze(spec: ExerciseSpec, frames: list[FrameSignals]) -> HeuristicResult:
     if max(series) - min(series) < spec.min_range:
         return HeuristicResult(0, [], [], {}, f"Nenhuma repetição de {spec.label} detectada no vídeo.")
 
-    # Extremos no topo (press, elevação...) = "fundos" do sinal invertido.
+    # Extremos no topo (press, elevação...) = "fundos" do sinal invertido. A inversão preserva
+    # a magnitude, então o `min_swing` vale igual nos dois casos.
     oriented = series if spec.extremum == "bottom" else [-v for v in series]
-    extremes = _find_bottoms(oriented, times)
+    # O mesmo número que define "houve movimento no vídeo" define "houve movimento nesta
+    # repetição". Ele já é por exercício — 25° para ângulo, 0,10 de altura para punho, 0,025
+    # para encolhimento —, que é exatamente a escala que o detector precisa conhecer.
+    extremes = _find_bottoms(oriented, times, spec.min_range)
     if not extremes:
         return HeuristicResult(0, [], [], {}, "Nenhuma repetição completa detectada.")
 
@@ -248,13 +274,6 @@ def _shallow_reps(reps: list[Rep], tolerance: float = 20.0) -> list[Rep]:
 
     Abaixo de três repetições não há série para comparar: com duas, chamar uma de destoante é
     ruído, porque não há como saber qual das duas é a típica.
-
-    **Tem um teto, e ele não é desta função.** O `_find_bottoms` normaliza o sinal pela faixa
-    do próprio vídeo e só fecha um ciclo abaixo de 35% dela — uma repetição muito mais curta
-    que as outras não passa desse corte e **não vira repetição nenhuma**. Ou seja: a série que
-    desanda de leve é pega aqui; a que desanda muito perde as repetições ruins antes de chegar
-    aqui, e o sintoma vira contagem baixa em vez de ocorrência. É a mesma mecânica que conta
-    uma rosca de vinte segundos como uma repetição só.
     """
     if len(reps) < 3:
         return []
