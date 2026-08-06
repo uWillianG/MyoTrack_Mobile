@@ -431,7 +431,10 @@ class _Mosaic extends ConsumerWidget {
     final pending =
         ref.watch(pendingReviewsProvider).valueOrNull ?? PendingReviews.empty;
     if (pending.total > 0) {
-      final waiting = pending.daysWaiting();
+      // `now` e não o relógio do sistema: `daysWaiting` recebe a data justamente para esta
+      // espera ser testável, e sem passá-la o teste desta linha muda de resposta conforme o
+      // dia em que o CI roda.
+      final waiting = pending.daysWaiting(now: now);
       tiles.add(
         Tile(
           colors: Blocks.neutral(scheme),
