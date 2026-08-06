@@ -1,6 +1,8 @@
 package com.myotrack.worker.handlers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.myotrack.domain.AnalysisJobType;
 import com.myotrack.domain.entity.AnalysisJob;
 import com.myotrack.domain.entity.BodyMeasurement;
@@ -48,7 +50,23 @@ public class WeeklyReportHandler implements JobHandler {
 
     private static final Logger log = LoggerFactory.getLogger(WeeklyReportHandler.class);
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    /**
+     * O mapper deste handler é o único do Worker que <b>escreve</b> data.
+     *
+     * <p>Os outros handlers serializam mapas de texto e número; aqui o que vai para a coluna é o
+     * {@code WeeklyMetrics.Result}, e ele começa com um {@code LocalDate weekStart}. Um
+     * {@code ObjectMapper} sem módulo nenhum não sabe escrever tipo de {@code java.time}: ele
+     * lança, o {@link #toJson} transforma em {@code IllegalStateException} — que o
+     * {@code JobPoller} trata como erro de negócio e não repete —, e <b>todo</b> relatório
+     * semanal falhava na primeira tentativa.
+     *
+     * <p>{@code WRITE_DATES_AS_TIMESTAMPS} desligado porque o módulo sozinho escreveria
+     * {@code [2026,8,3]}, e o app declara {@code String? weekStart}: um vetor ali não deixa o
+     * relatório feio, deixa-o sem abrir.
+     */
+    private static final ObjectMapper MAPPER = new ObjectMapper()
+            .registerModule(new JavaTimeModule())
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     /**
      * Teto de refeições lidas por relatório. Uma semana não tem centenas; o limite existe para
