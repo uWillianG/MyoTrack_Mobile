@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  HTTP em claro liberado só para os endereços do backend de desenvolvimento.
+
+  Desde a API 28 o Android bloqueia cleartext por padrão, e o bloqueio atinge quem usa a pilha
+  de rede nativa. As chamadas de API e as `Image.network` do app passam pelo `HttpClient` do
+  Dart, que fala socket direto e não é afetado — mas o `video_player` roda sobre o ExoPlayer,
+  que é nativo. O sintoma é exatamente o que se viu: tudo funciona, menos o vídeo, que falha
+  ao inicializar sem erro visível nenhum.
+
+  Este arquivo vive em `src/debug` de propósito. Em release o `Env.apiBaseUrl` já é HTTPS, e
+  liberar cleartext lá seria abrir em produção uma porta que só o desenvolvimento precisa.
+
+  Os três endereços são as três formas de dizer "a máquina que roda o backend": `10.0.2.2` no
+  emulador Android, e os dois nomes do loopback para quem roda com `adb reverse` ou em desktop.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+    </domain-config>
+</network-security-config>
