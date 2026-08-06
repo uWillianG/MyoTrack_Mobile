@@ -84,9 +84,54 @@ void main() {
   ) async {
     await pump(tester, homeOverrides(analyzedVideos: analisesDeVideo));
 
-    // Duas análises no fixture, uma sem nota: a média é de uma só, e o texto diz isso.
-    expect(find.text('nota da sua execução'), findsOne);
+    // Três análises no fixture, uma sem nota: a média conta duas, e o texto diz quantas.
+    expect(find.text('78'), findsOne);
+    expect(find.text('média de 2 execuções'), findsOne);
     expect(find.textContaining('não substitui um profissional'), findsNothing);
+  });
+
+  testWidgets('a lista traz exercício, hora e nota — e nada aberto', (
+    tester,
+  ) async {
+    await pump(tester, homeOverrides(analyzedVideos: analisesDeVideo));
+
+    // O dia é o rótulo do bloco, e as execuções dele são linhas.
+    expect(find.text('Hoje'), findsOne);
+    expect(find.text('2 execuções'), findsOne);
+    expect(find.text('Agachamento livre'), findsOne);
+    expect(find.text('18:20 · 82 / 100 · 8 repetições'), findsOne);
+
+    // Nada da avaliação aparece antes do toque — nem o vídeo, nem as correções.
+    expect(find.text('O que corrigir'), findsNothing);
+    expect(find.text('Ver com o esqueleto'), findsNothing);
+  });
+
+  testWidgets('tocar no exercício abre a avaliação daquela série', (
+    tester,
+  ) async {
+    await pump(tester, homeOverrides(analyzedVideos: analisesDeVideo));
+
+    await tester.tap(find.text('Agachamento livre'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('O que corrigir'), findsOne);
+    expect(find.text('O que já está bom'), findsOne);
+    // O lugar do vídeo aparece, mas o arquivo continua só baixando no toque.
+    expect(find.text('Ver com o esqueleto'), findsOne);
+    // E só aquela: a do mesmo dia continua fechada.
+    expect(find.text('Supino reto'), findsOne);
+    expect(find.textContaining('Escápulas presas'), findsNothing);
+  });
+
+  testWidgets('a análise que acabou de sair já vem aberta', (tester) async {
+    await pump(tester, [
+      ...homeOverrides(analyzedVideos: analisesDeVideo),
+      videoAnalysisProvider.overrideWith(_JustAnalyzed.new),
+    ]);
+
+    // Sem nenhum toque: as correções da execução das 18:20 estão à vista.
+    expect(find.text('O que corrigir'), findsOne);
+    expect(find.textContaining('Joelho entrando'), findsOne);
   });
 
   testWidgets('enquanto a análise corre, o herói vira o progresso', (
@@ -108,7 +153,11 @@ void main() {
     await pump(tester, homeOverrides(analyzedVideos: analisesDeVideo));
     await scrollTo(tester, find.text('Levantamento terra'));
 
-    expect(find.text('Não avaliado'), findsOne);
+    // Na linha fechada, nota nula é uma afirmação sobre o vídeo — nunca um zero.
+    expect(find.text('07:45 · não avaliado · 5 repetições'), findsOne);
+
+    await tester.tap(find.text('Levantamento terra'));
+    await tester.pumpAndSettle();
     expect(find.textContaining('O quadril sai do quadro'), findsOne);
   });
 
@@ -116,11 +165,20 @@ void main() {
     tester,
   ) async {
     await pump(tester, homeOverrides(analyzedVideos: analisesDeVideo));
-    await scrollTo(tester, find.text('O que já está bom'));
+    await tester.tap(find.text('Agachamento livre'));
+    await tester.pumpAndSettle();
 
     expect(find.text('O que corrigir'), findsOne);
+    expect(find.text('O que já está bom'), findsOne);
     // Os instantes são o que permite achar o trecho no vídeo.
     expect(find.text('em 0:04, 0:12'), findsOne);
+  });
+
+  test('o histórico de execuções é agrupado pela data da análise', () {
+    final days = groupAnalysesByDay(analisesDeVideo, DateTime(2026, 8, 4, 15));
+
+    expect(days.map((d) => d.label), ['Hoje', '2 de agosto']);
+    expect(days.first.items, hasLength(2));
   });
 }
 
@@ -129,4 +187,10 @@ class _RunningAnalysis extends VideoAnalysisController {
   @override
   GenerationState build() =>
       const GenerationState(running: true, step: 'Analisando sua execução…');
+}
+
+/// A tela logo depois de uma análise terminar: o trabalho parou e o resultado é o da lista.
+class _JustAnalyzed extends VideoAnalysisController {
+  @override
+  VideoAnalysis? get result => analisesDeVideo.first;
 }

@@ -568,17 +568,203 @@ E **a frase some quando já houve uma foto.** Com histórico, o herói passa a c
 refeições foram analisadas. Explicação repetida a cada abertura para quem já entendeu é ruído —
 o primeiro acesso (§8) é um estado, não um enfeite permanente.
 
-### Preferência não abre a lista, fecha
+### ~~Preferência não abre a lista, fecha.~~ Preferência mora junto da ação que ela muda
 
-O interruptor da análise ilustrada estava entre o herói e as refeições e empurrava para baixo
-justamente o que a pessoa veio ver. Ele é ajuste da **próxima** captura: vai para o fim da
-lista. **Ajuste de comportamento futuro fica depois do conteúdo presente.**
+Escrito primeiro ao contrário: o interruptor da análise ilustrada estava entre o herói e as
+refeições, empurrava para baixo justamente o que a pessoa veio ver, e desceu para o fim da lista
+como "ajuste de comportamento futuro fica depois do conteúdo presente".
+
+**A regra estava certa e a premissa envelheceu.** Ela media um custo — a altura do interruptor
+sai do conteúdo — que existia porque cada refeição era um cartão aberto de meia tela. Com o
+histórico fechado em linhas, o dia inteiro cabe na tela **com** o interruptor em cima dele, e o
+custo caiu para um bloco de ~110 dp. O custo oposto continuou inteiro: o modo ilustrado vale
+para a **próxima** foto, e o botão que tira a foto está no herói, no topo — ligá-lo exigia rolar
+até o fim da lista e voltar.
+
+Ele voltou para logo abaixo do herói, encostado na ação que modifica, e emagreceu no caminho
+(`dense`, ressalva numa frase só): **no fim da lista a altura de um controle não custa nada; no
+topo ela sai do conteúdo, e aí a contenção é obrigatória.**
+
+Fica a regra mais geral, que sobrevive às duas versões: **quem decide o lugar de um controle é a
+distância até a ação que ele altera, pesada contra o que ele desloca.** Quando um dos dois lados
+muda de tamanho, a conta se refaz — e a resposta pode inverter.
+
+### Manchete sem número, quando o número já está na lista
+
+Com histórico, o herói da refeição mostrava "3 refeições · analisadas por foto" em número
+grande. Isso é exatamente a **soma do que os blocos de dia escrevem logo abaixo** — "2
+refeições", "1 refeição" —, e custava 118 dp que saíam do resultado que a pessoa abriu para
+conferir. Saiu: com histórico, o bloco fica com o rótulo, "Escolher da galeria" e "Fotografar
+prato", e nada mais.
+
+É o "assunto promovido sai do mosaico" (§1) aplicado a um número, e o contrário do caso do vídeo
+(§16): lá a manchete **ganhou** um agregado — a média das notas — porque era um número que só o
+conjunto sabia dizer. Aqui não havia agregado nenhum a carregar; havia a contagem da lista.
+
+**Nem toda manchete precisa de número.** O que faz o bloco ser o herói é ser o único em cor
+cheia e o único com ação — e nesta tela o assunto é o **trabalho**, que parado é um convite. A
+regra que fica: **quando o único número disponível é a soma do que já está na tela, a manchete
+fica com a ação.**
+
+O estado de primeiro acesso não mudou: sem histórico, o bloco continua com "Fotografe seu
+prato." e a explicação do que a IA faz e não faz. Ele é alto e não disputa com nada — não há
+lista embaixo dele.
+
+### O resultado que acabou de sair não se procura
+
+A análise recém-concluída chega **aberta** na lista. Fechada, ela seria indistinguível das
+antigas justamente no instante em que a pessoa está parada esperando por ela, e o resultado que
+motivou a foto exigiria um toque a mais para aparecer.
+
+Quem sabe qual é ela é o controller, que já guardava `result` para outra coisa; a lista recebe o
+id e a linha correspondente nasce com `_open`. Vale como regra: **uma lista fechada por padrão
+abre o item que o próprio app acabou de criar** — o padrão descreve o que o usuário vai
+procurar, não o que ele acabou de mandar fazer.
+
+E daí saiu uma correção que valia por si: as linhas passaram a ter **`ValueKey(meal.id)`**. Uma
+análise nova entra na frente e empurra todas as outras; sem a chave, o estado de aberta/fechada
+e o rascunho de porções ficam presos à **posição** e passam a valer para a refeição vizinha.
+**Lista cujos itens guardam estado e mudam de ordem precisa de chave por identidade** — o
+sintoma é sutil o bastante para passar despercebido até alguém perder um ajuste.
 
 ### O estado vira texto no rótulo da seção
 
 "Fora do diário" era um `Chip` e "você ajustou" era um lápis de 16 dp com tooltip — dentro de um
 bloco que já é uma moldura, um chip é moldura dentro de moldura, e tooltip no celular não abre.
 Os dois viraram o `trailing` do `BlockSection`. Estado é texto.
+
+### Um histórico se lê por dia, e o dia é o bloco
+
+O histórico de refeições era uma pilha lisa de cartões abertos, cada um rotulado "Hoje, 12:34"
+ou "3 de agosto, 20:10" pelo `Fmt.dayTime` e cada um exibindo foto, macros, itens e ações. A
+data estava lá e não se lia: rolando, o que o olho percorre são os blocos, e a diferença entre
+dois rótulos parecidos só aparece quando já se parou para comparar. Três refeições enchiam a
+tela e o almoço de ontem encostava no de hoje.
+
+Agora o **dia é o bloco** (`groupMealsByDay`, pura e no topo do arquivo) e cada refeição é uma
+**linha dentro dele**: nome, hora, total, estado. Isso resolve as duas coisas de uma vez — a
+data passa a ser o rótulo do bloco, que é a dimensão pela qual o histórico é percorrido (§18),
+e a lista volta a caber na tela.
+
+Uma primeira versão errou aqui: pôs a data numa **régua** entre cartões e manteve um bloco por
+refeição. Com cinco refeições num dia saíam cinco molduras lavadas repetindo a mesma forma, e a
+régua era uma peça nova para um trabalho que o `BlockSection` já fazia. **As refeições de um
+dia são facetas do mesmo assunto — o que aquela pessoa comeu naquele dia — e faceta é seção,
+não ladrilho (§1).** A régua saiu inteira.
+
+Isso refina a regra do §18: **o rótulo do bloco carrega a dimensão pela qual a lista é
+percorrida — e quando a lista é agrupada por ela, o agrupamento é o bloco.** O item fica com o
+que distingue os irmãos dentro dele: aqui, a hora.
+
+- **Item sem data entra no dia anterior** em vez de abrir um seu. Data ausente é falta de
+  informação, e um bloco "sem data" no meio da lista alegaria mais do que se sabe. É a mesma
+  escolha da fila de revisão (§18).
+- **O agrupamento junta corridas consecutivas e conta com o histórico ordenado**, que é como a
+  API o devolve. Agrupar por chave seria imune a uma lista embaralhada e cobraria caro: o
+  cliente reordenaria por conta própria, escondendo um defeito que é do servidor.
+- **`Flexible` e `Expanded` de mesmo peso dividem o vão meio a meio.** Foi o que fez o fio da
+  régua parar no meio da tela, e a primeira galeria foi o que mostrou. Vale para qualquer linha
+  em que um texto curto e um elemento elástico dividem a largura: quem disputa o vão é só o
+  elástico.
+
+### Uma lista mostra o que se percorre; o resto abre no toque
+
+O que se percorre num histórico de refeições é **o que se comeu e quanto deu**. A foto, os
+macros e as porções são o que se confere depois de achar a refeição certa — e estavam todos
+abertos de saída, custando 160 dp de imagem e uma requisição por refeição. Dez almoços baixavam
+dez fotos ao abrir a tela.
+
+É o mesmo raciocínio que a metade de vídeo já aplicava — "o toque é o consentimento" — e vale
+como regra: **espaço e dado que só a inspeção justifica não aparecem antes da inspeção.**
+
+- **A análise não tem nome, então o nome se calcula** (`mealName`): o alimento de **maior
+  caloria**, mais "e mais N". É o que a pessoa lembra de ter comido; a ordem em que a IA
+  devolveu os itens não significa nada, e usar o primeiro seria escolher ao acaso. Dois nomes
+  por extenso já estouram a linha em 360 dp.
+- **O total fica na linha fechada, e a análise aberta não o repete.** É o número que anda
+  enquanto se aperta o mais, e a linha do cabeçalho não sai da tela — o "624 kcal" grande que
+  existia dentro da análise era o mesmo dado dois centímetros abaixo (§18).
+- **Cada linha guarda se está aberta**, em vez de a lista guardar qual é a aberta. Abrir duas
+  para comparar é gesto legítimo, e um acordeão que fecha sozinho o que a pessoa acabou de
+  abrir transforma a comparação em vaivém.
+- **O rascunho mora na linha, não no que ela abre.** Fechar no meio de um ajuste jogaria fora
+  os toques já dados, sem avisar. E a linha fechada passa a dizer "ajuste não salvo": estado
+  que some da vista precisa deixar rastro onde a vista está.
+- **O estado vira o fim da linha, em caixa baixa** — "12:34 · 233 kcal · fora do diário". Era o
+  `trailing` do bloco quando cada refeição era um bloco; agora é o fim de uma frase que começou
+  na hora, e não um rótulo solto.
+
+### A foto é a lembrança dela, e o toque abre a foto
+
+A faixa de 160 dp recortada em `cover` serve para reconhecer o prato. Ela não serve para
+conferir nada — e quando a análise é ilustrada, as etiquetas que a IA desenhou sobre a comida
+("Arroz branco, 150 g") saem ilegíveis no recorte, que é justamente o que decide se a porção
+precisa de ajuste. O toque abre o visor em tela cheia, com zoom.
+
+**Alvo de toque sem sinal não é alvo.** Uma foto que abre e uma que não abre são idênticas de
+olhar; o selo de ampliar no canto é o que diz qual das duas está ali. É o avesso da regra do
+§17 — sugestão que não é tocável é trabalho em dobro.
+
+**O visor alterna entre a marcada e a original**, quando as duas existem. No cartão só a
+marcada aparece, e sem o alternador a foto crua ficaria no storage sem caminho nenhum até ela.
+O rótulo é "Com marcações / Sem marcações", a mesma palavra do interruptor que liga o modo
+("Marcar os alimentos na foto") — vocabulário que muda entre dois caminhos faz parecer que são
+duas coisas.
+
+É a única tela do app em que o **preto não é a identidade do produto** e sim ausência de cor:
+o assunto é uma imagem, e toda superfície pintada disputa com ela. Pelo mesmo motivo o selo é
+preto e branco fixos, e não a família nem o tema — o que está atrás é uma foto de comida, que
+pode ser clara ou escura em qualquer um dos dois temas.
+
+**Só a foto escapa da galeria**, e é a lacuna conhecida: o fixture não tem `photoUrl` porque o
+`flutter_test` responde 400 a qualquer requisição. Quem confere o selo e o visor é o teste de
+widget — que sobe um servidor de mentira pelo *zone*, e não por `HttpOverrides.global`, que o
+próprio `flutter_test` repõe a cada teste.
+
+O resto entrou: `analisar-refeicoes` é a lista fechada e `analisar-refeicao-aberta` é a mesma
+com uma refeição expandida. **Lista com estado aberto tem duas caras, e as duas vão para a
+bancada** — a fechada julga o que se percorre, a aberta julga o que se confere. E o fixture
+passou a ter **duas refeições no mesmo dia**: com uma por dia, a galeria avaliava blocos de uma
+linha só, que é a única forma que a tela não tem na prática.
+
+### `Semantics` sem `container` pode não virar nó nenhum
+
+O rótulo do leitor de tela da foto existia no código e não existia na árvore de semântica: um
+`Semantics(button: true, label: …)` em volta da pilha não gerava nó próprio, e o
+`find.bySemanticsLabel` do teste achava zero. Com `container: true` ele passa a existir.
+
+Vale como regra: **`Semantics` decorativo que não encosta num widget que já produz nó precisa
+de `container: true`** — sem isso o texto se dissolve no nó do bloco, e a região fica muda para
+quem não a vê. E o rótulo mora **no alvo de toque**, não em volta do desenho inteiro.
+
+### As duas metades da aba compartilham a forma da lista, e nada mais
+
+Refeição e execução alimentam assuntos diferentes e por isso têm famílias diferentes (§20) —
+mas os dois históricos respondem à mesma pergunta de navegação: *qual dos meus registros eu
+quero abrir?* Os dois viraram **bloco por dia, linha por registro, detalhe no toque**:
+
+| | Refeição (esmeralda) | Execução (índigo) |
+|---|---|---|
+| Nome da linha | calculado (`mealName`) | vem pronto (`analyzedExercise`) |
+| Segunda linha | `12:34 · 624 kcal · fora do diário` | `18:20 · 82 / 100 · 8 repetições` |
+| O que abre | foto, macros, porções, ações | vídeo, barra da nota, correções |
+| Manchete | a ação, sem número | a **média** das notas |
+
+A diferença da manchete é a regra, não uma inconsistência: **o herói carrega o que a lista não
+diz.** Na refeição o único número disponível era a contagem, que os blocos de dia já somam; na
+execução a média é um agregado que só o conjunto sabe — e as notas individuais, que agora
+aparecem nas linhas, não são ela.
+
+E em cada metade **o número da linha sai do detalhe**: o "624 kcal" grande e o "82 / 100" grande
+viviam dentro do que se abre, dois centímetros abaixo da linha que já os mostra e que não sai da
+tela. No vídeo sobrou a **barra** — a grandeza que o §16 pede que a nota dê —, e as repetições
+subiram para o cabeçalho junto com a nota.
+
+**`groupByDay` foi para `core/day_groups.dart`** quando a segunda metade precisou dele. As três
+sutilezas que ele carrega — item sem data entra no dia anterior, o dia guarda a própria data e
+não a do último item, corridas consecutivas contando com o histórico ordenado — divergiriam na
+primeira mexida em um dos lados. Mesmo motivo do `BlockNotice` (§19): **o que nasce duas vezes
+igual sobe para o core na segunda, não na terceira, quando a lógica tem casos de borda.**
 
 ### A fonte do teste é quadrada, e isso é um favor
 

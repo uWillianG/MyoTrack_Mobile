@@ -27,26 +27,17 @@ String? daySeparator(List<CoachMessage> messages, int index, DateTime now) {
   }
   if (index > 0) {
     final previous = _at(messages[index - 1]);
-    if (previous != null && _sameDay(previous, at)) {
+    if (previous != null && Fmt.sameDay(previous, at)) {
       return null;
     }
   }
 
-  if (_sameDay(at, now)) {
-    return 'Hoje';
-  }
-  if (_sameDay(at, now.subtract(const Duration(days: 1)))) {
-    return 'Ontem';
-  }
-  return Fmt.dayMonth(at);
+  return Fmt.dayLabel(at, now);
 }
 
 DateTime? _at(CoachMessage message) => message.createdAt == null
     ? null
     : DateTime.tryParse(message.createdAt!)?.toLocal();
-
-bool _sameDay(DateTime a, DateTime b) =>
-    a.year == b.year && a.month == b.month && a.day == b.day;
 
 /// Chat com o coach de IA.
 ///

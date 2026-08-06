@@ -235,6 +235,26 @@ void main() {
       await shoot(tester, 'analisar-refeicoes-$mode');
     });
 
+    // A mesma lista com uma refeição aberta. A lista fechada julga o que se percorre; esta
+    // julga o que se confere — os macros, as porções com os botões e as duas ações. Sem ela a
+    // bancada só teria a metade da tela que não muda.
+    testWidgets('analisar — refeição aberta ($mode)', (tester) async {
+      final container = await pump(
+        tester,
+        brightness,
+        const HomePage(),
+        extra: [
+          ...homeOverrides(analyzedMeals: refeicoesAnalisadas),
+          nowProvider.overrideWithValue(() => DateTime(2026, 8, 4, 15)),
+        ],
+      );
+      container.read(homeTabProvider.notifier).state = HomeTab.analysis;
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Peito de frango grelhado e mais 2'));
+      await tester.pumpAndSettle();
+      await shoot(tester, 'analisar-refeicao-aberta-$mode');
+    });
+
     // A outra metade da aba, nas duas caras: o convite e o histórico. A segunda leva uma
     // execução avaliada e uma que não deu para avaliar, que é o caso em que a nota é nula.
     testWidgets('analisar — execução ($mode)', (tester) async {
@@ -259,6 +279,26 @@ void main() {
       container.read(analysisTabProvider.notifier).state = AnalysisTab.form;
       await tester.pumpAndSettle();
       await shoot(tester, 'analisar-execucoes-$mode');
+    });
+
+    // A mesma lista com uma execução aberta: a barra da nota, o lugar do vídeo e os dois
+    // grupos de pontos. A fechada julga o que se percorre; esta julga o que se lê.
+    testWidgets('analisar — execução aberta ($mode)', (tester) async {
+      final container = await pump(
+        tester,
+        brightness,
+        const HomePage(),
+        extra: [
+          ...homeOverrides(analyzedVideos: analisesDeVideo),
+          nowProvider.overrideWithValue(() => DateTime(2026, 8, 4, 15)),
+        ],
+      );
+      container.read(homeTabProvider.notifier).state = HomeTab.analysis;
+      container.read(analysisTabProvider.notifier).state = AnalysisTab.form;
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Agachamento livre'));
+      await tester.pumpAndSettle();
+      await shoot(tester, 'analisar-execucao-aberta-$mode');
     });
 
     // O coach é a única tela sem herói — a conversa é a tela —, e por isso as duas capturas

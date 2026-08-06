@@ -5,17 +5,40 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/day_groups.dart';
 import '../../core/design/blocks.dart';
 import '../../core/design/format.dart';
 import '../../core/design/tokens.dart';
-import '../../core/design/typography.dart';
 import '../../core/widgets/blocks.dart';
 import '../../core/widgets/empty_state.dart';
-// O relógio do app, injetável: sem ele o rótulo "Hoje" de uma refeição mudaria de valor entre
-// a captura da galeria e a execução do teste.
+// O relógio do app, injetável: sem ele o bloco "Hoje" do histórico mudaria de valor entre a
+// captura da galeria e a execução do teste.
 import '../home/today_controller.dart' show nowProvider;
 import 'data/meal_models.dart';
 import 'meal_analysis_controller.dart';
+
+/// O histórico partido em dias. Ver [groupByDay], que é onde a regra mora.
+List<DayGroup<MealAnalysis>> groupMealsByDay(
+  List<MealAnalysis> meals,
+  DateTime now,
+) => groupByDay(meals, now, at: (meal) => meal.createdAt, undated: 'Refeições');
+
+/// Como a refeição se chama numa lista — o alimento que mais pesa, e quantos vieram com ele.
+///
+/// A análise não tem nome: o servidor devolve itens, macros e uma foto. **O nome é o alimento
+/// de maior caloria** porque é o que a pessoa lembra de ter comido; a ordem em que a IA
+/// devolveu os itens não significa nada e usar o primeiro seria escolher ao acaso.
+///
+/// "e mais 2" em vez dos três nomes: dois alimentos por extenso já estouram a linha em 360 dp,
+/// e uma lista de nomes cortados no meio identifica menos que um nome inteiro mais a contagem.
+String mealName(MealAnalysis meal) {
+  if (meal.items.isEmpty) {
+    return 'Refeição';
+  }
+  final head = meal.items.reduce((a, b) => b.kcal > a.kcal ? b : a).description;
+  final rest = meal.items.length - 1;
+  return rest == 0 ? head : '$head e mais $rest';
+}
 
 /// Análise de refeição por foto. Porte de `MealAnalysisPage.tsx`.
 ///
@@ -91,6 +114,11 @@ class _MealAnalysisViewState extends ConsumerState<MealAnalysisView> {
           running: state.running,
           step: state.step,
           progress: controller.uploadProgress,
+          now: ref.read(nowProvider)(),
+          // A análise que acabou de sair chega aberta. Fechada, ela seria indistinguível das
+          // antigas justamente no momento em que a pessoa está esperando por ela — e o
+          // resultado que ela foi buscar exigiria um toque a mais para aparecer.
+          justAnalyzed: controller.result?.id,
           illustrated: _illustrated,
           onIllustrated: state.running
               ? null
@@ -109,6 +137,8 @@ class _Body extends StatelessWidget {
     required this.running,
     required this.step,
     required this.progress,
+    required this.now,
+    required this.justAnalyzed,
     required this.illustrated,
     required this.onIllustrated,
     required this.onCapture,
@@ -118,6 +148,12 @@ class _Body extends StatelessWidget {
   final bool running;
   final String? step;
   final double progress;
+  final DateTime now;
+
+  /// Id da análise recém-concluída, que a lista mostra aberta. Null quando nada foi analisado
+  /// nesta sessão da tela.
+  final String? justAnalyzed;
+
   final bool illustrated;
 
   /// Nulo enquanto a análise corre: o modo vale para a próxima captura, e mudá-lo no meio de
@@ -141,22 +177,81 @@ class _Body extends StatelessWidget {
         else
           _CaptureHero(
             colors: colors,
-            analyzed: meals.length,
+            hasHistory: meals.isNotEmpty,
             onCapture: onCapture,
           ),
-        for (final meal in meals) ...[
-          const SizedBox(height: Space.sm),
-          _MealCard(meal: meal, colors: colors),
-        ],
-        // O interruptor fecha a lista em vez de abri-la: é ajuste da próxima captura, e entre
-        // o herói e as refeições ele empurrava para baixo justamente o que a pessoa veio ver.
+        // O interruptor vem logo abaixo do herói, encostado na ação que ele modifica.
+        //
+        // **Ele já morou no fim da lista**, com o argumento de que ajuste de comportamento
+        // futuro fica depois do conteúdo presente — e o argumento valia enquanto cada refeição
+        // era um cartão aberto de meia tela: ali, no topo, ele empurrava para baixo justamente
+        // o que a pessoa veio ver. Com a lista fechada em linhas, esse custo acabou: o
+        // histórico inteiro cabe na tela com o interruptor em cima dele. O que sobrou foi o
+        // custo oposto — ligar o modo ilustrado exigia rolar até o fim e voltar ao topo para
+        // fotografar.
         const SizedBox(height: Space.sm),
         _IllustratedSection(
           colors: colors,
           value: illustrated,
           onChanged: onIllustrated,
         ),
+        for (final day in groupMealsByDay(meals, now)) ...[
+          const SizedBox(height: Space.sm),
+          _DaySection(day: day, colors: colors, justAnalyzed: justAnalyzed),
+        ],
       ],
+    );
+  }
+}
+
+/// Um dia do histórico: um bloco, e dentro dele uma linha por refeição.
+///
+/// **O dia é o bloco, e não uma régua entre cartões.** Uma primeira versão pôs a data numa
+/// régua e manteve um bloco por refeição; com cinco refeições num dia, saíam cinco molduras
+/// lavadas repetindo a mesma forma. As refeições de um dia são facetas do mesmo assunto — o que
+/// aquela pessoa comeu naquele dia —, e faceta é seção, não ladrilho (§1). Assim o rótulo do
+/// bloco carrega a data, que é a dimensão pela qual o histórico é percorrido (§18).
+class _DaySection extends StatelessWidget {
+  const _DaySection({
+    required this.day,
+    required this.colors,
+    required this.justAnalyzed,
+  });
+
+  final DayGroup<MealAnalysis> day;
+  final BlockColors colors;
+  final String? justAnalyzed;
+
+  @override
+  Widget build(BuildContext context) {
+    final meals = day.items;
+
+    return BlockSection(
+      colors: colors,
+      label: day.label,
+      icon: Icons.restaurant,
+      trailing: meals.length == 1 ? '1 refeição' : '${meals.length} refeições',
+      // Zero porque o conteúdo é lista: o fio entre duas refeições precisa encostar nas bordas
+      // do bloco, senão ele lê como sublinhado de uma delas em vez de divisa entre as duas.
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final meal in meals) ...[
+            if (meal != meals.first)
+              Divider(height: 1, color: colors.ink.withValues(alpha: 0.14)),
+            // **A chave é o id, e não a posição.** Uma análise nova entra na frente e empurra
+            // todas as outras; sem a chave, o estado de aberta/fechada e o rascunho de porções
+            // ficariam onde estavam e passariam a valer para a refeição vizinha.
+            _MealRow(
+              key: ValueKey(meal.id),
+              meal: meal,
+              colors: colors,
+              justAnalyzed: meal.id == justAnalyzed,
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -167,15 +262,29 @@ class _Body extends StatelessWidget {
 /// e o antídoto de quem confia demais: sem essa linha, um número errado vira motivo para
 /// desinstalar em vez de motivo para tocar em "Ajustar". A frase só aparece na primeira vez —
 /// quem já tem refeições no histórico descobriu isso na primeira, e repetir vira ruído.
+///
+/// **Com histórico, o bloco perde o número e fica só com a ação.** Ele contava quantas
+/// refeições já tinham sido analisadas, e essa é exatamente a soma do que os blocos de dia
+/// escrevem logo abaixo — "2 refeições", "1 refeição". Um herói existe para dizer o que mais
+/// nenhum bloco diz (§16), e este dizia a mesma coisa em 118 dp, que saíam do resultado que a
+/// pessoa abriu para conferir.
+///
+/// Nem toda manchete precisa de número: aqui o assunto é **o trabalho**, e parado o trabalho é
+/// um convite. O bloco continua sendo o único em cor cheia e o único com ação — que é o que faz
+/// dele o herói.
 class _CaptureHero extends StatelessWidget {
   const _CaptureHero({
     required this.colors,
-    required this.analyzed,
+    required this.hasHistory,
     required this.onCapture,
   });
 
   final BlockColors colors;
-  final int analyzed;
+
+  /// Se já há refeições no histórico. É só isso que o bloco precisa saber: a contagem em si
+  /// não aparece mais nele.
+  final bool hasHistory;
+
   final ValueChanged<ImageSource> onCapture;
 
   @override
@@ -193,7 +302,7 @@ class _CaptureHero extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (analyzed == 0) ...[
+          if (!hasHistory) ...[
             Text(
               'Fotografe\nseu prato.',
               style: theme.textTheme.displaySmall?.copyWith(
@@ -208,14 +317,8 @@ class _CaptureHero extends StatelessWidget {
                 color: colors.onTone.withValues(alpha: 0.85),
               ),
             ),
-          ] else
-            HeroFigure(
-              value: '$analyzed',
-              unit: analyzed == 1 ? 'refeição' : 'refeições',
-              colors: colors,
-              detail: 'analisadas por foto',
-            ),
-          const SizedBox(height: Space.xs),
+            const SizedBox(height: Space.xs),
+          ],
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
@@ -261,13 +364,14 @@ class _IllustratedSection extends StatelessWidget {
       label: 'Análise ilustrada',
       icon: Icons.auto_fix_high_outlined,
       padding: EdgeInsets.zero,
+      // `dense`, e a ressalva numa linha só: no fim da lista a altura dele não custava nada, no
+      // topo ela sai do conteúdo. Os dois fatos continuam escritos — o que some é o respiro.
       child: SwitchListTile(
         value: value,
         onChanged: onChanged,
+        dense: true,
         title: const Text('Marcar os alimentos na foto'),
-        subtitle: const Text(
-          'Custa uma chamada a mais e nem sempre está disponível.',
-        ),
+        subtitle: const Text('Uma chamada a mais, e nem sempre disponível.'),
       ),
     );
   }
@@ -362,21 +466,54 @@ class _ProgressHeroState extends State<_ProgressHero> {
   }
 }
 
-/// Uma refeição analisada: a foto, o que a IA contou, e as porções em aberto.
+/// Uma refeição no histórico: o nome sempre, e a análise quando se pede.
 ///
-/// É uma seção e não um ladrilho: as refeições do histórico são o mesmo assunto visto muitas
-/// vezes, e picotá-las em cartões coloridos sugeriria uma independência que elas não têm.
-class _MealCard extends ConsumerStatefulWidget {
-  const _MealCard({required this.meal, required this.colors});
+/// **A foto não aparece de cara.** Aberta de saída, cada refeição custava 160 dp de imagem e
+/// uma requisição, e um histórico de dez almoços baixava dez fotos ao abrir a tela — o mesmo
+/// gasto que a metade de vídeo já evitava com "o toque é o consentimento" (§16). O que se
+/// percorre num histórico é o que se comeu e quanto deu; a foto e os itens são o que se
+/// confere depois de achar a refeição certa.
+///
+/// **O rascunho sobrevive ao fechar.** As porções em edição moram aqui, e não dentro do que
+/// aparece ao abrir: recolher a linha no meio de um ajuste jogaria fora os toques já dados,
+/// sem avisar. Enquanto houver rascunho, a própria linha fechada diz "ajuste não salvo".
+class _MealRow extends ConsumerStatefulWidget {
+  const _MealRow({
+    super.key,
+    required this.meal,
+    required this.colors,
+    this.justAnalyzed = false,
+  });
 
   final MealAnalysis meal;
   final BlockColors colors;
 
+  /// Esta é a análise que acabou de sair do servidor. Ela nasce aberta.
+  final bool justAnalyzed;
+
   @override
-  ConsumerState<_MealCard> createState() => _MealCardState();
+  ConsumerState<_MealRow> createState() => _MealRowState();
 }
 
-class _MealCardState extends ConsumerState<_MealCard> {
+class _MealRowState extends ConsumerState<_MealRow> {
+  /// Se a análise desta refeição está aberta.
+  ///
+  /// Cada linha guarda a sua, em vez de a lista guardar "qual está aberta": abrir uma refeição
+  /// para comparar com outra é gesto legítimo, e um acordeão que fecha sozinho o que a pessoa
+  /// acabou de abrir transforma a comparação em vaivém.
+  late bool _open = widget.justAnalyzed;
+
+  /// A recém-analisada abre também quando a linha já existia — é o caso de reanalisar a mesma
+  /// refeição. Só na virada: depois disso, quem manda em `_open` é o toque, e um rebuild
+  /// qualquer não reabre o que a pessoa fechou.
+  @override
+  void didUpdateWidget(covariant _MealRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.justAnalyzed && !oldWidget.justAnalyzed) {
+      setState(() => _open = true);
+    }
+  }
+
   /// Porções em edição. Null enquanto o usuário não mexeu em nada.
   ///
   /// O ajuste fica local até ele confirmar, em vez de um PUT por toque no "+": o gesto certo
@@ -418,177 +555,226 @@ class _MealCardState extends ConsumerState<_MealCard> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [_head(context), if (_open) _analysis(context)],
+  );
+
+  /// O que a lista mostra sempre: o nome, a hora, o total e o estado.
+  ///
+  /// `MergeSemantics` porque as duas linhas são uma coisa só para quem ouve — anunciadas
+  /// separadamente, o nome e o "624 kcal" viram dois itens de lista que não se sabe se
+  /// pertencem à mesma refeição. O `expanded` é o que diz se o toque abre ou fecha.
+  Widget _head(BuildContext context) {
     final theme = Theme.of(context);
     final colors = widget.colors;
-    final meal = widget.meal;
-    final photo = meal.illustratedPhotoUrl ?? meal.photoUrl;
 
-    return BlockSection(
-      colors: colors,
-      label: _label(meal.createdAt, ref.read(nowProvider)()),
-      icon: Icons.restaurant,
-      // Os dois estados da refeição viram texto no rótulo. Eram um chip e um lápis ao lado do
-      // número: o chip repetia a moldura de um bloco que já é uma moldura, e o lápis de 16 dp
-      // dependia de um tooltip que ninguém abre no celular para dizer o que significava.
-      trailing: meal.excludedFromDiary
-          ? 'Fora do diário'
-          : meal.userAdjusted && !_dirty
-          ? 'Você ajustou'
-          : null,
-      padding: EdgeInsets.zero,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Quando há versão ilustrada, é ela que aparece: as anotações sobre a comida
-          // dizem mais que a foto crua, e a original continua no storage.
-          if (photo != null)
-            Image.network(
-              photo,
-              height: 160,
-              fit: BoxFit.cover,
-              // A URL é assinada e expira; falhar em carregar não pode quebrar o cartão,
-              // que continua útil pelos macros.
-              errorBuilder: (_, _, _) => const SizedBox.shrink(),
-            ),
-          Padding(
-            padding: const EdgeInsets.all(Space.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Text(
-                      _round(_total((i) => i.kcal, meal.totalKcal)),
-                      style: AppTypography.numeric(size: 28, color: colors.ink),
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        expanded: _open,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => setState(() => _open = !_open),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: Space.md,
+                vertical: Space.sm,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          mealName(widget.meal),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _summary(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: Space.xs),
-                    Text(
-                      'kcal',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color: colors.ink,
-                      ),
-                    ),
-                  ],
-                ),
-                Text(
-                  'P ${_round(_total((i) => i.proteinG, meal.totalProteinG))} g  ·  '
-                  'C ${_round(_total((i) => i.carbsG, meal.totalCarbsG))} g  ·  '
-                  'G ${_round(_total((i) => i.fatG, meal.totalFatG))} g',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
                   ),
-                ),
-                const SizedBox(height: Space.sm),
-
-                for (var i = 0; i < _items.length; i++) ...[
-                  if (i > 0)
-                    Divider(
-                      height: 1,
-                      color: colors.ink.withValues(alpha: 0.14),
-                    ),
-                  _ItemRow(
-                    item: _items[i],
-                    colors: colors,
-                    enabled: !_saving,
-                    onDecrease: () => _bump(i, -10),
-                    onIncrease: () => _bump(i, 10),
+                  const SizedBox(width: Space.sm),
+                  Icon(
+                    _open ? Icons.expand_less : Icons.expand_more,
+                    size: 20,
+                    color: colors.ink,
                   ),
                 ],
-
-                const SizedBox(height: Space.xs),
-                // `Flexible` nos dois lados, e não um `Spacer` no meio: com o corpo do texto
-                // ampliado pela acessibilidade, "Tirar do diário" sozinho passa da largura da
-                // tela — e um `Spacer` empurra o estouro para fora da vista em vez de deixar o
-                // botão encolher.
-                if (_dirty)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Flexible(
-                        child: TextButton(
-                          onPressed: _saving
-                              ? null
-                              : () => setState(() => _draft = null),
-                          style: TextButton.styleFrom(
-                            foregroundColor: theme.colorScheme.onSurfaceVariant,
-                          ),
-                          child: const Text('Descartar'),
-                        ),
-                      ),
-                      Flexible(
-                        child: FilledButton(
-                          onPressed: _saving ? null : _save,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: colors.ink,
-                            foregroundColor: colors.wash,
-                            minimumSize: const Size(0, 40),
-                          ),
-                          child: _saving
-                              ? SizedBox(
-                                  height: 18,
-                                  width: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: colors.wash,
-                                  ),
-                                )
-                              : const Text('Salvar ajuste'),
-                        ),
-                      ),
-                    ],
-                  )
-                else
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Flexible(
-                        child: TextButton.icon(
-                          onPressed: _editQuantities,
-                          style: TextButton.styleFrom(
-                            foregroundColor: colors.ink,
-                          ),
-                          icon: const Icon(Icons.tune, size: 18),
-                          label: const Text('Ajustar'),
-                        ),
-                      ),
-                      // Tirar do diário é o que desfaz o efeito da refeição no dia, e não é o
-                      // que se faz com a maioria delas: fica em texto neutro, longe da cor da
-                      // família, para não disputar com "Ajustar".
-                      Flexible(
-                        child: TextButton(
-                          onPressed: _toggleDiary,
-                          style: TextButton.styleFrom(
-                            foregroundColor: theme.colorScheme.onSurfaceVariant,
-                          ),
-                          child: Text(
-                            meal.excludedFromDiary
-                                ? 'Voltar ao diário'
-                                : 'Tirar do diário',
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-              ],
+              ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 
-  /// O rótulo da refeição: a hora, e a data quando não é de hoje.
+  /// O que abre no toque: a foto, os macros e as porções.
   ///
-  /// O histórico atravessa dias. Sem a data, duas refeições das 12:30 em dias diferentes ficam
-  /// idênticas na lista — e a de ontem passa a parecer um lançamento duplicado de hoje.
-  static String _label(String? createdAt, DateTime now) {
-    final at = createdAt == null
+  /// **Sem o total em número grande.** Ele existia aqui e continua existindo — na linha logo
+  /// acima, que fica visível o tempo todo e já acompanha o rascunho. Repeti-lo dois centímetros
+  /// abaixo seria o mesmo dado duas vezes na mesma vista (§18).
+  Widget _analysis(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = widget.colors;
+    final meal = widget.meal;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _MealPhoto(meal: meal),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Space.md,
+            Space.sm,
+            Space.md,
+            Space.md,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'P ${_round(_total((i) => i.proteinG, meal.totalProteinG))} g  ·  '
+                'C ${_round(_total((i) => i.carbsG, meal.totalCarbsG))} g  ·  '
+                'G ${_round(_total((i) => i.fatG, meal.totalFatG))} g',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: Space.sm),
+
+              for (var i = 0; i < _items.length; i++) ...[
+                if (i > 0)
+                  Divider(height: 1, color: colors.ink.withValues(alpha: 0.14)),
+                _ItemRow(
+                  item: _items[i],
+                  colors: colors,
+                  enabled: !_saving,
+                  onDecrease: () => _bump(i, -10),
+                  onIncrease: () => _bump(i, 10),
+                ),
+              ],
+
+              const SizedBox(height: Space.xs),
+              // `Flexible` nos dois lados, e não um `Spacer` no meio: com o corpo do texto
+              // ampliado pela acessibilidade, "Tirar do diário" sozinho passa da largura da
+              // tela — e um `Spacer` empurra o estouro para fora da vista em vez de deixar o
+              // botão encolher.
+              if (_dirty)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Flexible(
+                      child: TextButton(
+                        onPressed: _saving
+                            ? null
+                            : () => setState(() => _draft = null),
+                        style: TextButton.styleFrom(
+                          foregroundColor: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        child: const Text('Descartar'),
+                      ),
+                    ),
+                    Flexible(
+                      child: FilledButton(
+                        onPressed: _saving ? null : _save,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: colors.ink,
+                          foregroundColor: colors.wash,
+                          minimumSize: const Size(0, 40),
+                        ),
+                        child: _saving
+                            ? SizedBox(
+                                height: 18,
+                                width: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: colors.wash,
+                                ),
+                              )
+                            : const Text('Salvar ajuste'),
+                      ),
+                    ),
+                  ],
+                )
+              else
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Flexible(
+                      child: TextButton.icon(
+                        onPressed: _editQuantities,
+                        style: TextButton.styleFrom(
+                          foregroundColor: colors.ink,
+                        ),
+                        icon: const Icon(Icons.tune, size: 18),
+                        label: const Text('Ajustar'),
+                      ),
+                    ),
+                    // Tirar do diário é o que desfaz o efeito da refeição no dia, e não é o
+                    // que se faz com a maioria delas: fica em texto neutro, longe da cor da
+                    // família, para não disputar com "Ajustar".
+                    Flexible(
+                      child: TextButton(
+                        onPressed: _toggleDiary,
+                        style: TextButton.styleFrom(
+                          foregroundColor: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        child: Text(
+                          meal.excludedFromDiary
+                              ? 'Voltar ao diário'
+                              : 'Tirar do diário',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// A segunda linha do cabeçalho: hora, total e o que houver de estado.
+  ///
+  /// **A hora perdeu a data** quando a lista passou a ser agrupada: ela distinguia duas
+  /// refeições das 12:30 em dias diferentes, e agora quem faz isso é o rótulo do bloco do dia.
+  ///
+  /// **O total é o do rascunho**, quando há um. É o número que anda enquanto se aperta o mais,
+  /// e ele fica na linha que não sai da tela — por isso a análise aberta não o repete.
+  ///
+  /// **O estado vem por último e em caixa baixa**: aqui ele é o fim de uma frase que começou na
+  /// hora, e não um rótulo solto. "ajuste não salvo" existe porque a linha fecha com o rascunho
+  /// vivo, e um ajuste esquecido dentro de uma linha fechada é um ajuste perdido.
+  String _summary() {
+    final meal = widget.meal;
+    final at = meal.createdAt == null
         ? null
-        : DateTime.tryParse(createdAt)?.toLocal();
-    return at == null ? 'Refeição' : Fmt.dayTime(at, now);
+        : DateTime.tryParse(meal.createdAt!)?.toLocal();
+
+    return [
+      if (at != null) Fmt.time(at),
+      Fmt.kcal(_total((i) => i.kcal, meal.totalKcal)),
+      if (meal.excludedFromDiary)
+        'fora do diário'
+      else if (_dirty)
+        'ajuste não salvo'
+      else if (meal.userAdjusted)
+        'você ajustou',
+    ].join(' · ');
   }
 
   Future<void> _save() async {
@@ -659,6 +845,200 @@ class _MealCardState extends ConsumerState<_MealCard> {
   }
 
   static String _round(num value) => value.round().toString();
+}
+
+/// A foto da refeição no cartão, e o toque que a abre inteira.
+///
+/// **A faixa de 160 dp não é a foto, é a lembrança dela.** Recortada em `cover`, ela serve para
+/// reconhecer o prato enquanto se rola — e não para conferir nada. Quando a análise é
+/// ilustrada, as etiquetas que a IA desenhou sobre a comida ("Arroz branco, 150 g") saem
+/// ilegíveis nesse recorte, e são justamente elas que dizem se a porção precisa de ajuste.
+///
+/// O selo no canto existe porque **alvo de toque sem sinal não é alvo**: uma foto que abre e
+/// uma foto que não abre são idênticas de olhar, e a diferença só se descobre tocando.
+class _MealPhoto extends StatelessWidget {
+  const _MealPhoto({required this.meal});
+
+  final MealAnalysis meal;
+
+  @override
+  Widget build(BuildContext context) {
+    // Quando há versão ilustrada, é ela que aparece: as anotações sobre a comida dizem mais
+    // que a foto crua. A original continua no storage e agora tem como ser vista — o visor
+    // alterna entre as duas.
+    final photo = meal.illustratedPhotoUrl ?? meal.photoUrl;
+    if (photo == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Stack(
+      fit: StackFit.passthrough,
+      children: [
+        Image.network(
+          photo,
+          height: 160,
+          fit: BoxFit.cover,
+          // A URL é assinada e expira; falhar em carregar não pode quebrar o cartão, que
+          // continua útil pelos macros. Com a imagem em nada, a pilha inteira colapsa com
+          // ela — o selo e o alvo de toque vão junto, que é o certo: não há o que abrir.
+          errorBuilder: (_, _, _) => const SizedBox.shrink(),
+        ),
+        // O respingo precisa de um `Material` próprio: pintado por baixo da imagem ele
+        // aconteceria atrás dela, e o toque ficaria sem resposta nenhuma.
+        //
+        // O rótulo do leitor de tela mora aqui e não em volta da pilha: é este o alvo, e
+        // `container` é o que lhe dá nó próprio em vez de deixar o texto se dissolver no nó
+        // do bloco. Sem isso a foto é, para quem não a vê, uma região muda.
+        Positioned.fill(
+          child: Semantics(
+            button: true,
+            container: true,
+            label: 'Ver a foto da refeição',
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(onTap: () => _open(context)),
+            ),
+          ),
+        ),
+        Positioned(
+          right: Space.sm,
+          bottom: Space.sm,
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              // Preto e branco fixos, e não a família nem o tema: o que está atrás é uma
+              // foto de comida, que pode ser clara ou escura em qualquer um dos dois temas.
+              color: Color(0x8C000000),
+              borderRadius: Radii.smAll,
+            ),
+            child: const Padding(
+              padding: EdgeInsets.all(6),
+              child: Icon(Icons.zoom_out_map, size: 16, color: Colors.white),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _open(BuildContext context) => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      fullscreenDialog: true,
+      builder: (_) => _PhotoViewer(
+        illustrated: meal.illustratedPhotoUrl,
+        original: meal.photoUrl,
+      ),
+    ),
+  );
+}
+
+/// A foto em tela cheia, com zoom.
+///
+/// Fundo preto e barra transparente: numa tela cujo assunto é uma imagem, toda superfície
+/// pintada disputa com ela. É a única tela do app em que o preto não é a identidade do produto
+/// e sim ausência de cor — o que se olha é a foto.
+///
+/// **O visor alterna entre a marcada e a original quando as duas existem.** No cartão só a
+/// marcada aparece, e as etiquetas cobrem exatamente a comida que se quer conferir; sem o
+/// alternador, a foto crua estaria no storage sem caminho nenhum até ela.
+class _PhotoViewer extends StatefulWidget {
+  const _PhotoViewer({required this.illustrated, required this.original});
+
+  final String? illustrated;
+  final String? original;
+
+  @override
+  State<_PhotoViewer> createState() => _PhotoViewerState();
+}
+
+class _PhotoViewerState extends State<_PhotoViewer> {
+  /// Abre na mesma imagem que o cartão mostrava: quem tocou tocou naquela.
+  bool _original = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final both = widget.illustrated != null && widget.original != null;
+    final url = _original
+        ? widget.original
+        : widget.illustrated ?? widget.original;
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.close),
+          tooltip: 'Fechar',
+        ),
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: InteractiveViewer(
+                maxScale: 5,
+                child: Center(
+                  child: url == null
+                      ? const SizedBox.shrink()
+                      : Image.network(
+                          url,
+                          fit: BoxFit.contain,
+                          loadingBuilder: (_, child, progress) =>
+                              progress == null
+                              ? child
+                              : const CircularProgressIndicator(
+                                  color: Colors.white,
+                                ),
+                          // A URL é assinada e expira. O recado diz o que houve e o que
+                          // fazer — "não foi possível" sozinho deixaria a pessoa tocando de
+                          // novo na mesma foto.
+                          errorBuilder: (_, _, _) => Padding(
+                            padding: const EdgeInsets.all(Space.gutter),
+                            child: Text(
+                              'Não foi possível abrir a foto. O link expira depois de um '
+                              'tempo — volte e puxe a lista para atualizar.',
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: Colors.white70,
+                              ),
+                            ),
+                          ),
+                        ),
+                ),
+              ),
+            ),
+            if (both)
+              Padding(
+                padding: const EdgeInsets.only(top: Space.sm, bottom: Space.md),
+                // "Marcações" e não "ilustrada": é a mesma palavra do interruptor que liga o
+                // modo ("Marcar os alimentos na foto"), e dois nomes para a mesma coisa fazem
+                // parecer que são duas.
+                child: SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(value: false, label: Text('Com marcações')),
+                    ButtonSegment(value: true, label: Text('Sem marcações')),
+                  ],
+                  selected: {_original},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (selection) =>
+                      setState(() => _original = selection.first),
+                  style: SegmentedButton.styleFrom(
+                    foregroundColor: Colors.white70,
+                    selectedForegroundColor: Colors.white,
+                    selectedBackgroundColor: Colors.white24,
+                    side: const BorderSide(color: Colors.white30),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// Uma linha de item, com os botões de porção.

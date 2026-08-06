@@ -37,6 +37,10 @@ class VideoAnalysisController extends JobGenerationController {
   double _uploadProgress = 0;
   double get uploadProgress => _uploadProgress;
 
+  /// Última análise concluída — é a que a lista mostra aberta.
+  VideoAnalysis? _result;
+  VideoAnalysis? get result => _result;
+
   /// Grava ou escolhe o vídeo e dispara a análise. Devolve false se o usuário desistiu.
   Future<bool> analyzeFrom(ImageSource source, String exerciseSlug) async {
     final picked = await ref
@@ -50,6 +54,7 @@ class VideoAnalysisController extends JobGenerationController {
     _contentType = _contentTypeFor(picked.path);
     _exercise = exerciseSlug;
     _uploadProgress = 0;
+    _result = null;
 
     await start();
     return true;
@@ -90,7 +95,10 @@ class VideoAnalysisController extends JobGenerationController {
   @override
   Future<void> reload() async {
     ref.invalidate(videoHistoryProvider);
-    await ref.read(videoHistoryProvider.future);
+    // A análise recém-criada é a mais recente do usuário — a lista já vem ordenada do servidor,
+    // e pegá-la daqui evita um endpoint só para "o resultado deste job".
+    final recent = await ref.read(videoHistoryProvider.future);
+    _result = recent.isEmpty ? null : recent.first;
     // O arquivo local não serve mais: o que a tela mostra vem do servidor.
     _file = null;
   }

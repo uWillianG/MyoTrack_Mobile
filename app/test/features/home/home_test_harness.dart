@@ -234,9 +234,17 @@ const dietPlanWithMeals = DietPlan(
   ],
 );
 
-/// Duas refeições já analisadas por foto: a de hoje e a de ontem.
+/// Três refeições já analisadas por foto: duas de hoje e uma de ontem.
 ///
-/// **Sem `photoUrl`.** A `Image.network` do cartão não busca nada dentro do teste — o
+/// **Duas no mesmo dia de propósito.** O histórico é agrupado por dia, e um fixture de uma
+/// refeição por dia nunca desenha o caso que o agrupamento existe para resolver — o bloco com
+/// duas linhas, o fio entre elas e a contagem no rótulo. Com uma por dia a galeria avaliava
+/// três blocos de uma linha, que é a única forma que a tela não tem na prática.
+///
+/// **Os três estados que a linha escreve** aparecem um em cada: a de 12:34 é a limpa, a de
+/// ontem foi corrigida à mão e a de 08:10 está fora do diário.
+///
+/// **Sem `photoUrl`.** A `Image.network` da análise não busca nada dentro do teste — o
 /// `flutter_test` responde 400 a qualquer requisição —, e uma URL de mentira só deixaria o
 /// `errorBuilder` sumir com 160 dp de altura entre uma captura e outra.
 ///
@@ -277,8 +285,37 @@ const refeicoesAnalisadas = [
       ),
     ],
   ),
-  // A segunda carrega os dois estados que o rótulo escreve: a data de outro dia e a marca de
-  // quem corrigiu a estimativa.
+  // Do mesmo dia da primeira, e mais cedo — é ela que faz o bloco de "Hoje" ter duas linhas.
+  // A ordem da lista é a do servidor, do mais novo para o mais velho: o agrupamento junta
+  // corridas consecutivas, e um histórico embaralhado abriria dois blocos "Hoje".
+  MealAnalysis(
+    id: 'analise-3',
+    createdAt: '2026-08-04T08:10:00',
+    excludedFromDiary: true,
+    totalKcal: 233,
+    totalProteinG: 9,
+    totalCarbsG: 38,
+    totalFatG: 5,
+    items: [
+      MealAnalysisItem(
+        description: 'Mamão papaia',
+        quantityG: 200,
+        kcal: 90,
+        proteinG: 1,
+        carbsG: 23,
+        fatG: 0,
+      ),
+      MealAnalysisItem(
+        description: 'Iogurte natural integral',
+        quantityG: 170,
+        kcal: 143,
+        proteinG: 8,
+        carbsG: 15,
+        fatG: 5,
+      ),
+    ],
+  ),
+  // A de ontem carrega a marca de quem corrigiu a estimativa à mão.
   MealAnalysis(
     id: 'analise-2',
     createdAt: '2026-08-03T20:10:00',
@@ -308,10 +345,15 @@ const refeicoesAnalisadas = [
   ),
 ];
 
-/// Duas execuções analisadas por vídeo: uma avaliada e uma que não deu para avaliar.
+/// Três execuções analisadas por vídeo: duas de hoje e uma de dois dias atrás.
 ///
-/// A segunda existe porque `score` nulo **não é zero**, e é o caso que a média do herói tem de
-/// pular — uma tela que só mostra o caminho feliz não é bancada de design nenhuma.
+/// **Duas no mesmo dia de propósito**, pelo mesmo motivo das refeições: o histórico é agrupado
+/// por dia, e um fixture de uma por dia nunca desenha o bloco com duas linhas e o fio entre
+/// elas — a única forma que a tela não tem na prática.
+///
+/// **Uma sem nota**, porque `score` nulo **não é zero**: é o caso que a média do herói tem de
+/// pular, e o que a linha fechada tem de escrever como "não avaliado". Uma tela que só mostra o
+/// caminho feliz não é bancada de design nenhuma.
 ///
 /// A `overlayVideoUrl` aponta para lugar nenhum de propósito: o `_OverlayPlayer` não baixa nada
 /// até alguém tocar, então a captura sai determinística e mostra o lugar do vídeo, que é o que
@@ -341,6 +383,31 @@ const analisesDeVideo = [
         VideoCorrectPoint(
           code: 'spine',
           message: 'Coluna neutra do início ao fim.',
+        ),
+      ],
+    ),
+  ),
+  // Do mesmo dia da primeira, e mais cedo: é ela que faz o bloco de "Hoje" ter duas linhas, e
+  // é a segunda nota que faz a manchete virar média em vez de "nota da sua execução".
+  VideoAnalysis(
+    id: 'video-3',
+    createdAt: '2026-08-04T17:50:00',
+    analyzedExercise: 'Supino reto',
+    score: 74,
+    repCount: 10,
+    overlayVideoUrl: 'https://exemplo.invalido/supino.mp4',
+    result: VideoResult(
+      issues: [
+        VideoIssue(
+          code: 'bar_path',
+          message: 'A barra desce à frente do peito nas últimas repetições.',
+          timestampsSec: [18.5],
+        ),
+      ],
+      correctPoints: [
+        VideoCorrectPoint(
+          code: 'scapula',
+          message: 'Escápulas presas no banco o tempo todo.',
         ),
       ],
     ),

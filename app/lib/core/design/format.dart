@@ -75,11 +75,32 @@ abstract final class Fmt {
   ///
   /// O rótulo de um lançamento numa lista que atravessa dias. Sem a data, dois registros das
   /// 12:30 em dias diferentes ficam idênticos, e o de ontem passa a parecer duplicado.
-  static String dayTime(DateTime at, DateTime now) {
-    final mesmoDia =
-        at.year == now.year && at.month == now.month && at.day == now.day;
-    return mesmoDia ? 'Hoje, ${time(at)}' : '${dayMonth(at)}, ${time(at)}';
+  ///
+  /// **Não serve para lista agrupada por dia**: ali quem carrega a data é a régua do grupo, e
+  /// repeti-la em cada item é a mesma informação duas vezes na mesma tela. Use [dayLabel] na
+  /// régua e [time] no item.
+  static String dayTime(DateTime at, DateTime now) =>
+      sameDay(at, now) ? 'Hoje, ${time(at)}' : '${dayMonth(at)}, ${time(at)}';
+
+  /// "Hoje", "Ontem" ou "3 de agosto" — o nome de um dia como título de grupo.
+  ///
+  /// Nasceu escrito duas vezes: na régua da conversa com o coach e na do histórico de
+  /// refeições. Está aqui pela razão que trouxe os números — duas cópias divergem, e aí o
+  /// mesmo app passa a ter dois jeitos de chamar ontem.
+  static String dayLabel(DateTime at, DateTime now) {
+    if (sameDay(at, now)) {
+      return 'Hoje';
+    }
+    if (sameDay(at, now.subtract(const Duration(days: 1)))) {
+      return 'Ontem';
+    }
+    return dayMonth(at);
   }
+
+  /// Se as duas datas caem no mesmo dia do calendário — comparado campo a campo, e não pela
+  /// diferença em horas: 23:00 e 01:00 distam duas horas e são dias diferentes.
+  static bool sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   static const _weekdays = [
     'segunda',

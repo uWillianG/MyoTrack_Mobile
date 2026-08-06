@@ -5,17 +5,36 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../core/day_groups.dart';
 import '../../core/design/blocks.dart';
 import '../../core/design/format.dart';
 import '../../core/design/tokens.dart';
-import '../../core/design/typography.dart';
 import '../../core/widgets/blocks.dart';
 import '../../core/widgets/empty_state.dart';
-// O relógio do app, injetável: sem ele o rótulo "Hoje" de uma análise mudaria de valor entre a
+// O relógio do app, injetável: sem ele o bloco "Hoje" do histórico mudaria de valor entre a
 // captura da galeria e a execução do teste.
 import '../home/today_controller.dart' show nowProvider;
 import 'data/video_models.dart';
 import 'video_analysis_controller.dart';
+
+/// O histórico partido em dias. Ver [groupByDay], que é onde a regra mora.
+List<DayGroup<VideoAnalysis>> groupAnalysesByDay(
+  List<VideoAnalysis> analyses,
+  DateTime now,
+) => groupByDay(
+  analyses,
+  now,
+  at: (analysis) => analysis.createdAt,
+  undated: 'Execuções',
+);
+
+/// Como a execução se chama numa lista: o exercício.
+///
+/// Aqui o nome **vem pronto** — o servidor exige o exercício antes de analisar, e é por ele que
+/// a heurística de avaliação é escolhida. Diferente da refeição, que não tem nome e precisa
+/// calcular um a partir dos alimentos.
+String analysisName(VideoAnalysis analysis) =>
+    analysis.analyzedExercise.isEmpty ? 'Execução' : analysis.analyzedExercise;
 
 /// A média das notas do histórico e quantas entraram nela. Null se nenhuma entrou.
 ///
@@ -104,6 +123,9 @@ class VideoAnalysisView extends ConsumerWidget {
           step: state.step,
           progress: controller.uploadProgress,
           now: ref.read(nowProvider)(),
+          // A análise que acabou de sair chega aberta: fechada, ela seria indistinguível das
+          // antigas justamente no instante em que a pessoa está esperando por ela.
+          justAnalyzed: controller.result?.id,
           onCapture: (source) => _start(context, ref, source),
         ),
       ),
@@ -140,6 +162,7 @@ class _Body extends StatelessWidget {
     required this.step,
     required this.progress,
     required this.now,
+    required this.justAnalyzed,
     required this.onCapture,
   });
 
@@ -148,6 +171,10 @@ class _Body extends StatelessWidget {
   final String? step;
   final double progress;
   final DateTime now;
+
+  /// Id da análise recém-concluída, que a lista mostra aberta.
+  final String? justAnalyzed;
+
   final ValueChanged<ImageSource> onCapture;
 
   @override
@@ -168,11 +195,62 @@ class _Body extends StatelessWidget {
             analyses: analyses,
             onCapture: onCapture,
           ),
-        for (final analysis in analyses) ...[
+        for (final day in groupAnalysesByDay(analyses, now)) ...[
           const SizedBox(height: Space.sm),
-          _AnalysisSection(analysis: analysis, colors: colors, now: now),
+          _DaySection(day: day, colors: colors, justAnalyzed: justAnalyzed),
         ],
       ],
+    );
+  }
+}
+
+/// Um dia do histórico: um bloco, e dentro dele uma linha por execução.
+///
+/// Mesma forma da metade de refeição: as execuções de um dia são facetas do mesmo assunto — o
+/// que aquela pessoa treinou naquele dia —, e faceta é seção, não ladrilho (§1). O rótulo do
+/// bloco carrega a data, que é a dimensão pela qual o histórico é percorrido (§18).
+class _DaySection extends StatelessWidget {
+  const _DaySection({
+    required this.day,
+    required this.colors,
+    required this.justAnalyzed,
+  });
+
+  final DayGroup<VideoAnalysis> day;
+  final BlockColors colors;
+  final String? justAnalyzed;
+
+  @override
+  Widget build(BuildContext context) {
+    final analyses = day.items;
+
+    return BlockSection(
+      colors: colors,
+      label: day.label,
+      icon: Icons.fitness_center,
+      trailing: analyses.length == 1
+          ? '1 execução'
+          : '${analyses.length} execuções',
+      // Zero porque o conteúdo é lista: o fio entre duas execuções precisa encostar nas bordas
+      // do bloco, senão lê como sublinhado de uma delas em vez de divisa entre as duas.
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final analysis in analyses) ...[
+            if (analysis != analyses.first)
+              Divider(height: 1, color: colors.ink.withValues(alpha: 0.14)),
+            // A chave é o id: uma análise nova entra na frente e empurra as outras, e sem ela
+            // o estado de aberta/fechada ficaria preso à posição.
+            _AnalysisRow(
+              key: ValueKey(analysis.id),
+              analysis: analysis,
+              colors: colors,
+              justAnalyzed: analysis.id == justAnalyzed,
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -402,101 +480,202 @@ class _ProgressHeroState extends State<_ProgressHero> {
   }
 }
 
-/// Uma execução analisada: o vídeo com o esqueleto, a nota, e o que fazer com ela.
-class _AnalysisSection extends StatelessWidget {
-  const _AnalysisSection({
+/// Uma execução no histórico: o exercício sempre, e a avaliação quando se pede.
+///
+/// **O vídeo não aparece de cara.** Aberto de saída, cada cartão reservava o espaço do player e
+/// mantinha na tela a nota, as correções e os acertos de execuções que a pessoa nem estava
+/// procurando. O que se percorre num histórico é **o que foi treinado e quanto deu**; as
+/// correções são o que se lê depois de achar a série certa.
+///
+/// É a mesma regra da metade de refeição, e ela reforça a que esta tela já tinha: o player só
+/// baixa o arquivo no toque. Agora nem o lugar dele custa espaço antes disso.
+class _AnalysisRow extends StatefulWidget {
+  const _AnalysisRow({
+    super.key,
     required this.analysis,
     required this.colors,
-    required this.now,
+    this.justAnalyzed = false,
   });
 
   final VideoAnalysis analysis;
   final BlockColors colors;
-  final DateTime now;
+
+  /// Esta é a análise que acabou de sair do servidor. Ela nasce aberta.
+  final bool justAnalyzed;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final result = analysis.result;
-    final notEvaluable = result.notEvaluableReason;
+  State<_AnalysisRow> createState() => _AnalysisRowState();
+}
 
-    return BlockSection(
-      colors: colors,
-      label: analysis.analyzedExercise.isEmpty
-          ? 'Execução'
-          : analysis.analyzedExercise,
-      icon: Icons.fitness_center,
-      trailing: _when(analysis.createdAt, now),
-      padding: EdgeInsets.zero,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // O vídeo mostrado é o com esqueleto: ver onde o joelho passou da linha vale mais
-          // que ler "profundidade insuficiente".
-          if (analysis.overlayVideoUrl != null)
-            _OverlayPlayer(
-              url: analysis.overlayVideoUrl!,
-              colors: colors,
-              marks: [
-                for (final issue in result.issues) ...issue.timestampsSec,
-              ],
-            ),
-          Padding(
-            padding: const EdgeInsets.all(Space.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _Score(
-                  score: analysis.score,
-                  repCount: analysis.repCount,
-                  colors: colors,
-                ),
-                if (notEvaluable != null && notEvaluable.isNotEmpty) ...[
-                  const SizedBox(height: Space.md),
-                  BlockNotice(message: notEvaluable, colors: colors),
-                ],
-                if (result.issues.isNotEmpty) ...[
-                  const SizedBox(height: Space.md),
-                  _PointGroup(
-                    label: 'O que corrigir',
-                    icon: Icons.error_outline,
-                    // A única cor fora da família nesta tela, e ela não anda sozinha: o ícone
-                    // tem forma própria e o grupo tem título escrito. Quem não distingue
-                    // vermelho de índigo continua lendo "O que corrigir".
-                    iconColor: theme.colorScheme.error,
-                    colors: colors,
-                    points: [
-                      for (final issue in result.issues)
-                        (message: issue.message, detail: _timestamps(issue)),
-                    ],
+class _AnalysisRowState extends State<_AnalysisRow> {
+  late bool _open = widget.justAnalyzed;
+
+  /// A recém-analisada abre também quando a linha já existia. Só na virada: depois disso quem
+  /// manda é o toque, e um rebuild qualquer não reabre o que a pessoa fechou.
+  @override
+  void didUpdateWidget(covariant _AnalysisRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.justAnalyzed && !oldWidget.justAnalyzed) {
+      setState(() => _open = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [_head(context), if (_open) _evaluation(context)],
+  );
+
+  /// O que a lista mostra sempre: o exercício, a hora, a nota e as repetições.
+  ///
+  /// `MergeSemantics` porque as duas linhas são uma coisa só para quem ouve — separadas, o
+  /// exercício e o "82 / 100" viram dois itens de lista que não se sabe se são da mesma série.
+  Widget _head(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = widget.colors;
+
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        expanded: _open,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => setState(() => _open = !_open),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: Space.md,
+                vertical: Space.sm,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          analysisName(widget.analysis),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _summary(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: Space.sm),
+                  Icon(
+                    _open ? Icons.expand_less : Icons.expand_more,
+                    size: 20,
+                    color: colors.ink,
                   ),
                 ],
-                if (result.correctPoints.isNotEmpty) ...[
-                  const SizedBox(height: Space.md),
-                  _PointGroup(
-                    label: 'O que já está bom',
-                    icon: Icons.check_circle_outline,
-                    iconColor: colors.ink,
-                    colors: colors,
-                    points: [
-                      for (final point in result.correctPoints)
-                        (message: point.message, detail: null),
-                    ],
-                  ),
-                ],
-              ],
+              ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 
-  static String? _when(String? createdAt, DateTime now) {
-    final at = createdAt == null
+  /// A segunda linha do cabeçalho: hora, nota e repetições.
+  ///
+  /// **A nota entra como número e nunca como zero.** "não avaliado" é uma afirmação sobre o
+  /// vídeo; zero seria uma afirmação sobre o corpo de quem gravou, e é a linha que a pessoa lê
+  /// rolando o histórico — errar aqui é pior do que errar dentro da avaliação aberta.
+  String _summary() {
+    final analysis = widget.analysis;
+    final at = analysis.createdAt == null
         ? null
-        : DateTime.tryParse(createdAt)?.toLocal();
-    return at == null ? null : Fmt.dayTime(at, now);
+        : DateTime.tryParse(analysis.createdAt!)?.toLocal();
+    final reps = analysis.repCount;
+
+    return [
+      if (at != null) Fmt.time(at),
+      if (analysis.score case final score?) '$score / 100' else 'não avaliado',
+      if (reps > 0) '$reps ${reps == 1 ? 'repetição' : 'repetições'}',
+    ].join(' · ');
+  }
+
+  /// O que abre no toque: o vídeo com o esqueleto, a barra da nota e os dois grupos de pontos.
+  ///
+  /// **Sem o número da nota.** Ele está na linha logo acima, que fica visível o tempo todo. O
+  /// que fica aqui é a barra — a grandeza, que é o recado que o §16 pede que a nota dê — e as
+  /// repetições subiram junto com a nota para o cabeçalho.
+  Widget _evaluation(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = widget.colors;
+    final analysis = widget.analysis;
+    final result = analysis.result;
+    final notEvaluable = result.notEvaluableReason;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // O vídeo mostrado é o com esqueleto: ver onde o joelho passou da linha vale mais
+        // que ler "profundidade insuficiente".
+        if (analysis.overlayVideoUrl != null)
+          _OverlayPlayer(
+            url: analysis.overlayVideoUrl!,
+            colors: colors,
+            marks: [for (final issue in result.issues) ...issue.timestampsSec],
+          ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Space.md,
+            Space.sm,
+            Space.md,
+            Space.md,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (analysis.score case final score?)
+                _ScoreBar(score: score, colors: colors),
+              if (notEvaluable != null && notEvaluable.isNotEmpty)
+                BlockNotice(message: notEvaluable, colors: colors),
+              if (result.issues.isNotEmpty) ...[
+                const SizedBox(height: Space.md),
+                _PointGroup(
+                  label: 'O que corrigir',
+                  icon: Icons.error_outline,
+                  // A única cor fora da família nesta tela, e ela não anda sozinha: o ícone
+                  // tem forma própria e o grupo tem título escrito. Quem não distingue
+                  // vermelho de índigo continua lendo "O que corrigir".
+                  iconColor: theme.colorScheme.error,
+                  colors: colors,
+                  points: [
+                    for (final issue in result.issues)
+                      (message: issue.message, detail: _timestamps(issue)),
+                  ],
+                ),
+              ],
+              if (result.correctPoints.isNotEmpty) ...[
+                const SizedBox(height: Space.md),
+                _PointGroup(
+                  label: 'O que já está bom',
+                  icon: Icons.check_circle_outline,
+                  iconColor: colors.ink,
+                  colors: colors,
+                  points: [
+                    for (final point in result.correctPoints)
+                      (message: point.message, detail: null),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   /// Os instantes em que o erro apareceu — é o que permite achar o trecho no vídeo.
@@ -512,84 +691,40 @@ class _AnalysisSection extends StatelessWidget {
   }
 }
 
-/// A nota, como número e como barra.
+/// A nota como grandeza.
 ///
 /// **Era um chip que mudava de cor com o valor** — verde acima de 80, âmbar no meio, vermelho
 /// abaixo de 60. Cor por estado é o que o sistema proíbe: a mesma família teria três
 /// significados, e a nota já é um número que se lê. Quem dá o recado é o tamanho da barra.
-class _Score extends StatelessWidget {
-  const _Score({
-    required this.score,
-    required this.repCount,
-    required this.colors,
-  });
+///
+/// **E o número saiu daqui** quando a lista fechou: ele vive na linha do cabeçalho, que fica
+/// visível o tempo todo. O que a barra acrescenta é o que o número sozinho não diz de relance —
+/// quanto falta para o fim da régua.
+///
+/// Nota nula não desenha barra nenhuma. Zero seria uma execução péssima, e "não deu para
+/// avaliar" é outra afirmação — quem a explica é o [BlockNotice] logo abaixo.
+class _ScoreBar extends StatelessWidget {
+  const _ScoreBar({required this.score, required this.colors});
 
-  final int? score;
-  final int repCount;
+  final int score;
   final BlockColors colors;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final reps = '$repCount ${repCount == 1 ? 'repetição' : 'repetições'}';
-
-    // Null não é zero: zero seria uma execução péssima, e "não deu para avaliar" é outra
-    // afirmação. Mostrar 0 faria a pessoa mudar como levanta peso por causa de um vídeo ruim.
-    if (score == null) {
-      return Row(
-        children: [
-          Expanded(
-            child: Text('Não avaliado', style: theme.textTheme.titleMedium),
-          ),
-          Text(
-            reps,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
-          children: [
-            Text(
-              '$score',
-              style: AppTypography.numeric(size: 28, color: colors.ink),
-            ),
-            const SizedBox(width: Space.xs),
-            Expanded(
-              child: Text(
-                '/ 100',
-                style: theme.textTheme.titleSmall?.copyWith(color: colors.ink),
-              ),
-            ),
-            Text(
-              reps,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: Space.xs),
+    child: Semantics(
+      label: 'Nota $score de 100',
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: LinearProgressIndicator(
+          value: score / 100,
+          minHeight: 7,
+          color: colors.ink,
+          backgroundColor: colors.ink.withValues(alpha: 0.18),
         ),
-        const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: score! / 100,
-            minHeight: 7,
-            color: colors.ink,
-            backgroundColor: colors.ink.withValues(alpha: 0.18),
-          ),
-        ),
-      ],
-    );
-  }
+      ),
+    ),
+  );
 }
 
 /// Um grupo de pontos da avaliação, com título.
@@ -766,7 +901,7 @@ class _OverlayPlayerState extends State<_OverlayPlayer> {
         await controller.dispose();
       }
     } catch (_) {
-      // A URL é assinada e expira; falhar não pode derrubar o cartão, que ainda tem os
+      // A URL é assinada e expira; falhar não pode derrubar a avaliação, que ainda tem os
       // pontos de execução.
       await controller.dispose();
       if (mounted) {
@@ -793,8 +928,20 @@ class _OverlayPlayerState extends State<_OverlayPlayer> {
 
   @override
   Widget build(BuildContext context) {
+    // **Falhar em silêncio custou caro.** Sumindo, o vídeo que não abre fica idêntico ao vídeo
+    // que o servidor não gerou — e a pergunta "não gerou ou não dá para ver?" não tem como ser
+    // respondida de dentro do app. O recado separa as duas: se ele aparece, o arquivo existe e
+    // o que falhou foi a reprodução.
     if (_failed) {
-      return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(Space.md, Space.md, Space.md, 0),
+        child: BlockNotice(
+          message:
+              'O vídeo com o esqueleto não abriu. O link expira depois de '
+              'um tempo — puxe a lista para atualizar e tente de novo.',
+          colors: widget.colors,
+        ),
+      );
     }
 
     final controller = _controller;
