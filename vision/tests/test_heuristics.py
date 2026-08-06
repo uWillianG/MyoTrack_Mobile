@@ -55,10 +55,27 @@ def neutral(t, *, knee=175, hip=170, elbow=170, trunk=10, hip_y=0.5, knee_y=0.7,
     return FrameSignals(t, knee, hip, elbow, trunk, hip_y, knee_y, shoulder_y, wrist_y)
 
 
-def make_squat(reps, min_knee, trunk_at_bottom, deep):
+def make_squat(reps, min_knee, trunk_at_bottom, deep, top_knee=175):
+    """`top_knee` é até onde o joelho estende ENTRE as repetições — o lockout."""
     return series(reps, lambda t, d: neutral(
-        t, knee=175 - (175 - min_knee) * d, hip=170 - 80 * d,
+        t, knee=top_knee - (top_knee - min_knee) * d, hip=170 - 80 * d,
         trunk=10 + (trunk_at_bottom - 10) * d, hip_y=0.5 + (0.25 if deep else 0.12) * d))
+
+
+def make_squat_fading(depths, trunk_at_bottom=30):
+    """Série em que cada repetição tem a própria profundidade.
+
+    É o que `make_squat` não sabe fazer: lá todas as repetições são iguais, e uma série
+    uniforme nunca exercita a checagem que compara umas com as outras.
+    """
+    def frame_at(t, d):
+        rep = min(int(t // 3.0), len(depths) - 1)
+        min_knee = depths[rep]
+        return neutral(
+            t, knee=175 - (175 - min_knee) * d, hip=170 - 80 * d,
+            trunk=10 + (trunk_at_bottom - 10) * d, hip_y=0.5 + 0.25 * d)
+
+    return series(len(depths), frame_at)
 
 
 def make_deadlift(reps, top_hip, knee_at_bottom=135):
@@ -133,7 +150,7 @@ def ok_codes(result):
 r = run("squat", make_squat(5, min_knee=70, trunk_at_bottom=35, deep=True))
 check("squat bom: 5 reps", r.rep_count == 5, f"(reps={r.rep_count})")
 check("squat bom: sem issues", not r.issues, f"(issues={codes(r)})")
-check("squat bom: 2 pontos corretos", len(r.correct_points) == 2, f"(ok={ok_codes(r)})")
+check("squat bom: 4 pontos corretos", len(r.correct_points) == 4, f"(ok={ok_codes(r)})")
 check("squat bom: score 100", heuristics.compute_score(r) == 100)
 
 r = run("squat", make_squat(4, min_knee=120, trunk_at_bottom=30, deep=False))
@@ -143,6 +160,48 @@ check("squat raso: score < 100", (heuristics.compute_score(r) or 100) < 100)
 
 r = run("squat", make_squat(4, min_knee=75, trunk_at_bottom=70, deep=True))
 check("squat inclinado: detecta excessive_trunk_lean", "excessive_trunk_lean" in codes(r), f"(issues={codes(r)})")
+
+# O limiar de tronco desceu de 55 para 45. Estes dois casos prendem a linha nova: 50 reprova
+# hoje e passava antes, 40 continua passando. Sem eles, alguém "arredonda" o número de volta.
+r = run("squat", make_squat(4, min_knee=75, trunk_at_bottom=50, deep=True))
+check("squat tronco 50: reprova (limiar 45)", "excessive_trunk_lean" in codes(r), f"(issues={codes(r)})")
+r = run("squat", make_squat(4, min_knee=75, trunk_at_bottom=40, deep=True))
+check("squat tronco 40: passa", "excessive_trunk_lean" in ok_codes(r), f"(ok={ok_codes(r)})")
+
+# Lockout: o joelho só volta a 150° entre as repetições, ou seja, a pessoa emenda agachada.
+r = run("squat", make_squat(4, min_knee=70, trunk_at_bottom=30, deep=True, top_knee=150))
+check("squat sem lockout: detecta incomplete_lockout", "incomplete_lockout" in codes(r), f"(issues={codes(r)})")
+check("squat sem lockout: score < 100", (heuristics.compute_score(r) or 100) < 100)
+
+# E a ÚLTIMA repetição fica fora da conta: o segmento dela vai até o fim do vídeo, então quem
+# terminou a série e parou reprovaria sempre. Com 4 reps ruins, são 3 ocorrências, não 4.
+check("squat sem lockout: a ultima rep nao conta",
+      len([i for i in r.issues if i.code == "incomplete_lockout"][0].timestamps_sec) == 3,
+      f"(marcas={[i.timestamps_sec for i in r.issues if i.code == 'incomplete_lockout']})")
+
+# Profundidade que decai: as duas primeiras fundas, as duas últimas encurtando.
+r = run("squat", make_squat_fading([70, 75, 95, 100]))
+check("squat encurtando: detecta inconsistent_depth", "inconsistent_depth" in codes(r), f"(issues={codes(r)})")
+check("squat encurtando: aponta as duas ultimas",
+      len([i for i in r.issues if i.code == "inconsistent_depth"][0].timestamps_sec) == 2,
+      f"(marcas={[i.timestamps_sec for i in r.issues if i.code == 'inconsistent_depth']})")
+
+r = run("squat", make_squat_fading([70, 74, 72, 71]))
+check("squat constante: sem inconsistent_depth", "inconsistent_depth" in ok_codes(r), f"(ok={ok_codes(r)})")
+
+# Com duas repetições não há série para comparar, e apontar uma delas seria inventar.
+r = run("squat", make_squat_fading([70, 120]))
+check("squat com 2 reps: consistencia nao acusa", "inconsistent_depth" in ok_codes(r), f"(ok={ok_codes(r)})")
+
+# LIMITE CONHECIDO, preso aqui para não virar surpresa: uma repetição muito mais curta que as
+# outras não passa do corte do `_find_bottoms` (35% da faixa do vídeo) e não é contada como
+# repetição. Quatro agachamentos com as duas últimas rasas viram DOIS, e a consistência não
+# tem o que apontar — o sintoma é contagem baixa, não ocorrência. Consertar isso é mexer no
+# detector, não nas checagens.
+r = run("squat", make_squat_fading([70, 72, 105, 120]))
+check("squat muito raso no fim: as reps rasas somem da contagem", r.rep_count == 2, f"(reps={r.rep_count})")
+check("squat muito raso no fim: e por isso a consistencia se cala",
+      "inconsistent_depth" in ok_codes(r), f"(ok={ok_codes(r)})")
 
 r = run("squat", [neutral(i / FPS) for i in range(60)])
 check("squat parado: nao avaliavel", r.not_evaluable_reason is not None and r.rep_count == 0)

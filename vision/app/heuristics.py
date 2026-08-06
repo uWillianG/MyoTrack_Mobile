@@ -65,6 +65,30 @@ class Check:
     ok_message: str
     passes: Callable[[Rep], bool]
 
+    # Deixa a última repetição de fora.
+    #
+    # O `segment` da última vai do fundo dela até o FIM DO VÍDEO — quem terminou a série e
+    # parou, largou o peso ou desligou a câmera nunca "volta", e toda checagem que lê o que
+    # vem depois do fundo reprova essa repetição sempre. É falso positivo sistemático, e o
+    # pior tipo: aparece só na última, que é onde o usuário menos duvida do app.
+    #
+    # Só vale a partir de duas repetições — com uma, ignorá-la seria não checar nada.
+    skip_last: bool = False
+
+
+@dataclass
+class SeriesCheck:
+    """Uma checagem sobre a série inteira: o que só se enxerga comparando repetições.
+
+    Devolve as repetições que destoam, e não um booleano, porque é delas que saem os
+    timestamps — sem eles a ocorrência não teria instante para o app apontar, e a nota não
+    seria penalizada (`compute_score` conta ocorrências por timestamp).
+    """
+    code: str
+    fail_message: str
+    ok_message: str
+    offenders: Callable[[list[Rep]], list[Rep]]
+
 
 @dataclass
 class ExerciseSpec:
@@ -74,6 +98,7 @@ class ExerciseSpec:
     extremum: str                                # "bottom" | "top" do sinal
     min_range: float                             # variação mínima = houve movimento
     checks: list[Check]
+    series_checks: list[SeriesCheck] = field(default_factory=list)
 
 
 def _smooth(values: list[float], window: int = 5) -> list[float]:
@@ -140,11 +165,25 @@ def analyze(spec: ExerciseSpec, frames: list[FrameSignals]) -> HeuristicResult:
     issues: list[Issue] = []
     correct_points: list[CorrectPoint] = []
     for check in spec.checks:
-        failed_at = [round(r.t, 1) for r in reps if not check.passes(r)]
+        checked = reps[:-1] if check.skip_last and len(reps) > 1 else reps
+        failed_at = [round(r.t, 1) for r in checked if not check.passes(r)]
         if failed_at:
             issues.append(Issue(check.code, check.fail_message, failed_at))
         else:
             correct_points.append(CorrectPoint(check.code, check.ok_message))
+
+    # `series_check`, e não `series`: esta função já tem um `series` — o sinal suavizado —, e
+    # o laço o sobrescrevia. O erro só aparecia no fim, ao montar as métricas.
+    for series_check in spec.series_checks:
+        offenders = series_check.offenders(reps)
+        if offenders:
+            issues.append(Issue(
+                series_check.code,
+                series_check.fail_message,
+                [round(r.t, 1) for r in offenders]))
+        else:
+            correct_points.append(
+                CorrectPoint(series_check.code, series_check.ok_message))
 
     return HeuristicResult(
         rep_count=len(extremes),
@@ -200,6 +239,30 @@ def _squat_depth(rep: Rep) -> bool:
     return lowest.knee_angle <= 100 or lowest.hip_y >= lowest.knee_y - 0.02
 
 
+def _shallow_reps(reps: list[Rep], tolerance: float = 20.0) -> list[Rep]:
+    """As repetições que ficaram bem mais curtas que a mais funda da própria série.
+
+    **A referência é a melhor repetição, não a média.** O que se quer dizer é "você desce até
+    aqui, e nestas você não desceu" — comparar com a média diluiria justamente a repetição
+    encurtada dentro do número que ela mesma puxou para baixo.
+
+    Abaixo de três repetições não há série para comparar: com duas, chamar uma de destoante é
+    ruído, porque não há como saber qual das duas é a típica.
+
+    **Tem um teto, e ele não é desta função.** O `_find_bottoms` normaliza o sinal pela faixa
+    do próprio vídeo e só fecha um ciclo abaixo de 35% dela — uma repetição muito mais curta
+    que as outras não passa desse corte e **não vira repetição nenhuma**. Ou seja: a série que
+    desanda de leve é pega aqui; a que desanda muito perde as repetições ruins antes de chegar
+    aqui, e o sintoma vira contagem baixa em vez de ocorrência. É a mesma mecânica que conta
+    uma rosca de vinte segundos como uma repetição só.
+    """
+    if len(reps) < 3:
+        return []
+    depths = [min(f.knee_angle for f in rep.window) for rep in reps]
+    deepest = min(depths)
+    return [rep for rep, depth in zip(reps, depths) if depth - deepest > tolerance]
+
+
 # ---------------------------------------------------------------------------
 # Catálogo de exercícios suportados.
 
@@ -212,10 +275,31 @@ SPECS: dict[str, ExerciseSpec] = {
                   "Profundidade insuficiente: desça até o quadril passar da linha do joelho.",
                   "Profundidade adequada — o quadril chegou à linha do joelho.",
                   _squat_depth),
+            # 55° era quase um bom-dia: nessa inclinação o quadril já assumiu o movimento e a
+            # barra saiu da linha do pé. 45 reprova o que precisa ser reprovado e ainda deixa
+            # margem para quem tem fêmur longo, que agacha inclinado por anatomia e não por
+            # erro — o agachamento medido nesta calibração fica em 30–34°.
             Check("excessive_trunk_lean",
                   "Inclinação excessiva do tronco na descida — mantenha o peito mais erguido.",
                   "Tronco firme na descida, sem inclinar demais.",
-                  lambda rep: max(f.trunk_angle for f in rep.window) <= 55),
+                  lambda rep: max(f.trunk_angle for f in rep.window) <= 45),
+            # Subir só até 165° já é joelho praticamente estendido; abaixo disso a pessoa
+            # emendou a próxima repetição agachada, que é o erro que rouba a parte final do
+            # movimento e cansa o quadríceps antes da hora.
+            Check("incomplete_lockout",
+                  "Você emenda a próxima repetição sem terminar de subir — estenda o joelho "
+                  "por completo entre elas.",
+                  "Extensão completa do joelho entre as repetições.",
+                  lambda rep: max(
+                      f.knee_angle for f in rep.segment or rep.window) >= 165,
+                  skip_last=True),
+        ],
+        series_checks=[
+            SeriesCheck("inconsistent_depth",
+                        "A profundidade caiu no meio da série — as repetições marcadas ficaram "
+                        "bem mais curtas que a sua melhor.",
+                        "Profundidade constante do começo ao fim da série.",
+                        _shallow_reps),
         ]),
     "lunge": ExerciseSpec(
         label="afundo", signal=_knee, signal_name="knee_angle_deg",
