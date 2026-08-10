@@ -7,7 +7,7 @@ localmente) simulando o módulo analysis com um FrameSignals equivalente.
 import math
 import sys
 import types
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 VISION = Path(__file__).resolve().parents[1]
@@ -41,14 +41,22 @@ heuristics = importlib.import_module("app.heuristics")
 FPS = 12.0
 
 
-def series(reps: int, frame_at):
-    """Gera `reps` ciclos senoidais de 3 s chamando frame_at(t, phase 0..1)."""
+def series(reps: int, frame_at, period: float = 3.0):
+    """Gera `reps` ciclos senoidais de `period` s chamando frame_at(t, phase 0..1)."""
     frames = []
-    for i in range(int(reps * 3.0 * FPS)):
+    for i in range(int(reps * period * FPS)):
         t = i / FPS
-        phase = math.sin(math.pi * ((t % 3.0) / 3.0))  # 0 no início/fim, 1 no meio da rep
+        phase = math.sin(math.pi * ((t % period) / period))  # 0 no início/fim, 1 no meio da rep
         frames.append(frame_at(t, phase))
     return frames
+
+
+def with_glitch(frames, at_t, **overrides):
+    """Estraga UM frame, como o MediaPipe faz quando perde um landmark por um instante."""
+    return [
+        replace(f, **overrides) if abs(f.t - at_t) < 0.5 / FPS else f
+        for f in frames
+    ]
 
 
 def neutral(t, *, knee=175, hip=170, elbow=170, trunk=10, hip_y=0.5, knee_y=0.7, shoulder_y=0.25, wrist_y=0.8):
@@ -76,6 +84,22 @@ def make_squat_fading(depths, trunk_at_bottom=30):
             trunk=10 + (trunk_at_bottom - 10) * d, hip_y=0.5 + 0.25 * d)
 
     return series(len(depths), frame_at)
+
+
+def make_fast_squat(reps, period):
+    """Agachamento de cadência rápida, com um instante parado no topo e no fundo.
+
+    A senoide de `make_squat` passa pelo extremo em UM frame. A 12 fps, numa repetição de 1 s,
+    isso não é extremo de movimento nenhum — é pico de uma amostra só, indistinguível de erro
+    do MediaPipe. Achatar as pontas modela a parada que existe de verdade entre a descida e a
+    subida, e é o que torna o caso comparável a um vídeo real de série rápida.
+    """
+    def frame_at(t, d):
+        flat = min(1.0, max(0.0, (d - 0.25) / 0.5))
+        return neutral(t, knee=175 - 105 * flat, hip=170 - 80 * flat,
+                       trunk=10 + 20 * flat, hip_y=0.5 + 0.25 * flat)
+
+    return series(reps, frame_at, period=period)
 
 
 def make_deadlift(reps, top_hip, knee_at_bottom=135):
@@ -399,6 +423,66 @@ check("panturrilha ruim: detecta torso_swing", "torso_swing" in codes(r), f"(iss
 
 r = run("calf_raise", [neutral(i / FPS) for i in range(60)])
 check("panturrilha parada: nao avaliavel", r.not_evaluable_reason is not None)
+
+# --- Robustez a frame estragado ---------------------------------------------
+# As checagens leem o EXTREMO da repetição, então um frame chutado pelo MediaPipe valia por
+# toda a repetição. Estes casos prendem os extremos robustos: um frame não decide mais nada.
+
+r = run("squat", with_glitch(
+    make_squat(4, min_knee=120, trunk_at_bottom=30, deep=False), at_t=1.5, knee_angle=60))
+check("squat raso com 1 frame chutado: continua raso nas 4 reps",
+      "insufficient_depth" in codes(r)
+      and len([i for i in r.issues if i.code == "insufficient_depth"][0].timestamps_sec) == 4,
+      f"(marcas={[i.timestamps_sec for i in r.issues if i.code == 'insufficient_depth']})")
+check("squat raso com 1 frame chutado: nao inventa repeticao", r.rep_count == 4,
+      f"(reps={r.rep_count})")
+
+# Amplitude de tronco é a leitura mais sensível de todas: um pico sozinho inventava o balanço.
+r = run("biceps_curl", with_glitch(
+    make_curl(4, top_flex=50, bottom_ext=170, trunk_swing=0), at_t=3.0, trunk_angle=60))
+check("rosca com 1 frame chutado: nao acusa balanco", "torso_swing" in ok_codes(r),
+      f"(issues={codes(r)})")
+check("rosca com 1 frame chutado: segue sem issues", not r.issues, f"(issues={codes(r)})")
+
+# --- A última repetição nas checagens de retorno ------------------------------
+# O `segment` da última vai até o fim do vídeo, e quem larga o peso depois da última rosca
+# nunca "volta". Sem a flag, essa repetição reprovava sempre — falso positivo sistemático,
+# e logo na última, que é onde o usuário menos duvida do app.
+r = run("biceps_curl", make_curl(4, top_flex=50, bottom_ext=130, trunk_swing=0))
+check("rosca sem estender: detecta incomplete_extension",
+      "incomplete_extension" in codes(r), f"(issues={codes(r)})")
+check("rosca sem estender: a ultima rep nao conta",
+      len([i for i in r.issues if i.code == "incomplete_extension"][0].timestamps_sec) == 3,
+      f"(marcas={[i.timestamps_sec for i in r.issues if i.code == 'incomplete_extension']})")
+
+# E a linha para de valer nas checagens que exigem MANTER algo ao longo do trecho: ali o vídeo
+# acabar cedo só tira a chance de reprovar, e pular a última custaria detecção de graça.
+r = run("push_up", make_pushup(4, bottom_elbow=80, hip_line=130))
+check("flexao com quadril caido: conta as 4 reps",
+      len([i for i in r.issues if i.code == "hip_sag"][0].timestamps_sec) == 4,
+      f"(marcas={[i.timestamps_sec for i in r.issues if i.code == 'hip_sag']})")
+
+# --- Janela do extremo proporcional à cadência -------------------------------
+# A meia-largura era fixa em 0,5 s, e por isso dizia coisas diferentes conforme a cadência:
+# numa repetição de 1 s cobria o movimento inteiro, e a "janela do fundo" lia a subida junto.
+check("janela: cadencia rapida encurta a janela",
+      heuristics._window_radius([0.0, 1.2, 2.4, 3.6]) == 0.3,
+      f"(raio={heuristics._window_radius([0.0, 1.2, 2.4, 3.6])})")
+check("janela: cadencia lenta para no teto",
+      heuristics._window_radius([0.0, 4.0, 8.0]) == 0.75,
+      f"(raio={heuristics._window_radius([0.0, 4.0, 8.0])})")
+check("janela: com uma repeticao so, nao ha periodo para medir",
+      heuristics._window_radius([1.5]) == 0.5,
+      f"(raio={heuristics._window_radius([1.5])})")
+
+r = run("squat", make_fast_squat(4, period=1.0))
+check("squat rapido: 4 reps", r.rep_count == 4, f"(reps={r.rep_count})")
+check("squat rapido bem executado: sem issues", not r.issues, f"(issues={codes(r)})")
+
+# E a cadência lenta continua enxergando o que é de fato do fundo.
+r = run("squat", make_squat(4, min_knee=75, trunk_at_bottom=70, deep=True))
+check("squat lento inclinado no fundo: continua acusando",
+      "excessive_trunk_lean" in codes(r), f"(issues={codes(r)})")
 
 # --- Catálogo completo -----------------------------------------------------
 check("catalogo: 24 exercicios", len(heuristics.HEURISTICS) == 24, f"(n={len(heuristics.HEURISTICS)})")

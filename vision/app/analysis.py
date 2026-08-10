@@ -6,6 +6,7 @@ mais barato que processar todos os frames de um vídeo 30 fps.
 
 import math
 import os
+import statistics
 import subprocess
 import tempfile
 from dataclasses import dataclass
@@ -15,7 +16,23 @@ import mediapipe as mp
 
 MAX_DURATION_SEC = 60
 TARGET_FPS = 12
-MIN_POSE_COVERAGE = 0.5  # fração mínima de frames com pose para o vídeo ser avaliável
+
+# Fração mínima de frames com pose UTILIZÁVEL para o vídeo ser avaliável — frame em que a
+# pessoa aparece encoberta não conta, ainda que o modelo tenha chutado landmarks nele.
+MIN_POSE_COVERAGE = 0.5
+
+# Visibilidade média mínima dos seis landmarks do lado analisado para o frame entrar na conta.
+#
+# Sem este corte, articulação encoberta virava ângulo mesmo assim: o MediaPipe sempre devolve
+# uma posição, confiante ou não. E como as checagens leem extremos (o joelho mais fechado da
+# repetição), bastava um frame chutado para uma repetição rasa passar por funda.
+MIN_SIDE_VISIBILITY = 0.5
+
+# Acima desta razão o vídeo está frontal demais para as heurísticas, que são todas de perfil.
+# Conservador de propósito: recusa o que está claramente de frente, não o que está um pouco
+# torto. Vídeo torto ainda vale mais que nenhum — vídeo de frente vale menos que nenhum,
+# porque produz nota confiante e errada.
+MAX_CAMERA_FRONTALITY = 0.75
 
 
 class BusinessError(Exception):
@@ -35,13 +52,39 @@ class FrameSignals:
     wrist_y: float
 
 
+@dataclass
+class PoseExtraction:
+    """O que `process_video` apurou sobre o vídeo.
+
+    Virou objeto quando `frontality` entrou: uma tupla de quatro posições já exigia conferir a
+    ordem no ponto de uso, e o quarto valor é justamente o que decide se a análise sai ou não.
+    """
+    frames: list[FrameSignals]
+    coverage: float
+    duration: float
+    frontality: float | None
+
+
+@dataclass
+class _Sample:
+    """Um frame amostrado, com os sinais dos DOIS lados ainda em aberto."""
+    t: float
+    sides: tuple[FrameSignals, FrameSignals]
+    visibility: tuple[float, float]
+    frontality: float | None
+
+
 def _angle(a, b, c) -> float:
-    """Ângulo em graus no vértice b, formado pelos pontos a-b-c (2D)."""
-    v1 = (a[0] - b[0], a[1] - b[1])
-    v2 = (c[0] - b[0], c[1] - b[1])
-    dot = v1[0] * v2[0] + v1[1] * v2[1]
-    n1 = math.hypot(*v1)
-    n2 = math.hypot(*v2)
+    """Ângulo em graus no vértice b, formado pelos pontos a-b-c.
+
+    Aceita 2D ou 3D: os pontos vêm em 3D quando o MediaPipe devolve os landmarks métricos,
+    e em pixels quando não devolve.
+    """
+    v1 = tuple(x - y for x, y in zip(a, b))
+    v2 = tuple(x - y for x, y in zip(c, b))
+    dot = sum(x * y for x, y in zip(v1, v2))
+    n1 = math.sqrt(sum(x * x for x in v1))
+    n2 = math.sqrt(sum(x * x for x in v2))
     if n1 < 1e-6 or n2 < 1e-6:
         return 180.0
     cos = max(-1.0, min(1.0, dot / (n1 * n2)))
@@ -57,16 +100,54 @@ def _side_visibility(landmarks, side: int) -> float:
     return sum(landmarks[i].visibility for i in ids) / len(ids)
 
 
-def _extract_signals(landmarks, t: float, width: int, height: int) -> FrameSignals:
-    # Vídeo lateral: usa o lado mais visível para a câmera.
-    side = 0 if _side_visibility(landmarks, 0) >= _side_visibility(landmarks, 1) else 1
-    # Ângulos em espaço de PIXELS: coordenadas normalizadas (0-1) distorcem com a
-    # proporção da tela — o mesmo movimento daria ângulos diferentes em 16:9 e 9:16.
-    p = lambda i: (landmarks[i].x * width, landmarks[i].y * height)
-    shoulder, elbow, wrist = p(SHOULDER[side]), p(ELBOW[side]), p(WRIST[side])
-    hip, knee, ankle = p(HIP[side]), p(KNEE[side]), p(ANKLE[side])
+def _frontality(landmarks, width: int, height: int) -> float | None:
+    """Quão de frente a câmera está: ~0,2 de perfil, ~0,9 de frente.
 
-    dx, dy = shoulder[0] - hip[0], shoulder[1] - hip[1]
+    Largura ombro-a-ombro dividida pelo comprimento do tronco, ambas em PIXELS. De lado os
+    ombros se sobrepõem e a largura vira a espessura do tronco; de frente ela é quase o
+    comprimento inteiro. O tronco serve de régua porque não encurta quando a pessoa gira em
+    torno do próprio eixo — é o que torna a razão comparável entre corpos diferentes, e o
+    que a faz valer também deitado (supino) ou em prancha (flexão).
+    """
+    p = lambda i: (landmarks[i].x * width, landmarks[i].y * height)
+    left_shoulder, right_shoulder = p(SHOULDER[0]), p(SHOULDER[1])
+    left_hip, right_hip = p(HIP[0]), p(HIP[1])
+
+    midpoint = lambda a, b: ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
+    torso = math.dist(
+        midpoint(left_shoulder, right_shoulder), midpoint(left_hip, right_hip))
+    if torso < 1e-6:
+        return None
+    return math.dist(left_shoulder, right_shoulder) / torso
+
+
+def _extract_signals(landmarks, world, side: int, t: float, width: int, height: int) -> FrameSignals:
+    """Sinais de um frame, para um lado do corpo.
+
+    Os ângulos articulares saem dos landmarks MÉTRICOS (`pose_world_landmarks`, em metros com
+    origem no quadril), e não da imagem. A projeção 2D encurta o ângulo quando a câmera não
+    está exatamente de lado, e esse erro é ENVIESADO, não ruído: sempre faz o agachamento
+    parecer mais raso do que foi. Suavizar não tira viés — medir em 3D tira.
+    """
+    if world is not None:
+        q = lambda i: (world[i].x, world[i].y, world[i].z)
+    else:
+        # Sem os pontos métricos, cai para pixels. Coordenadas normalizadas (0-1) não servem:
+        # distorcem com a proporção da tela, e o mesmo movimento daria ângulos diferentes em
+        # 16:9 e 9:16.
+        q = lambda i: (landmarks[i].x * width, landmarks[i].y * height)
+
+    shoulder, elbow, wrist = q(SHOULDER[side]), q(ELBOW[side]), q(WRIST[side])
+    hip, knee, ankle = q(HIP[side]), q(KNEE[side]), q(ANKLE[side])
+
+    # A inclinação do tronco fica na IMAGEM, e não nos pontos métricos: ela é medida contra a
+    # vertical da CENA, que a imagem dá de graça (câmera em pé), enquanto o espaço 3D do
+    # MediaPipe é reconstruído a cada frame com origem no quadril e não é referência confiável
+    # de gravidade. O ruído de `z` entraria direto em `_trunk_stable`, que compara a AMPLITUDE
+    # do tronco na repetição — o teste mais sensível a ruído de todos.
+    shoulder_px = (landmarks[SHOULDER[side]].x * width, landmarks[SHOULDER[side]].y * height)
+    hip_px = (landmarks[HIP[side]].x * width, landmarks[HIP[side]].y * height)
+    dx, dy = shoulder_px[0] - hip_px[0], shoulder_px[1] - hip_px[1]
     trunk = math.degrees(math.atan2(abs(dx), abs(dy))) if abs(dy) > 1e-6 else 90.0
 
     # As posições verticais continuam normalizadas — as heurísticas comparam
@@ -85,11 +166,21 @@ def _extract_signals(landmarks, t: float, width: int, height: int) -> FrameSigna
     )
 
 
-def process_video(video_path: str, overlay_path: str | None):
-    """Extrai sinais por frame e, opcionalmente, grava o vídeo com o esqueleto.
+def _dominant_side(samples: list[_Sample]) -> int:
+    """O lado voltado para a câmera, decidido UMA vez para o vídeo inteiro.
 
-    Retorna (frames: list[FrameSignals], pose_coverage: float, duration_sec: float).
+    Escolher quadro a quadro parecia mais esperto e era pior: perto do empate a visibilidade
+    oscila, o sinal alterna entre perna esquerda e direita — que no afundo estão em ângulos
+    bem diferentes — e a troca vira uma oscilação que não existiu no movimento. O detector de
+    repetição conta oscilação, então isso saía como repetição a mais.
     """
+    left = statistics.fmean(s.visibility[0] for s in samples)
+    right = statistics.fmean(s.visibility[1] for s in samples)
+    return 0 if left >= right else 1
+
+
+def process_video(video_path: str, overlay_path: str | None) -> PoseExtraction:
+    """Extrai sinais por frame e, opcionalmente, grava o vídeo com o esqueleto."""
     capture = cv2.VideoCapture(video_path)
     if not capture.isOpened():
         raise BusinessError("Não foi possível ler o vídeo. Use MP4, MOV ou WebM.")
@@ -117,7 +208,7 @@ def process_video(video_path: str, overlay_path: str | None):
     drawing = mp.solutions.drawing_utils
     pose_connections = mp.solutions.pose.POSE_CONNECTIONS
 
-    frames: list[FrameSignals] = []
+    samples: list[_Sample] = []
     sampled = 0
     with mp.solutions.pose.Pose(model_complexity=1, min_detection_confidence=0.5) as pose:
         index = 0
@@ -140,8 +231,20 @@ def process_video(video_path: str, overlay_path: str | None):
 
             result = pose.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             if result.pose_landmarks:
-                frames.append(_extract_signals(
-                    result.pose_landmarks.landmark, t, frame_width, frame_height))
+                landmarks = result.pose_landmarks.landmark
+                world = (result.pose_world_landmarks.landmark
+                         if result.pose_world_landmarks else None)
+                # Os dois lados são calculados agora e a escolha fica para o fim do vídeo,
+                # quando dá para olhar a série inteira. Custa duas contas de ângulo por frame,
+                # irrelevante ao lado da estimativa de pose.
+                samples.append(_Sample(
+                    t=t,
+                    sides=tuple(
+                        _extract_signals(landmarks, world, side, t, frame_width, frame_height)
+                        for side in (0, 1)),
+                    visibility=tuple(_side_visibility(landmarks, side) for side in (0, 1)),
+                    frontality=_frontality(landmarks, frame_width, frame_height),
+                ))
                 if writer is not None:
                     drawing.draw_landmarks(frame, result.pose_landmarks, pose_connections)
             if writer is not None:
@@ -155,11 +258,24 @@ def process_video(video_path: str, overlay_path: str | None):
 
     if sampled == 0:
         raise BusinessError("Vídeo vazio ou corrompido.")
-    coverage = len(frames) / sampled
-    if not frames:
+    if not samples:
         raise BusinessError(
             "Não foi possível detectar uma pessoa no vídeo. Grave de lado, com o corpo inteiro no enquadramento.")
-    return frames, coverage, duration
+
+    side = _dominant_side(samples)
+    frames = [s.sides[side] for s in samples if s.visibility[side] >= MIN_SIDE_VISIBILITY]
+    if not frames:
+        raise BusinessError(
+            "O corpo aparece encoberto ou cortado no vídeo inteiro. Grave de lado, com o corpo inteiro no enquadramento.")
+
+    frontalities = [s.frontality for s in samples if s.frontality is not None]
+    return PoseExtraction(
+        frames=frames,
+        coverage=len(frames) / sampled,
+        duration=duration,
+        # Mediana, e não média: basta um frame com os ombros mal estimados para a média subir.
+        frontality=statistics.median(frontalities) if frontalities else None,
+    )
 
 
 def _transcode_h264(source: str, destination: str) -> None:

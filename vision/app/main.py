@@ -6,6 +6,9 @@ que fala com ele por `MYOTRACK_VISION_BASE_URL` (`http://localhost:8000` em dese
 Vídeo não trafega por aqui: o serviço lê o original e grava o overlay **direto no MinIO**, com
 as mesmas credenciais do backend. O que a API manda são chaves de objeto — um vídeo de série
 ida e volta seriam dezenas de MB de tráfego interno sem propósito.
+
+Este módulo é só o transporte. A análise mora em `evaluation.py`, para o harness de medição
+poder rodar o mesmo caminho sem storage nem HTTP.
 """
 
 import logging
@@ -16,8 +19,9 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from . import storage
-from .analysis import BusinessError, process_video
-from .heuristics import HEURISTICS, compute_score
+from .analysis import BusinessError
+from .evaluation import evaluate
+from .heuristics import HEURISTICS
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("vision")
@@ -38,8 +42,8 @@ def health():
 
 @app.post("/analyze")
 def analyze(request: AnalyzeRequest):
-    heuristic = HEURISTICS.get(request.exercise)
-    if heuristic is None:
+    # Conferido ANTES do download: não vale baixar dezenas de MB para recusar o exercício.
+    if request.exercise not in HEURISTICS:
         raise HTTPException(400, f"Exercício não suportado: {request.exercise}")
 
     suffix = os.path.splitext(request.media_key)[1] or ".mp4"
@@ -53,34 +57,16 @@ def analyze(request: AnalyzeRequest):
 
         logger.info("Analisando %s (%s)", request.media_key, request.exercise)
         try:
-            frames, coverage, duration = process_video(video_path, overlay_path)
+            result = evaluate(video_path, request.exercise, overlay_path)
         except BusinessError as error:
             raise HTTPException(400, str(error))
-
-        result = heuristic(frames)
-        if result.not_evaluable_reason is None and coverage < 0.5:
-            result.not_evaluable_reason = (
-                "Pose detectada em poucos frames — grave em um local iluminado, "
-                "de lado e com o corpo inteiro no enquadramento.")
 
         overlay_key = None
         if overlay_path is not None and os.path.exists(overlay_path):
             storage.upload(overlay_path, request.overlay_key, "video/mp4")
             overlay_key = request.overlay_key
 
-        return {
-            "score": compute_score(result),
-            "rep_count": result.rep_count,
-            "issues": [vars(issue) for issue in result.issues],
-            "correct_points": [vars(point) for point in result.correct_points],
-            "metrics": {
-                **result.metrics,
-                "duration_sec": round(duration, 1),
-                "pose_coverage": round(coverage, 2),
-            },
-            "not_evaluable_reason": result.not_evaluable_reason,
-            "overlay_key": overlay_key,
-        }
+        return {**result, "overlay_key": overlay_key}
     finally:
         for path in (video_path, overlay_path):
             if path and os.path.exists(path):
