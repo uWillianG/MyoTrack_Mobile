@@ -46,6 +46,7 @@ def analyse(corpus: Path, entry: dict) -> dict:
         "expected_evaluable": entry.get("evaluable", True),
         "reps": None,
         "issues": set(),
+        "checks": {},
         "coverage": None,
         "frontality": None,
         "refused": False,
@@ -70,6 +71,7 @@ def analyse(corpus: Path, entry: dict) -> dict:
 
     row["reps"] = result["rep_count"]
     row["issues"] = {issue["code"] for issue in result["issues"]}
+    row["checks"] = {c["code"]: c for c in result["metrics"].get("checks", [])}
     row["coverage"] = result["metrics"].get("pose_coverage")
     row["frontality"] = result["metrics"].get("camera_frontality")
     row["refused"] = result["not_evaluable_reason"] is not None
@@ -171,6 +173,49 @@ def report_checks(rows: list[dict]) -> None:
     print()
 
 
+def _format_reading(reading: dict) -> str:
+    if reading.get("value") is None:
+        return "—"
+    comparison = "<=" if reading["comparison"] == "at_most" else ">="
+    label = f"{reading['label']}: " if reading.get("label") else ""
+    return f"{label}{reading['value']:g} {comparison} {reading['limit']:g} {reading['unit']}"
+
+
+def report_margins(rows: list[dict]) -> None:
+    """Onde a análise discordou do gabarito, e por QUANTO.
+
+    É a tabela de calibração. Se as ocorrências perdidas passaram todas com 2–5° de folga, o
+    limite está 5° frouxo, e o número para movê-lo deixa de ser palpite. Se passaram com 30°,
+    o problema não é o limite — é o sinal, ou a leitura, ou o gabarito.
+    """
+    mismatches = []
+    for row in rows:
+        if not row["expected_evaluable"] or row["refused"] or row["error"]:
+            continue
+        for code in sorted(row["expected_issues"] | row["issues"]):
+            expected, got = code in row["expected_issues"], code in row["issues"]
+            if expected != got:
+                mismatches.append((row, code, "perdeu" if expected else "inventou"))
+
+    print("MARGENS DAS CHECAGENS QUE ERRARAM")
+    print("  Folga positiva = a checagem passou; negativa = reprovou.")
+    if not mismatches:
+        print("  (nenhuma discordância entre análise e gabarito)\n")
+        return
+
+    print(f"  {'arquivo':<24} {'código':<24} {'erro':<9} {'folga':>8}  leitura decisiva")
+    for row, code, kind in mismatches:
+        report = row["checks"].get(code)
+        if report is None:
+            print(f"  {row['file']:<24} {code:<24} {kind:<9} {'—':>8}  "
+                  "(checagem sem leitura — comparação entre repetições)")
+            continue
+        slack = "—" if report["slack"] is None else f"{report['slack']:+.2f}"
+        readings = " | ".join(_format_reading(r) for r in report["readings"]) or "—"
+        print(f"  {row['file']:<24} {code:<24} {kind:<9} {slack:>8}  {readings}")
+    print()
+
+
 def report_refusals(rows: list[dict]) -> None:
     should = [r for r in rows if not r["expected_evaluable"]]
     refused_right = sum(1 for r in should if r["refused"])
@@ -202,6 +247,7 @@ def main(argv: list[str]) -> int:
     report_videos(rows)
     report_reps(rows)
     report_checks(rows)
+    report_margins(rows)
     report_refusals(rows)
     return 0
 

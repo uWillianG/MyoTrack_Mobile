@@ -51,6 +51,14 @@ def series(reps: int, frame_at, period: float = 3.0):
     return frames
 
 
+def hold_after(frames, seconds):
+    """Segue gravando depois da última repetição, parado na posição em que ela terminou."""
+    last = frames[-1]
+    return frames + [
+        replace(last, t=last.t + (i + 1) / FPS) for i in range(int(seconds * FPS))
+    ]
+
+
 def with_glitch(frames, at_t, **overrides):
     """Estraga UM frame, como o MediaPipe faz quando perde um landmark por um instante."""
     return [
@@ -455,6 +463,17 @@ check("rosca sem estender: a ultima rep nao conta",
       len([i for i in r.issues if i.code == "incomplete_extension"][0].timestamps_sec) == 3,
       f"(marcas={[i.timestamps_sec for i in r.issues if i.code == 'incomplete_extension']})")
 
+# Mas quem continuou gravando tem a volta REGISTRADA, e aí a última é julgada como qualquer
+# outra. Ignorá-la sempre escondia o erro mais provável da série: a última é onde a fadiga
+# cobra, e era exatamente ela que sumia do relatório.
+r = run("biceps_curl", hold_after(
+    make_curl(4, top_flex=50, bottom_ext=130, trunk_swing=0), seconds=2.0))
+check("rosca sem estender, camera ligada ate o fim: 4 reps", r.rep_count == 4,
+      f"(reps={r.rep_count})")
+check("rosca sem estender, camera ligada ate o fim: conta as 4",
+      len([i for i in r.issues if i.code == "incomplete_extension"][0].timestamps_sec) == 4,
+      f"(marcas={[i.timestamps_sec for i in r.issues if i.code == 'incomplete_extension']})")
+
 # E a linha para de valer nas checagens que exigem MANTER algo ao longo do trecho: ali o vídeo
 # acabar cedo só tira a chance de reprovar, e pular a última custaria detecção de graça.
 r = run("push_up", make_pushup(4, bottom_elbow=80, hip_line=130))
@@ -483,6 +502,58 @@ check("squat rapido bem executado: sem issues", not r.issues, f"(issues={codes(r
 r = run("squat", make_squat(4, min_knee=75, trunk_at_bottom=70, deep=True))
 check("squat lento inclinado no fundo: continua acusando",
       "excessive_trunk_lean" in codes(r), f"(issues={codes(r)})")
+
+# --- Instrumentação: o que cada checagem leu ---------------------------------
+# Sem isto, "sem pontos a melhorar" não é auditável: não dá para distinguir execução boa de
+# limite que passou raspando, e mexer no limite vira palpite.
+
+def checks_of(result):
+    return {c["code"]: c for c in result.metrics["checks"]}
+
+
+r = run("squat", make_squat(5, min_knee=70, trunk_at_bottom=35, deep=True))
+check("instrumentacao: uma entrada por checagem", len(r.metrics["checks"]) == 4,
+      f"(n={len(r.metrics['checks'])})")
+check("instrumentacao: profundidade traz as duas leituras",
+      len(checks_of(r)["insufficient_depth"]["readings"]) == 2,
+      f"(leituras={checks_of(r)['insufficient_depth']['readings']})")
+lean = checks_of(r)["excessive_trunk_lean"]["readings"][0]
+check("instrumentacao: leitura traz limite, comparacao e unidade",
+      lean["limit"] == 45 and lean["comparison"] == "at_most" and lean["unit"] == "deg",
+      f"({lean})")
+check("instrumentacao: checagem de serie entra sem leitura",
+      checks_of(r)["inconsistent_depth"]["readings"] == []
+      and checks_of(r)["inconsistent_depth"]["slack"] is None)
+
+# O caso que motivou tudo: passou, mas por 5°. Antes disso o relatório dizia só "profundidade
+# adequada", e não havia como saber que o limite estava decidindo no fio.
+r = run("squat", make_squat(4, min_knee=95, trunk_at_bottom=30, deep=False))
+depth = checks_of(r)["insufficient_depth"]
+check("instrumentacao: profundidade no limite vira ponto correto",
+      depth["passed"] and "insufficient_depth" in ok_codes(r), f"(issues={codes(r)})")
+check("instrumentacao: e a folga mostra que passou raspando", 0 < depth["slack"] < 6,
+      f"(folga={depth['slack']})")
+
+r = run("squat", make_squat(4, min_knee=120, trunk_at_bottom=30, deep=False))
+depth = checks_of(r)["insufficient_depth"]
+check("instrumentacao: reprovada tem folga negativa",
+      not depth["passed"] and depth["slack"] < 0, f"(folga={depth['slack']})")
+
+# O veredito TEM de sair da mesma conta que a folga — é o ponto de derivar o booleano da
+# medição em vez de calcular a leitura por fora. Os valores abaixo ficam colados nos limites
+# de propósito, para o invariante ser exercitado perto do zero.
+for exercise, frames in [
+    ("squat", make_squat(4, min_knee=95, trunk_at_bottom=44, deep=False)),
+    ("biceps_curl", make_curl(4, top_flex=69, bottom_ext=151, trunk_swing=14)),
+    ("deadlift", make_deadlift(3, top_hip=161)),
+    ("push_up", make_pushup(4, bottom_elbow=99, hip_line=151)),
+]:
+    for c in run(exercise, frames).metrics["checks"]:
+        if c["slack"] is None:
+            continue
+        check(f"instrumentacao: {exercise}/{c['code']} veredito bate com a folga",
+              c["passed"] == (c["slack"] >= 0),
+              f"(passed={c['passed']}, folga={c['slack']})")
 
 # --- Catálogo completo -----------------------------------------------------
 check("catalogo: 24 exercicios", len(heuristics.HEURISTICS) == 24, f"(n={len(heuristics.HEURISTICS)})")

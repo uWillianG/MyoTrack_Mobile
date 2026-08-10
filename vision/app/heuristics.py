@@ -73,19 +73,83 @@ class Rep:
 
 
 @dataclass
+class Threshold:
+    """Uma leitura da repetição e o limite contra o qual ela é comparada.
+
+    Existe para o número que DECIDE e o número que o relatório mostra serem o mesmo. Enquanto
+    a checagem era um lambda que devolvia booleano, instrumentar significava recalcular a
+    leitura por fora — duas fontes de verdade que só precisam divergir uma vez para o relatório
+    mentir justamente onde alguém foi conferir.
+    """
+    measure: Callable[[Rep], float]
+    limit: float
+    at_most: bool          # True: passa com medida <= limite; False: passa com medida >= limite
+    unit: str = "deg"
+    label: str = ""        # só faz falta quando a checagem tem mais de uma leitura
+
+    def slack(self, rep: Rep) -> float:
+        """Quanto sobrou (positivo) ou faltou (negativo) para o limite nesta repetição.
+
+        É o número que diz se um "ponto correto" foi folgado ou passou raspando — e, portanto,
+        se o limite está no lugar ou só parece estar.
+        """
+        value = self.measure(rep)
+        return self.limit - value if self.at_most else value - self.limit
+
+    def passes(self, rep: Rep) -> bool:
+        return self.slack(rep) >= 0
+
+    def reading(self, reps: list[Rep]) -> dict:
+        """A leitura da repetição que passou mais perto de reprovar, ou que mais reprovou."""
+        comparison = "at_most" if self.at_most else "at_least"
+        if not reps:
+            return {"label": self.label, "value": None, "limit": self.limit,
+                    "comparison": comparison, "unit": self.unit, "slack": None}
+
+        worst = min(reps, key=self.slack)
+        return {
+            "label": self.label,
+            "value": round(self.measure(worst), 3),
+            "limit": self.limit,
+            "comparison": comparison,
+            "unit": self.unit,
+            "slack": round(self.slack(worst), 3),
+        }
+
+
+def at_most(measure: Callable[[Rep], float], limit: float,
+            unit: str = "deg", label: str = "") -> Threshold:
+    return Threshold(measure, limit, True, unit, label)
+
+
+def at_least(measure: Callable[[Rep], float], limit: float,
+             unit: str = "deg", label: str = "") -> Threshold:
+    return Threshold(measure, limit, False, unit, label)
+
+
+@dataclass
 class Check:
     """Uma checagem por repetição, com as duas leituras do resultado."""
     code: str
     fail_message: str
     ok_message: str
-    passes: Callable[[Rep], bool]
 
-    # Deixa a última repetição de fora.
+    # A repetição passa quando QUALQUER limite passa. Só a profundidade do agachamento tem mais
+    # de um: o mesmo defeito tem duas leituras válidas ali, o ângulo do joelho e a linha
+    # quadril-joelho, e exigir as duas reprovaria quem tem fêmur longo por anatomia.
+    thresholds: list[Threshold]
+
+    # Deixa a última repetição de fora QUANDO o vídeo acabou cedo demais.
     #
-    # O `segment` da última vai do fundo dela até o FIM DO VÍDEO — quem terminou a série e
-    # parou, largou o peso ou desligou a câmera nunca "volta", e toda checagem que lê o que
-    # vem depois do fundo reprova essa repetição sempre. É falso positivo sistemático, e o
-    # pior tipo: aparece só na última, que é onde o usuário menos duvida do app.
+    # O `segment` da última vai do fundo dela até o FIM DO VÍDEO. Quem largou o peso e desligou
+    # a câmera nunca "volta", e toda checagem que lê o que vem depois do fundo reprovaria essa
+    # repetição sempre — falso positivo sistemático, e do pior tipo: aparece só na última, que
+    # é onde o usuário menos duvida do app.
+    #
+    # Mas a condição é o vídeo ter acabado, e não a repetição ser a última. Ignorá-la sempre
+    # custa caro na direção oposta: a última é onde a fadiga cobra, e é a mais provável de ter
+    # o erro que o usuário precisa ver. Quem continuou gravando tem a volta registrada, e aí
+    # ela é julgada como qualquer outra — quem decide é `_last_rep_truncated`.
     #
     # Só vale a partir de duas repetições — com uma, ignorá-la seria não checar nada.
     #
@@ -96,6 +160,32 @@ class Check:
     # chance de reprovar, nunca a inventa, e pular a última repetição custaria detecção de
     # graça.
     skip_last: bool = False
+
+    def passes(self, rep: Rep) -> bool:
+        return any(threshold.passes(rep) for threshold in self.thresholds)
+
+    def slack(self, reps: list[Rep]) -> float | None:
+        """A margem que DECIDIU a checagem, na unidade do limite.
+
+        Por repetição, a melhor folga entre os limites — basta um passar. Da série, a pior
+        delas, porque uma repetição ruim reprova a checagem inteira. Assim `slack >= 0` é
+        exatamente `passed`, inclusive quando repetições diferentes passam por limites
+        diferentes — o caso da profundidade do agachamento, em que a folga por limite,
+        isolada, chega a parecer reprovação nos dois.
+        """
+        if not reps:
+            return None
+        return round(
+            min(max(t.slack(rep) for t in self.thresholds) for rep in reps), 3)
+
+    def report(self, reps: list[Rep], passed: bool) -> dict:
+        return {
+            "code": self.code,
+            "passed": passed,
+            "reps_checked": len(reps),
+            "slack": self.slack(reps),
+            "readings": [threshold.reading(reps) for threshold in self.thresholds],
+        }
 
 
 @dataclass
@@ -243,6 +333,20 @@ def _window_radius(extremes: list[float]) -> float:
                max(MIN_WINDOW_RADIUS_SEC, period * WINDOW_RADIUS_FRACTION))
 
 
+def _last_rep_truncated(extremes: list[float], times: list[float]) -> bool:
+    """O vídeo acabou antes de a última repetição ter como voltar?
+
+    A volta do movimento ocupa cerca de meio ciclo — do extremo até o extremo oposto. Se o que
+    sobrou de vídeo depois do último extremo é menos que isso, a repetição não teve chance de
+    completar, e aí ignorá-la se justifica. Se sobrou mais, a volta ESTÁ gravada e julgá-la é
+    o certo: a última repetição é onde a fadiga cobra, e é a que mais tem o que ensinar.
+    """
+    if len(extremes) < 2:
+        return True
+    period = statistics.median(b - a for a, b in zip(extremes, extremes[1:]))
+    return times[-1] - extremes[-1] < period / 2
+
+
 def _window(frames: list[FrameSignals], center: float, radius: float) -> list[FrameSignals]:
     return [f for f in frames if abs(f.t - center) <= radius]
 
@@ -268,6 +372,7 @@ def analyze(spec: ExerciseSpec, frames: list[FrameSignals]) -> HeuristicResult:
         return HeuristicResult(0, [], [], {}, "Nenhuma repetição completa detectada.")
 
     radius = _window_radius(extremes)
+    truncated = _last_rep_truncated(extremes, times)
     boundaries = extremes[1:] + [times[-1] + 1]
     reps = [
         Rep(t=t, window=_window(frames, t, radius), segment=_segment(frames, t, next_t))
@@ -277,13 +382,19 @@ def analyze(spec: ExerciseSpec, frames: list[FrameSignals]) -> HeuristicResult:
 
     issues: list[Issue] = []
     correct_points: list[CorrectPoint] = []
+    # O que cada checagem leu, tenha ela passado ou não. Sem isto, "sem pontos a melhorar" é
+    # afirmação sem lastro: não dá para saber se a execução foi boa ou se um limite passou
+    # raspando, e ajustar limite vira palpite.
+    reports: list[dict] = []
     for check in spec.checks:
-        checked = reps[:-1] if check.skip_last and len(reps) > 1 else reps
+        skip = check.skip_last and truncated and len(reps) > 1
+        checked = reps[:-1] if skip else reps
         failed_at = [round(r.t, 1) for r in checked if not check.passes(r)]
         if failed_at:
             issues.append(Issue(check.code, check.fail_message, failed_at))
         else:
             correct_points.append(CorrectPoint(check.code, check.ok_message))
+        reports.append(check.report(checked, not failed_at))
 
     # `series_check`, e não `series`: esta função já tem um `series` — o sinal suavizado —, e
     # o laço o sobrescrevia. O erro só aparecia no fim, ao montar as métricas.
@@ -297,6 +408,16 @@ def analyze(spec: ExerciseSpec, frames: list[FrameSignals]) -> HeuristicResult:
         else:
             correct_points.append(
                 CorrectPoint(series_check.code, series_check.ok_message))
+        # Sem leitura nem folga: a comparação aqui é entre repetições, não contra um limite
+        # fixo. As chaves ficam presentes, com None, para o consumidor não precisar saber de
+        # que tipo de checagem veio cada entrada.
+        reports.append({
+            "code": series_check.code,
+            "passed": not offenders,
+            "reps_checked": len(reps),
+            "slack": None,
+            "readings": [],
+        })
 
     return HeuristicResult(
         rep_count=len(extremes),
@@ -306,6 +427,10 @@ def analyze(spec: ExerciseSpec, frames: list[FrameSignals]) -> HeuristicResult:
             f"min_{spec.signal_name}": round(min(series), 2),
             f"max_{spec.signal_name}": round(max(series), 2),
             "max_trunk_lean_deg": round(_highest(frames, _trunk), 1),
+            # Vai dentro de `metrics` de propósito: o backend copia esse nó inteiro
+            # (`HttpVisionClient.toCamelCase`) e o app o tipa como mapa livre, então a
+            # instrumentação chega às duas pontas sem tocar em Java nem em Dart.
+            "checks": reports,
         },
     )
 
@@ -355,22 +480,34 @@ def _hip_below_knee(f: FrameSignals) -> float:
     return f.hip_y - f.knee_y
 
 
-def _trunk_stable(rep: Rep, max_range: float) -> bool:
-    # A AMPLITUDE do tronco é a leitura mais sensível a ruído de todas — dois frames ruins,
-    # um em cada ponta, inventam um balanço que não houve. Daí os extremos robustos.
+# Os quatro trechos de onde uma checagem lê. `window` é a janela em torno do extremo do
+# movimento — o fundo do agachamento, o topo do press. `return` é o trecho que cobre a VOLTA,
+# do extremo desta repetição até o da próxima: é onde vivem lockout, extensão e amplitude.
+
+def _window_low(signal: Callable[[FrameSignals], float]) -> Callable[[Rep], float]:
+    return lambda rep: _lowest(rep.window, signal)
+
+
+def _window_high(signal: Callable[[FrameSignals], float]) -> Callable[[Rep], float]:
+    return lambda rep: _highest(rep.window, signal)
+
+
+def _return_low(signal: Callable[[FrameSignals], float]) -> Callable[[Rep], float]:
+    return lambda rep: _lowest(rep.segment or rep.window, signal)
+
+
+def _return_high(signal: Callable[[FrameSignals], float]) -> Callable[[Rep], float]:
+    return lambda rep: _highest(rep.segment or rep.window, signal)
+
+
+def _trunk_range(rep: Rep) -> float:
+    """Quanto o tronco variou na repetição — a leitura de balanço, ou "roubo".
+
+    É a mais sensível a ruído de todas: dois frames ruins, um em cada ponta, inventam um
+    balanço que não houve. Daí os extremos robustos dos dois lados.
+    """
     frames = rep.segment or rep.window
-    return _highest(frames, _trunk) - _lowest(frames, _trunk) <= max_range
-
-
-def _squat_depth(rep: Rep) -> bool:
-    # Profundidade: joelho fechando o suficiente OU quadril na linha do joelho.
-    #
-    # Cada condição é medida no PRÓPRIO extremo, e não as duas no frame de joelho mais
-    # fechado: o ponto mais fundo pelo quadril pode cair um ou dois frames adiante, e ler a
-    # posição do quadril no instante escolhido pelo joelho respondia uma pergunta que ninguém
-    # fez.
-    return (_lowest(rep.window, _knee) <= 100
-            or _highest(rep.window, _hip_below_knee) >= -0.02)
+    return _highest(frames, _trunk) - _lowest(frames, _trunk)
 
 
 def _shallow_reps(reps: list[Rep], tolerance: float = 20.0) -> list[Rep]:
@@ -398,10 +535,17 @@ SPECS: dict[str, ExerciseSpec] = {
         label="agachamento", signal=_knee, signal_name="knee_angle_deg",
         extremum="bottom", min_range=MIN_SIGNAL_RANGE_DEG,
         checks=[
+            # Profundidade tem duas leituras válidas, e basta uma passar: o ângulo do joelho e
+            # a linha quadril-joelho. Cada uma é medida no PRÓPRIO extremo — o ponto mais fundo
+            # pelo quadril pode cair um ou dois frames adiante do joelho mais fechado, e ler a
+            # posição do quadril no instante escolhido pelo joelho respondia uma pergunta que
+            # ninguém fez.
             Check("insufficient_depth",
                   "Profundidade insuficiente: desça até o quadril passar da linha do joelho.",
                   "Profundidade adequada — o quadril chegou à linha do joelho.",
-                  _squat_depth),
+                  [at_most(_window_low(_knee), 100, label="ângulo do joelho"),
+                   at_least(_window_high(_hip_below_knee), -0.02,
+                            unit="img", label="quadril vs. joelho")]),
             # 55° era quase um bom-dia: nessa inclinação o quadril já assumiu o movimento e a
             # barra saiu da linha do pé. 45 reprova o que precisa ser reprovado e ainda deixa
             # margem para quem tem fêmur longo, que agacha inclinado por anatomia e não por
@@ -409,7 +553,7 @@ SPECS: dict[str, ExerciseSpec] = {
             Check("excessive_trunk_lean",
                   "Inclinação excessiva do tronco na descida — mantenha o peito mais erguido.",
                   "Tronco firme na descida, sem inclinar demais.",
-                  lambda rep: _highest(rep.window, _trunk) <= 45),
+                  [at_most(_window_high(_trunk), 45)]),
             # Subir só até 165° já é joelho praticamente estendido; abaixo disso a pessoa
             # emendou a próxima repetição agachada, que é o erro que rouba a parte final do
             # movimento e cansa o quadríceps antes da hora.
@@ -417,7 +561,7 @@ SPECS: dict[str, ExerciseSpec] = {
                   "Você emenda a próxima repetição sem terminar de subir — estenda o joelho "
                   "por completo entre elas.",
                   "Extensão completa do joelho entre as repetições.",
-                  lambda rep: _highest(rep.segment or rep.window, _knee) >= 165,
+                  [at_least(_return_high(_knee), 165)],
                   skip_last=True),
         ],
         series_checks=[
@@ -434,11 +578,11 @@ SPECS: dict[str, ExerciseSpec] = {
             Check("insufficient_depth",
                   "Desça mais — o joelho da frente deve dobrar até cerca de 90°.",
                   "Boa amplitude na descida do afundo.",
-                  lambda rep: _lowest(rep.window, _knee) <= 100),
+                  [at_most(_window_low(_knee), 100)]),
             Check("excessive_trunk_lean",
                   "Tronco inclinando demais para a frente — mantenha-o ereto.",
                   "Tronco ereto durante o movimento.",
-                  lambda rep: _highest(rep.window, _trunk) <= 30),
+                  [at_most(_window_high(_trunk), 30)]),
         ]),
     "deadlift": ExerciseSpec(
         label="levantamento terra", signal=_hip, signal_name="hip_angle_deg",
@@ -447,12 +591,12 @@ SPECS: dict[str, ExerciseSpec] = {
             Check("incomplete_lockout",
                   "Extensão de quadril incompleta no topo — finalize o movimento ereto.",
                   "Extensão completa de quadril no topo (lockout).",
-                  lambda rep: _highest(rep.segment or rep.window, _hip) >= 160,
+                  [at_least(_return_high(_hip), 160)],
                   skip_last=True),
             Check("stiff_legs_at_start",
                   "Pernas quase esticadas na saída do chão — dobre mais os joelhos e use as pernas.",
                   "Boa flexão de pernas na saída do chão.",
-                  lambda rep: _lowest(rep.window, _knee) <= 145),
+                  [at_most(_window_low(_knee), 145)]),
         ]),
     "romanian_deadlift": ExerciseSpec(
         label="terra romeno", signal=_hip, signal_name="hip_angle_deg",
@@ -461,12 +605,12 @@ SPECS: dict[str, ExerciseSpec] = {
             Check("incomplete_lockout",
                   "Extensão de quadril incompleta no topo — finalize o movimento ereto.",
                   "Extensão completa do quadril no topo.",
-                  lambda rep: _highest(rep.segment or rep.window, _hip) >= 160,
+                  [at_least(_return_high(_hip), 160)],
                   skip_last=True),
             Check("excessive_knee_bend",
                   "Joelhos dobrando demais — no terra romeno, mantenha-os quase estendidos.",
                   "Joelhos firmes, com dobra mínima — bom padrão de dobradiça de quadril.",
-                  lambda rep: _lowest(rep.window, _knee) >= 130),
+                  [at_least(_window_low(_knee), 130)]),
         ]),
     "hip_thrust": ExerciseSpec(
         label="elevação de quadril", signal=_hip, signal_name="hip_angle_deg",
@@ -475,11 +619,11 @@ SPECS: dict[str, ExerciseSpec] = {
             Check("incomplete_extension",
                   "Suba mais o quadril — estenda por completo no topo do movimento.",
                   "Extensão completa do quadril no topo.",
-                  lambda rep: _highest(rep.window, _hip) >= 160),
+                  [at_least(_window_high(_hip), 160)]),
             Check("short_range",
                   "Amplitude curta — desça mais o quadril entre as repetições.",
                   "Boa amplitude de movimento entre as repetições.",
-                  lambda rep: _lowest(rep.segment or rep.window, _hip) <= 120,
+                  [at_most(_return_low(_hip), 120)],
                   skip_last=True),
         ]),
     "back_extension": ExerciseSpec(
@@ -491,12 +635,12 @@ SPECS: dict[str, ExerciseSpec] = {
             Check("incomplete_extension",
                   "Suba até alinhar o tronco com as pernas — sem encurtar a subida.",
                   "Extensão completa no topo, tronco alinhado com as pernas.",
-                  lambda rep: _highest(rep.segment or rep.window, _hip) >= 160,
+                  [at_least(_return_high(_hip), 160)],
                   skip_last=True),
             Check("short_range",
                   "Amplitude curta — desça o tronco com controle até perto da vertical.",
                   "Boa amplitude na descida.",
-                  lambda rep: _lowest(rep.window, _hip) <= 130),
+                  [at_most(_window_low(_hip), 130)]),
         ]),
     "bench_press": ExerciseSpec(
         label="supino", signal=_elbow, signal_name="elbow_angle_deg",
@@ -505,11 +649,11 @@ SPECS: dict[str, ExerciseSpec] = {
             Check("short_range",
                   "Amplitude curta na descida — leve a barra até perto do peito.",
                   "Boa amplitude na descida da barra.",
-                  lambda rep: _lowest(rep.window, _elbow) <= 100),
+                  [at_most(_window_low(_elbow), 100)]),
             Check("incomplete_lockout",
                   "Cotovelos não estenderam por completo no topo do movimento.",
                   "Extensão completa dos cotovelos no topo.",
-                  lambda rep: _highest(rep.segment or rep.window, _elbow) >= 160,
+                  [at_least(_return_high(_elbow), 160)],
                   skip_last=True),
         ]),
     "push_up": ExerciseSpec(
@@ -519,11 +663,11 @@ SPECS: dict[str, ExerciseSpec] = {
             Check("insufficient_depth",
                   "Desça mais — dobre os cotovelos até o peito se aproximar do chão.",
                   "Boa profundidade na descida.",
-                  lambda rep: _lowest(rep.window, _elbow) <= 100),
+                  [at_most(_window_low(_elbow), 100)]),
             Check("hip_sag",
                   "Corpo desalinhado — quadril caindo ou empinando; contraia o abdômen e o glúteo.",
                   "Corpo alinhado durante toda a flexão, como uma prancha.",
-                  lambda rep: _lowest(rep.segment or rep.window, _hip) >= 150),
+                  [at_least(_return_low(_hip), 150)]),
         ]),
     "dips": ExerciseSpec(
         label="mergulho em paralelas", signal=_elbow, signal_name="elbow_angle_deg",
@@ -532,11 +676,11 @@ SPECS: dict[str, ExerciseSpec] = {
             Check("insufficient_depth",
                   "Desça mais — dobre os cotovelos até cerca de 90°.",
                   "Boa profundidade na descida.",
-                  lambda rep: _lowest(rep.window, _elbow) <= 100),
+                  [at_most(_window_low(_elbow), 100)]),
             Check("incomplete_lockout",
                   "Estenda os cotovelos por completo no topo do movimento.",
                   "Extensão completa dos cotovelos no topo.",
-                  lambda rep: _highest(rep.segment or rep.window, _elbow) >= 160,
+                  [at_least(_return_high(_elbow), 160)],
                   skip_last=True),
         ]),
     "triceps_pushdown": ExerciseSpec(
@@ -547,16 +691,16 @@ SPECS: dict[str, ExerciseSpec] = {
             Check("incomplete_extension",
                   "Estenda o cotovelo por completo no fim do empurrão.",
                   "Extensão completa do cotovelo no fim do empurrão.",
-                  lambda rep: _highest(rep.window, _elbow) >= 160),
+                  [at_least(_window_high(_elbow), 160)]),
             Check("short_range",
                   "Amplitude curta — deixe o antebraço subir controlado até fechar o cotovelo.",
                   "Boa amplitude no retorno do movimento.",
-                  lambda rep: _lowest(rep.segment or rep.window, _elbow) <= 100,
+                  [at_most(_return_low(_elbow), 100)],
                   skip_last=True),
             Check("torso_swing",
                   "Tronco debruçando sobre a polia para empurrar — mantenha o corpo parado.",
                   "Tronco estável — força só do tríceps.",
-                  lambda rep: _trunk_stable(rep, 15)),
+                  [at_most(_trunk_range, 15)]),
         ]),
     "overhead_press": ExerciseSpec(
         label="desenvolvimento", signal=_wrist_height, signal_name="wrist_height",
@@ -565,11 +709,11 @@ SPECS: dict[str, ExerciseSpec] = {
             Check("incomplete_lockout",
                   "Cotovelos não estenderam por completo no topo do movimento.",
                   "Cotovelos estendidos por completo no topo.",
-                  lambda rep: _highest(rep.window, _elbow) >= 160),
+                  [at_least(_window_high(_elbow), 160)]),
             Check("excessive_back_lean",
                   "Tronco inclinando demais para trás — contraia o abdômen e o glúteo.",
                   "Tronco estável, sem inclinar para trás.",
-                  lambda rep: _highest(rep.window, _trunk) <= 25),
+                  [at_most(_window_high(_trunk), 25)]),
         ]),
     "lat_pulldown": ExerciseSpec(
         label="puxada alta", signal=_elbow, signal_name="elbow_angle_deg",
@@ -578,16 +722,16 @@ SPECS: dict[str, ExerciseSpec] = {
             Check("incomplete_pull",
                   "Puxada incompleta — traga a barra até a altura do queixo ou do peito.",
                   "Puxada completa, com a barra chegando à altura do peito.",
-                  lambda rep: _lowest(rep.window, _elbow) <= 90),
+                  [at_most(_window_low(_elbow), 90)]),
             Check("incomplete_extension",
                   "Estenda os braços por completo no retorno da barra.",
                   "Extensão completa dos braços no retorno.",
-                  lambda rep: _highest(rep.segment or rep.window, _elbow) >= 150,
+                  [at_least(_return_high(_elbow), 150)],
                   skip_last=True),
             Check("torso_swing",
                   "Tronco inclinando para trás para puxar — estabilize e puxe com as costas.",
                   "Tronco estável durante a puxada.",
-                  lambda rep: _trunk_stable(rep, 20)),
+                  [at_most(_trunk_range, 20)]),
         ]),
     "seated_cable_row": ExerciseSpec(
         label="remada baixa", signal=_elbow, signal_name="elbow_angle_deg",
@@ -596,16 +740,16 @@ SPECS: dict[str, ExerciseSpec] = {
             Check("incomplete_pull",
                   "Puxada incompleta — leve o punho até o tronco.",
                   "Puxada completa, com o punho chegando ao tronco.",
-                  lambda rep: _lowest(rep.window, _elbow) <= 90),
+                  [at_most(_window_low(_elbow), 90)]),
             Check("incomplete_extension",
                   "Estenda os braços por completo no retorno.",
                   "Extensão completa dos braços no retorno.",
-                  lambda rep: _highest(rep.segment or rep.window, _elbow) >= 150,
+                  [at_least(_return_high(_elbow), 150)],
                   skip_last=True),
             Check("torso_swing",
                   "Tronco balançando para frente e para trás — puxe com as costas, não com o embalo.",
                   "Tronco estável, sem embalo.",
-                  lambda rep: _trunk_stable(rep, 20)),
+                  [at_most(_trunk_range, 20)]),
         ]),
     "dumbbell_row": ExerciseSpec(
         label="remada serrote", signal=_elbow, signal_name="elbow_angle_deg",
@@ -614,16 +758,16 @@ SPECS: dict[str, ExerciseSpec] = {
             Check("incomplete_pull",
                   "Puxada incompleta — suba o halter até a linha do tronco.",
                   "Puxada completa, com o halter chegando ao tronco.",
-                  lambda rep: _lowest(rep.window, _elbow) <= 90),
+                  [at_most(_window_low(_elbow), 90)]),
             Check("incomplete_extension",
                   "Estenda o braço por completo na descida do halter.",
                   "Extensão completa do braço na descida.",
-                  lambda rep: _highest(rep.segment or rep.window, _elbow) >= 150,
+                  [at_least(_return_high(_elbow), 150)],
                   skip_last=True),
             Check("torso_swing",
                   "Tronco girando/balançando para ajudar — mantenha a posição apoiada e estável.",
                   "Tronco firme na posição apoiada.",
-                  lambda rep: _trunk_stable(rep, 15)),
+                  [at_most(_trunk_range, 15)]),
         ]),
     "barbell_row": ExerciseSpec(
         label="remada curvada", signal=_elbow, signal_name="elbow_angle_deg",
@@ -632,11 +776,11 @@ SPECS: dict[str, ExerciseSpec] = {
             Check("incomplete_pull",
                   "Puxada incompleta — leve o cotovelo mais para trás, até a barra tocar o tronco.",
                   "Puxada completa, com a barra chegando ao tronco.",
-                  lambda rep: _lowest(rep.window, _elbow) <= 90),
+                  [at_most(_window_low(_elbow), 90)]),
             Check("torso_swing",
                   "Tronco balançando para ajudar a puxada — estabilize a posição curvada.",
                   "Tronco estável na posição curvada durante toda a série.",
-                  lambda rep: _trunk_stable(rep, 20)),
+                  [at_most(_trunk_range, 20)]),
         ]),
     "biceps_curl": ExerciseSpec(
         label="rosca bíceps", signal=_elbow, signal_name="elbow_angle_deg",
@@ -645,16 +789,16 @@ SPECS: dict[str, ExerciseSpec] = {
             Check("incomplete_curl",
                   "Flexão incompleta — suba o peso até o fim do movimento.",
                   "Flexão completa no topo do movimento.",
-                  lambda rep: _lowest(rep.window, _elbow) <= 70),
+                  [at_most(_window_low(_elbow), 70)]),
             Check("incomplete_extension",
                   "Estenda o braço por completo entre as repetições.",
                   "Extensão completa do braço entre as repetições.",
-                  lambda rep: _highest(rep.segment or rep.window, _elbow) >= 150,
+                  [at_least(_return_high(_elbow), 150)],
                   skip_last=True),
             Check("torso_swing",
                   "Balanço de tronco (roubo) — mantenha o corpo parado e isole o bíceps.",
                   "Sem balanço de tronco — movimento isolado no bíceps.",
-                  lambda rep: _trunk_stable(rep, 15)),
+                  [at_most(_trunk_range, 15)]),
         ]),
     "hammer_curl": ExerciseSpec(
         label="rosca martelo", signal=_elbow, signal_name="elbow_angle_deg",
@@ -663,16 +807,16 @@ SPECS: dict[str, ExerciseSpec] = {
             Check("incomplete_curl",
                   "Flexão incompleta — suba o peso até o fim do movimento.",
                   "Flexão completa no topo do movimento.",
-                  lambda rep: _lowest(rep.window, _elbow) <= 70),
+                  [at_most(_window_low(_elbow), 70)]),
             Check("incomplete_extension",
                   "Estenda o braço por completo entre as repetições.",
                   "Extensão completa do braço entre as repetições.",
-                  lambda rep: _highest(rep.segment or rep.window, _elbow) >= 150,
+                  [at_least(_return_high(_elbow), 150)],
                   skip_last=True),
             Check("torso_swing",
                   "Balanço de tronco (roubo) — mantenha o corpo parado e isole o braço.",
                   "Sem balanço de tronco — movimento isolado no braço.",
-                  lambda rep: _trunk_stable(rep, 15)),
+                  [at_most(_trunk_range, 15)]),
         ]),
     "preacher_curl": ExerciseSpec(
         # Braço apoiado no banco: sem checagem de balanço de tronco.
@@ -682,11 +826,11 @@ SPECS: dict[str, ExerciseSpec] = {
             Check("incomplete_curl",
                   "Flexão incompleta — suba o peso até o fim do movimento.",
                   "Flexão completa no topo do movimento.",
-                  lambda rep: _lowest(rep.window, _elbow) <= 70),
+                  [at_most(_window_low(_elbow), 70)]),
             Check("incomplete_extension",
                   "Estenda o braço por completo na descida — sem repetições pela metade.",
                   "Extensão completa do braço na descida.",
-                  lambda rep: _highest(rep.segment or rep.window, _elbow) >= 150,
+                  [at_least(_return_high(_elbow), 150)],
                   skip_last=True),
         ]),
     "pull_up": ExerciseSpec(
@@ -696,11 +840,11 @@ SPECS: dict[str, ExerciseSpec] = {
             Check("incomplete_pull",
                   "Subida incompleta — puxe até o queixo passar da linha da barra.",
                   "Subida completa, com boa flexão dos cotovelos.",
-                  lambda rep: _lowest(rep.window, _elbow) <= 90),
+                  [at_most(_window_low(_elbow), 90)]),
             Check("incomplete_extension",
                   "Estenda os braços por completo na descida (dead hang).",
                   "Extensão completa dos braços na descida.",
-                  lambda rep: _highest(rep.segment or rep.window, _elbow) >= 160,
+                  [at_least(_return_high(_elbow), 160)],
                   skip_last=True),
         ]),
     "calf_raise": ExerciseSpec(
@@ -710,11 +854,11 @@ SPECS: dict[str, ExerciseSpec] = {
             Check("knee_bend",
                   "Joelhos dobrando durante a subida — mantenha-os estendidos para isolar a panturrilha.",
                   "Joelhos estendidos — o trabalho ficou na panturrilha.",
-                  lambda rep: _lowest(rep.segment or rep.window, _knee) >= 160),
+                  [at_least(_return_low(_knee), 160)]),
             Check("torso_swing",
                   "Corpo inclinando para ganhar impulso — suba na vertical, com controle.",
                   "Subida vertical e controlada, sem impulso.",
-                  lambda rep: _trunk_stable(rep, 10)),
+                  [at_most(_trunk_range, 10)]),
         ]),
     "shrug": ExerciseSpec(
         label="encolhimento", signal=_shoulder_elevation, signal_name="shoulder_elevation",
@@ -723,11 +867,11 @@ SPECS: dict[str, ExerciseSpec] = {
             Check("elbow_bend",
                   "Cotovelos dobrando para ajudar — mantenha os braços estendidos e suba apenas os ombros.",
                   "Braços estendidos — o movimento ficou por conta do trapézio.",
-                  lambda rep: _lowest(rep.segment or rep.window, _elbow) >= 150),
+                  [at_least(_return_low(_elbow), 150)]),
             Check("torso_swing",
                   "Impulso com o corpo — mantenha o tronco parado e encolha os ombros com controle.",
                   "Tronco estável durante o encolhimento.",
-                  lambda rep: _trunk_stable(rep, 10)),
+                  [at_most(_trunk_range, 10)]),
         ]),
     "front_raise": ExerciseSpec(
         # Elevação no plano sagital — a mais visível de todas na câmera lateral.
@@ -737,11 +881,11 @@ SPECS: dict[str, ExerciseSpec] = {
             Check("short_range",
                   "Suba os braços até a linha dos ombros.",
                   "Braços subindo até a linha dos ombros.",
-                  lambda rep: _lowest(rep.window, _wrist_below_shoulder) <= 0.03),
+                  [at_most(_window_low(_wrist_below_shoulder), 0.03, unit="img")]),
             Check("torso_swing",
                   "Balanço de tronco para impulsionar o peso — mantenha o corpo parado.",
                   "Sem balanço de tronco — movimento controlado.",
-                  lambda rep: _trunk_stable(rep, 12)),
+                  [at_most(_trunk_range, 12)]),
         ]),
     "upright_row": ExerciseSpec(
         label="remada alta", signal=_wrist_height, signal_name="wrist_height",
@@ -750,11 +894,11 @@ SPECS: dict[str, ExerciseSpec] = {
             Check("short_range",
                   "Puxada curta — suba a barra até a linha do peitoral superior, cotovelos na altura dos ombros.",
                   "Barra subindo até a linha do peitoral superior.",
-                  lambda rep: _lowest(rep.window, _wrist_below_shoulder) <= 0.10),
+                  [at_most(_window_low(_wrist_below_shoulder), 0.10, unit="img")]),
             Check("torso_swing",
                   "Balanço de tronco para impulsionar a barra — mantenha o corpo parado.",
                   "Sem balanço de tronco — puxada controlada.",
-                  lambda rep: _trunk_stable(rep, 15)),
+                  [at_most(_trunk_range, 15)]),
         ]),
     "lateral_raise": ExerciseSpec(
         label="elevação lateral", signal=_wrist_height, signal_name="wrist_height",
@@ -763,11 +907,11 @@ SPECS: dict[str, ExerciseSpec] = {
             Check("short_range",
                   "Suba os braços até a linha dos ombros.",
                   "Braços subindo até a linha dos ombros.",
-                  lambda rep: _lowest(rep.window, _wrist_below_shoulder) <= 0.03),
+                  [at_most(_window_low(_wrist_below_shoulder), 0.03, unit="img")]),
             Check("torso_swing",
                   "Balanço de tronco para impulsionar o peso — mantenha o corpo parado.",
                   "Sem balanço de tronco — movimento controlado.",
-                  lambda rep: _trunk_stable(rep, 12)),
+                  [at_most(_trunk_range, 12)]),
         ]),
 }
 
