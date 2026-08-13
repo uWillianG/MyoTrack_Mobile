@@ -39,6 +39,28 @@ jobs:
           path: backend/*/build/reports/tests/test
           retention-days: 7
 
+  vision:
+    name: Vision — testes
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vision
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # A mesma do Dockerfile: mediapipe só suporta 3.9–3.11.
+          python-version: '3.11'
+
+      # Sem `pip install -r requirements.txt` de propósito. Os testes dublam cv2 e mediapipe
+      # em sys.modules — nenhum deles exercita a rede neural —, e instalar mediapipe são
+      # ~200 MB de download para não usar nada disso.
+      - name: Testes
+        run: |
+          python tests/test_heuristics.py
+          python tests/test_analysis.py
+
   app-analyze:
     name: App — análise e testes
     runs-on: ubuntu-latest
