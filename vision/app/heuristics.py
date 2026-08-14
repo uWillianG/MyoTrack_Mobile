@@ -209,6 +209,12 @@ class ExerciseSpec:
     signal_name: str                             # nome do sinal nas métricas
     extremum: str                                # "bottom" | "top" do sinal
     min_range: float                             # variação mínima = houve movimento
+    # As articulações que ESTE exercício lê, entre as de `analysis.JOINTS`. Obrigatório, e sem
+    # default de propósito: espec que não diz o que lê faria a extração exigir o corpo inteiro
+    # de novo, que é o erro que este campo existe para não deixar voltar. É a união do que o
+    # `signal` e cada `Check` tocam — ângulo de cotovelo precisa de ombro+cotovelo+punho,
+    # inclinação de tronco precisa de ombro+quadril, e por aí.
+    joints: tuple[str, ...]
     checks: list[Check]
     series_checks: list[SeriesCheck] = field(default_factory=list)
 
@@ -534,6 +540,7 @@ SPECS: dict[str, ExerciseSpec] = {
     "squat": ExerciseSpec(
         label="agachamento", signal=_knee, signal_name="knee_angle_deg",
         extremum="bottom", min_range=MIN_SIGNAL_RANGE_DEG,
+        joints=("shoulder", "hip", "knee", "ankle"),
         checks=[
             # Profundidade tem duas leituras válidas, e basta uma passar: o ângulo do joelho e
             # a linha quadril-joelho. Cada uma é medida no PRÓPRIO extremo — o ponto mais fundo
@@ -574,6 +581,7 @@ SPECS: dict[str, ExerciseSpec] = {
     "lunge": ExerciseSpec(
         label="afundo", signal=_knee, signal_name="knee_angle_deg",
         extremum="bottom", min_range=MIN_SIGNAL_RANGE_DEG,
+        joints=("shoulder", "hip", "knee", "ankle"),
         checks=[
             Check("insufficient_depth",
                   "Desça mais — o joelho da frente deve dobrar até cerca de 90°.",
@@ -587,6 +595,7 @@ SPECS: dict[str, ExerciseSpec] = {
     "deadlift": ExerciseSpec(
         label="levantamento terra", signal=_hip, signal_name="hip_angle_deg",
         extremum="bottom", min_range=MIN_SIGNAL_RANGE_DEG,
+        joints=("shoulder", "hip", "knee", "ankle"),
         checks=[
             Check("incomplete_lockout",
                   "Extensão de quadril incompleta no topo — finalize o movimento ereto.",
@@ -601,6 +610,7 @@ SPECS: dict[str, ExerciseSpec] = {
     "romanian_deadlift": ExerciseSpec(
         label="terra romeno", signal=_hip, signal_name="hip_angle_deg",
         extremum="bottom", min_range=MIN_SIGNAL_RANGE_DEG,
+        joints=("shoulder", "hip", "knee", "ankle"),
         checks=[
             Check("incomplete_lockout",
                   "Extensão de quadril incompleta no topo — finalize o movimento ereto.",
@@ -615,6 +625,7 @@ SPECS: dict[str, ExerciseSpec] = {
     "hip_thrust": ExerciseSpec(
         label="elevação de quadril", signal=_hip, signal_name="hip_angle_deg",
         extremum="top", min_range=MIN_SIGNAL_RANGE_DEG,
+        joints=("shoulder", "hip", "knee"),
         checks=[
             Check("incomplete_extension",
                   "Suba mais o quadril — estenda por completo no topo do movimento.",
@@ -631,6 +642,7 @@ SPECS: dict[str, ExerciseSpec] = {
         # então funciona com o corpo inclinado a 45°.
         label="extensão lombar", signal=_hip, signal_name="hip_angle_deg",
         extremum="bottom", min_range=MIN_SIGNAL_RANGE_DEG,
+        joints=("shoulder", "hip", "knee"),
         checks=[
             Check("incomplete_extension",
                   "Suba até alinhar o tronco com as pernas — sem encurtar a subida.",
@@ -645,6 +657,7 @@ SPECS: dict[str, ExerciseSpec] = {
     "bench_press": ExerciseSpec(
         label="supino", signal=_elbow, signal_name="elbow_angle_deg",
         extremum="bottom", min_range=MIN_SIGNAL_RANGE_DEG,
+        joints=("shoulder", "elbow", "wrist"),
         checks=[
             Check("short_range",
                   "Amplitude curta na descida — leve a barra até perto do peito.",
@@ -659,6 +672,9 @@ SPECS: dict[str, ExerciseSpec] = {
     "push_up": ExerciseSpec(
         label="flexão de braço", signal=_elbow, signal_name="elbow_angle_deg",
         extremum="bottom", min_range=MIN_SIGNAL_RANGE_DEG,
+        # O joelho entra porque `hip_sag` mede o alinhamento ombro-quadril-joelho: na prancha,
+        # é ele que diz se o quadril caiu.
+        joints=("shoulder", "elbow", "wrist", "hip", "knee"),
         checks=[
             Check("insufficient_depth",
                   "Desça mais — dobre os cotovelos até o peito se aproximar do chão.",
@@ -672,6 +688,7 @@ SPECS: dict[str, ExerciseSpec] = {
     "dips": ExerciseSpec(
         label="mergulho em paralelas", signal=_elbow, signal_name="elbow_angle_deg",
         extremum="bottom", min_range=MIN_SIGNAL_RANGE_DEG,
+        joints=("shoulder", "elbow", "wrist"),
         checks=[
             Check("insufficient_depth",
                   "Desça mais — dobre os cotovelos até cerca de 90°.",
@@ -687,6 +704,7 @@ SPECS: dict[str, ExerciseSpec] = {
         # O extremo da rep é a EXTENSÃO do cotovelo (empurrão até embaixo).
         label="tríceps na polia", signal=_elbow, signal_name="elbow_angle_deg",
         extremum="top", min_range=MIN_SIGNAL_RANGE_DEG,
+        joints=("shoulder", "elbow", "wrist", "hip"),
         checks=[
             Check("incomplete_extension",
                   "Estenda o cotovelo por completo no fim do empurrão.",
@@ -705,6 +723,7 @@ SPECS: dict[str, ExerciseSpec] = {
     "overhead_press": ExerciseSpec(
         label="desenvolvimento", signal=_wrist_height, signal_name="wrist_height",
         extremum="top", min_range=MIN_WRIST_TRAVEL,
+        joints=("shoulder", "elbow", "wrist", "hip"),
         checks=[
             Check("incomplete_lockout",
                   "Cotovelos não estenderam por completo no topo do movimento.",
@@ -718,6 +737,7 @@ SPECS: dict[str, ExerciseSpec] = {
     "lat_pulldown": ExerciseSpec(
         label="puxada alta", signal=_elbow, signal_name="elbow_angle_deg",
         extremum="bottom", min_range=MIN_SIGNAL_RANGE_DEG,
+        joints=("shoulder", "elbow", "wrist", "hip"),
         checks=[
             Check("incomplete_pull",
                   "Puxada incompleta — traga a barra até a altura do queixo ou do peito.",
@@ -736,6 +756,7 @@ SPECS: dict[str, ExerciseSpec] = {
     "seated_cable_row": ExerciseSpec(
         label="remada baixa", signal=_elbow, signal_name="elbow_angle_deg",
         extremum="bottom", min_range=MIN_SIGNAL_RANGE_DEG,
+        joints=("shoulder", "elbow", "wrist", "hip"),
         checks=[
             Check("incomplete_pull",
                   "Puxada incompleta — leve o punho até o tronco.",
@@ -754,6 +775,7 @@ SPECS: dict[str, ExerciseSpec] = {
     "dumbbell_row": ExerciseSpec(
         label="remada serrote", signal=_elbow, signal_name="elbow_angle_deg",
         extremum="bottom", min_range=MIN_SIGNAL_RANGE_DEG,
+        joints=("shoulder", "elbow", "wrist", "hip"),
         checks=[
             Check("incomplete_pull",
                   "Puxada incompleta — suba o halter até a linha do tronco.",
@@ -772,6 +794,7 @@ SPECS: dict[str, ExerciseSpec] = {
     "barbell_row": ExerciseSpec(
         label="remada curvada", signal=_elbow, signal_name="elbow_angle_deg",
         extremum="bottom", min_range=MIN_SIGNAL_RANGE_DEG,
+        joints=("shoulder", "elbow", "wrist", "hip"),
         checks=[
             Check("incomplete_pull",
                   "Puxada incompleta — leve o cotovelo mais para trás, até a barra tocar o tronco.",
@@ -785,6 +808,10 @@ SPECS: dict[str, ExerciseSpec] = {
     "biceps_curl": ExerciseSpec(
         label="rosca bíceps", signal=_elbow, signal_name="elbow_angle_deg",
         extremum="bottom", min_range=MIN_SIGNAL_RANGE_DEG,
+        # Sem joelho nem tornozelo: no vídeo de rosca desta calibração eles estavam FORA do
+        # enquadramento e o MediaPipe os inventou, um deles com 97% de visibilidade declarada.
+        # Exigi-los era exigir do usuário um enquadramento que a rosca não precisa.
+        joints=("shoulder", "elbow", "wrist", "hip"),
         checks=[
             Check("incomplete_curl",
                   "Flexão incompleta — suba o peso até o fim do movimento.",
@@ -803,6 +830,7 @@ SPECS: dict[str, ExerciseSpec] = {
     "hammer_curl": ExerciseSpec(
         label="rosca martelo", signal=_elbow, signal_name="elbow_angle_deg",
         extremum="bottom", min_range=MIN_SIGNAL_RANGE_DEG,
+        joints=("shoulder", "elbow", "wrist", "hip"),
         checks=[
             Check("incomplete_curl",
                   "Flexão incompleta — suba o peso até o fim do movimento.",
@@ -822,6 +850,7 @@ SPECS: dict[str, ExerciseSpec] = {
         # Braço apoiado no banco: sem checagem de balanço de tronco.
         label="rosca scott", signal=_elbow, signal_name="elbow_angle_deg",
         extremum="bottom", min_range=MIN_SIGNAL_RANGE_DEG,
+        joints=("shoulder", "elbow", "wrist"),
         checks=[
             Check("incomplete_curl",
                   "Flexão incompleta — suba o peso até o fim do movimento.",
@@ -836,6 +865,7 @@ SPECS: dict[str, ExerciseSpec] = {
     "pull_up": ExerciseSpec(
         label="barra fixa", signal=_elbow, signal_name="elbow_angle_deg",
         extremum="bottom", min_range=MIN_SIGNAL_RANGE_DEG,
+        joints=("shoulder", "elbow", "wrist"),
         checks=[
             Check("incomplete_pull",
                   "Subida incompleta — puxe até o queixo passar da linha da barra.",
@@ -850,6 +880,7 @@ SPECS: dict[str, ExerciseSpec] = {
     "calf_raise": ExerciseSpec(
         label="panturrilha em pé", signal=_body_elevation, signal_name="body_elevation",
         extremum="top", min_range=MIN_SHRUG_TRAVEL,
+        joints=("shoulder", "hip", "knee", "ankle"),
         checks=[
             Check("knee_bend",
                   "Joelhos dobrando durante a subida — mantenha-os estendidos para isolar a panturrilha.",
@@ -863,6 +894,7 @@ SPECS: dict[str, ExerciseSpec] = {
     "shrug": ExerciseSpec(
         label="encolhimento", signal=_shoulder_elevation, signal_name="shoulder_elevation",
         extremum="top", min_range=MIN_SHRUG_TRAVEL,
+        joints=("shoulder", "elbow", "wrist", "hip"),
         checks=[
             Check("elbow_bend",
                   "Cotovelos dobrando para ajudar — mantenha os braços estendidos e suba apenas os ombros.",
@@ -877,6 +909,10 @@ SPECS: dict[str, ExerciseSpec] = {
         # Elevação no plano sagital — a mais visível de todas na câmera lateral.
         label="elevação frontal", signal=_wrist_height, signal_name="wrist_height",
         extremum="top", min_range=MIN_WRIST_TRAVEL,
+        # O cotovelo não é lido em lugar nenhum aqui — o sinal é a altura do punho vs. o ombro.
+        # Ele ainda aparece no overlay, por ser intermediário entre dois pontos lidos, mas não
+        # tem poder de descartar frame.
+        joints=("shoulder", "wrist", "hip"),
         checks=[
             Check("short_range",
                   "Suba os braços até a linha dos ombros.",
@@ -890,6 +926,7 @@ SPECS: dict[str, ExerciseSpec] = {
     "upright_row": ExerciseSpec(
         label="remada alta", signal=_wrist_height, signal_name="wrist_height",
         extremum="top", min_range=MIN_WRIST_TRAVEL,
+        joints=("shoulder", "wrist", "hip"),
         checks=[
             Check("short_range",
                   "Puxada curta — suba a barra até a linha do peitoral superior, cotovelos na altura dos ombros.",
@@ -903,6 +940,7 @@ SPECS: dict[str, ExerciseSpec] = {
     "lateral_raise": ExerciseSpec(
         label="elevação lateral", signal=_wrist_height, signal_name="wrist_height",
         extremum="top", min_range=MIN_WRIST_TRAVEL,
+        joints=("shoulder", "wrist", "hip"),
         checks=[
             Check("short_range",
                   "Suba os braços até a linha dos ombros.",

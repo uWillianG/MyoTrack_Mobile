@@ -66,6 +66,8 @@ class Driver:
         self.processed = 0
         self.writer = None
         self.released = False
+        self.lines = []
+        self.circles = []
 
 
 DRIVER: Driver | None = None
@@ -142,6 +144,22 @@ cv2.VideoCapture = lambda path: FakeCapture(DRIVER)
 cv2.VideoWriter_fourcc = lambda *chars: 0
 
 
+# O esqueleto é desenhado com cv2 direto, e não pelo drawing_utils do mediapipe: o desenho é um
+# SUBCONJUNTO das landmarks (só o lado analisado, só as articulações que o exercício lê), e o
+# drawing_utils desenha a lista inteira com um corte de visibilidade próprio, fixo em 0,5.
+# Registrar cada traço deixa o teste afirmar o que foi parar na tela.
+def _record_line(frame, start, end, color, thickness):
+    DRIVER.lines.append((start, end, color))
+
+
+def _record_circle(frame, center, radius, color, fill):
+    DRIVER.circles.append((center, color))
+
+
+cv2.line = _record_line
+cv2.circle = _record_circle
+
+
 def _make_writer(path, fourcc, fps, size):
     DRIVER.writer = FakeWriter(path, fourcc, fps, size)
     return DRIVER.writer
@@ -151,9 +169,7 @@ cv2.VideoWriter = _make_writer
 sys.modules["cv2"] = cv2
 
 mediapipe = types.ModuleType("mediapipe")
-mediapipe.solutions = types.SimpleNamespace(
-    pose=types.SimpleNamespace(Pose=FakePose, POSE_CONNECTIONS=object()),
-    drawing_utils=types.SimpleNamespace(draw_landmarks=lambda *a, **k: None))
+mediapipe.solutions = types.SimpleNamespace(pose=types.SimpleNamespace(Pose=FakePose))
 sys.modules["mediapipe"] = mediapipe
 
 from app import analysis  # noqa: E402
@@ -200,13 +216,18 @@ def body(knee_angle_deg, trunk_lean_deg=12.0):
             "shoulder": shoulder, "elbow": elbow, "wrist": wrist}
 
 
-def make_pose(near, camera_deg=0.0, far=None, visibility=(0.95, 0.40)):
+def make_pose(near, camera_deg=0.0, far=None, visibility=(0.95, 0.40), weak=None):
     """Landmarks de imagem e métricos de uma pose.
 
     A câmera gira `camera_deg` em torno do eixo vertical: 0 é o perfil, 90 é de frente. A
     imagem é a projeção ortográfica disso; os landmarks métricos guardam o corpo como ele é.
+
+    `weak` sobrescreve a visibilidade de articulações específicas do lado 0 — é o que permite
+    montar o caso que motivou o corte pelo mínimo: uma articulação péssima escondida atrás de
+    outras ótimas.
     """
     far = near if far is None else far
+    weak = weak or {}
     camera = math.radians(camera_deg)
     image = [Landmark(0.5, 0.5, 0.0, 0.0) for _ in range(33)]
     world = [Landmark(0.0, 0.0, 0.0, 0.0) for _ in range(33)]
@@ -217,8 +238,9 @@ def make_pose(near, camera_deg=0.0, far=None, visibility=(0.95, 0.40)):
             x = (u * math.cos(camera) + w * math.sin(camera)) * SCALE + CX
             y = -v * SCALE + CY
             index = INDEX[name][side]
-            image[index] = Landmark(x / WIDTH, y / HEIGHT, 0.0, visibility[side])
-            world[index] = Landmark(u, v, w, visibility[side])
+            seen = weak.get(name, visibility[side]) if side == 0 else visibility[side]
+            image[index] = Landmark(x / WIDTH, y / HEIGHT, 0.0, seen)
+            world[index] = Landmark(u, v, w, seen)
 
     return image, world
 
@@ -238,10 +260,14 @@ def projected(joints, camera_deg):
     return {name: (u * cos, v) for name, (u, v) in joints.items()}
 
 
-def run_video(results, overlay=None, **driver):
+# As articulações que o agachamento lê — o que a maioria dos testes daqui exercita.
+SQUAT_JOINTS = ("shoulder", "hip", "knee", "ankle")
+
+
+def run_video(results, overlay=None, joints=SQUAT_JOINTS, **driver):
     global DRIVER
     DRIVER = Driver(results, **driver)
-    return analysis.process_video("fake.mp4", overlay)
+    return analysis.process_video("fake.mp4", overlay, joints)
 
 
 def still(joints, frames=6, camera_deg=0.0, **pose):
@@ -353,6 +379,47 @@ check("e a cobertura reflete isso", close(extraction.coverage, 0.7, 0.01),
       f"(cobertura={extraction.coverage:.2f})")
 
 
+# --- O corte de visibilidade olha o elo mais fraco do que o exercício lê -------
+
+CURL_JOINTS = ("shoulder", "elbow", "wrist", "hip")
+
+# O caso que motivou a mudança, tirado de vídeo real: numa rosca enquadrada do peito para cima,
+# ombro (0,997) e quadril (0,970) sustentavam a média enquanto o punho despencava. Só que o
+# ângulo do cotovelo precisa dos TRÊS pontos — com o punho perdido, não há o que ler.
+weak_wrist = []
+for i in range(10):
+    weak_wrist.append(PoseResult(*make_pose(
+        SQUAT, visibility=(0.99, 0.10), weak={"wrist": 0.20} if i < 4 else None)))
+
+extraction = run_video(weak_wrist, joints=CURL_JOINTS)
+check("punho perdido derruba o frame, mesmo com ombro e quadril otimos",
+      len(extraction.frames) == 6, f"(frames={len(extraction.frames)})")
+mean_of_that_frame = (0.99 * 3 + 0.20) / 4
+check("e a media daquele mesmo frame teria aprovado",
+      mean_of_that_frame > analysis.MIN_SIDE_VISIBILITY,
+      f"(media={mean_of_that_frame:.2f} vs corte={analysis.MIN_SIDE_VISIBILITY})")
+
+# O outro lado da mesma moeda: exigir articulação que o exercício não lê. O tornozelo da rosca
+# real estava FORA do enquadramento — inventado pelo modelo em 97% dos frames.
+no_ankle = [PoseResult(*make_pose(SQUAT, visibility=(0.99, 0.10), weak={"ankle": 0.05}))
+            for _ in range(6)]
+check("tornozelo invisivel nao atrapalha uma rosca",
+      len(run_video(no_ankle, joints=CURL_JOINTS).frames) == 6)
+check("mas o mesmo video nao serve para agachamento",
+      "encoberto" in (raises(lambda: run_video(no_ankle, joints=SQUAT_JOINTS)) or ""))
+
+
+# --- O esqueleto desenhado sai do que o exercício lê ---------------------------
+
+drawn, edges = analysis.skeleton(("shoulder", "wrist", "hip"))
+check("articulacao intermediaria entra so para o osso fazer sentido",
+      "elbow" in drawn and ("shoulder", "elbow") in edges and ("elbow", "wrist") in edges,
+      f"(desenhadas={drawn})")
+check("e nada da perna entra quando a perna nao e lida",
+      "knee" not in drawn and "ankle" not in drawn, f"(desenhadas={drawn})")
+check("o tronco liga ombro e quadril", ("shoulder", "hip") in edges, f"(ossos={edges})")
+
+
 # --- Ângulo da câmera ---------------------------------------------------------
 
 for camera_deg, ceiling, verdict in ((0.0, 0.10, "de perfil"),
@@ -394,6 +461,54 @@ check("writer criado com as dimensoes do frame", DRIVER.writer.size == (WIDTH, H
 check("todos os frames amostrados vao para o overlay", DRIVER.writer.written == 5,
       f"(escritos={DRIVER.writer.written})")
 check("captura liberada", DRIVER.released)
+
+# O agachamento lê ombro, quadril, joelho e tornozelo: quatro pontos e três ossos por frame.
+check("desenha so as articulacoes que o agachamento le",
+      len(DRIVER.circles) == 4 * 5 and len(DRIVER.lines) == 3 * 5,
+      f"(pontos={len(DRIVER.circles)}, ossos={len(DRIVER.lines)})")
+
+# E do LADO analisado. Desenhar os dois era metade do emaranhado: dois esqueletos sobrepostos,
+# um deles nunca lido. As duas pernas ficam em ângulos bem diferentes para a asserção ter dente
+# — a câmera de perfil projeta os dois lados no MESMO x, então corpos iguais não provariam nada.
+far_body = body(150.0)
+run_video(still(SQUAT, far=far_body, frames=5), overlay=overlay_path)
+image, _ = make_pose(SQUAT, far=far_body)
+pixel = lambda name, side: (int(image[INDEX[name][side]].x * WIDTH),
+                            int(image[INDEX[name][side]].y * HEIGHT))
+near_side = {pixel(name, 0) for name in SQUAT_JOINTS}
+far_side = {pixel(name, 1) for name in SQUAT_JOINTS}
+drawn_points = {center for center, _ in DRIVER.circles}
+check("e apenas do lado que a analise escolheu",
+      drawn_points == near_side and near_side != far_side,
+      f"(desenhados={sorted(drawn_points)}, outro lado={sorted(far_side)})")
+
+# Frame que o modelo viu mas a análise descartou sai em cinza, e não some nem se disfarça de
+# frame bom. Sem essa distinção, um frame ruim desenhado com a confiança de um bom faz a
+# análise inteira parecer chute — que é como ela parecia.
+half_bad = [PoseResult(*make_pose(SQUAT, visibility=(0.95, 0.10) if i < 3 else (0.20, 0.10)))
+            for i in range(6)]
+extraction = run_video(half_bad, overlay=overlay_path)
+colors = {color for _, color in DRIVER.circles}
+check("frame descartado aparece em cinza, e o aproveitado em verde",
+      colors == {analysis._COUNTED_COLOR, analysis._DISCARDED_COLOR}, f"(cores={colors})")
+check("e nenhum frame amostrado some do overlay", DRIVER.writer.written == 6,
+      f"(escritos={DRIVER.writer.written})")
+
+
+# --- Osso que muda de tamanho é erro do modelo, e vira métrica ----------------
+
+check("corpo parado tem segmentos constantes",
+      run_video(still(SQUAT, frames=6)).segment_cv < 0.001)
+
+# A canela encolhe e estica a cada frame. Nenhum gabarito humano precisou existir para dizer
+# que isso é erro: o corpo simplesmente não faz isso.
+wobble = []
+for i in range(8):
+    joints = dict(SQUAT)
+    joints["ankle"] = (SQUAT["ankle"][0], SQUAT["ankle"][1] + 0.10 * (i % 2))
+    wobble.append(PoseResult(*make_pose(joints)))
+check("canela que muda de tamanho aparece no segment_cv",
+      run_video(wobble).segment_cv > 0.05, f"(cv={run_video(wobble).segment_cv})")
 
 
 # --- Ponta a ponta: vídeo sintético até o resultado da análise ----------------

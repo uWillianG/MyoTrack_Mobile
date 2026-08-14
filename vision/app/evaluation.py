@@ -6,7 +6,7 @@ encadeamento — e harness que reimplementa o que mede não mede coisa nenhuma.
 """
 
 from .analysis import MAX_CAMERA_FRONTALITY, MIN_POSE_COVERAGE, process_video
-from .heuristics import HEURISTICS, compute_score
+from .heuristics import SPECS, analyze, compute_score
 
 
 class UnsupportedExercise(Exception):
@@ -15,12 +15,16 @@ class UnsupportedExercise(Exception):
 
 def evaluate(video_path: str, exercise: str, overlay_path: str | None = None) -> dict:
     """Analisa um vídeo local. Levanta `BusinessError` no que o usuário consegue corrigir."""
-    heuristic = HEURISTICS.get(exercise)
-    if heuristic is None:
+    spec = SPECS.get(exercise)
+    if spec is None:
         raise UnsupportedExercise(f"Exercício não suportado: {exercise}")
 
-    extraction = process_video(video_path, overlay_path)
-    result = heuristic(extraction.frames)
+    # A extração precisa saber o que o exercício lê: é isso que decide quais frames têm
+    # visibilidade suficiente para virar sinal, e o que o overlay desenha. Antes ela exigia as
+    # seis articulações de todo mundo — e cobrava do vídeo de rosca um tornozelo que nenhuma
+    # checagem de rosca olha.
+    extraction = process_video(video_path, overlay_path, spec.joints)
+    result = analyze(spec, extraction.frames)
 
     if result.not_evaluable_reason is None and extraction.coverage < MIN_POSE_COVERAGE:
         result.not_evaluable_reason = (
@@ -53,6 +57,11 @@ def evaluate(video_path: str, exercise: str, overlay_path: str | None = None) ->
             "camera_frontality": (
                 round(extraction.frontality, 2)
                 if extraction.frontality is not None else None),
+            # Quanto o osso mais inconstante mudou de comprimento ao longo do vídeo. Osso não
+            # muda de tamanho, então isto é erro do modelo medido sem gabarito — o número que
+            # permite comparar calibrações e modelos contra vídeo real em vez de contra
+            # impressão de quem assistiu.
+            "pose_segment_cv": extraction.segment_cv,
         },
         "not_evaluable_reason": result.not_evaluable_reason,
     }
