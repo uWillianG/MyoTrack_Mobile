@@ -9,6 +9,7 @@ import '../../core/design/format.dart';
 import '../../core/design/tokens.dart';
 import '../../core/router.dart';
 import '../../core/widgets/blocks.dart';
+import '../../core/widgets/glass_segmented.dart';
 import '../achievements/achievements_section.dart';
 import '../achievements/data/rewards_repository.dart';
 import '../profile/onboarding_controller.dart';
@@ -252,15 +253,14 @@ class _PeriodPicker extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final period = ref.watch(progressPeriodProvider);
 
-    return SegmentedButton<ProgressPeriod>(
+    return GlassSegmented<ProgressPeriod>(
       segments: [
         for (final option in ProgressPeriod.values)
-          ButtonSegment(value: option, label: Text(option.label)),
+          GlassSegment(value: option, label: option.label),
       ],
-      selected: {period},
-      showSelectedIcon: false,
-      onSelectionChanged: (selection) =>
-          ref.read(progressPeriodProvider.notifier).state = selection.first,
+      value: period,
+      onChanged: (next) =>
+          ref.read(progressPeriodProvider.notifier).state = next,
     );
   }
 }

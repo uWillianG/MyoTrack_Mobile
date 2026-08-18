@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/design/tokens.dart';
+import '../../core/widgets/glass_segmented.dart';
 import '../diary/diary_page.dart';
 import '../diet/diet_plan_page.dart';
 
@@ -39,15 +40,14 @@ class NutritionView extends ConsumerWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(Space.gutter, 8, Space.gutter, 0),
-          child: SegmentedButton<NutritionTab>(
+          child: GlassSegmented<NutritionTab>(
             segments: [
               for (final segment in NutritionTab.values)
-                ButtonSegment(value: segment, label: Text(segment.label)),
+                GlassSegment(value: segment, label: segment.label),
             ],
-            selected: {tab},
-            showSelectedIcon: false,
-            onSelectionChanged: (selection) =>
-                ref.read(nutritionTabProvider.notifier).state = selection.first,
+            value: tab,
+            onChanged: (next) =>
+                ref.read(nutritionTabProvider.notifier).state = next,
           ),
         ),
         Expanded(

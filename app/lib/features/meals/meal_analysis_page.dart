@@ -10,6 +10,7 @@ import '../../core/design/blocks.dart';
 import '../../core/design/format.dart';
 import '../../core/design/tokens.dart';
 import '../../core/widgets/blocks.dart';
+import '../../core/widgets/glass_segmented.dart';
 import '../../core/widgets/empty_state.dart';
 // O relógio do app, injetável: sem ele o bloco "Hoje" do histórico mudaria de valor entre a
 // captura da galeria e a execução do teste.
@@ -1022,21 +1023,16 @@ class _PhotoViewerState extends State<_PhotoViewer> {
                 // "Marcações" e não "ilustrada": é a mesma palavra do interruptor que liga o
                 // modo ("Marcar os alimentos na foto"), e dois nomes para a mesma coisa fazem
                 // parecer que são duas.
-                child: SegmentedButton<bool>(
+                // Sobre a foto, e não sobre a tela: o que está atrás é imprevisível, e a
+                // paleta do tema desapareceria num prato claro sob luz dura.
+                child: GlassSegmented<bool>(
+                  surface: GlassSegmentedSurface.media,
                   segments: const [
-                    ButtonSegment(value: false, label: Text('Com marcações')),
-                    ButtonSegment(value: true, label: Text('Sem marcações')),
+                    GlassSegment(value: false, label: 'Com marcações'),
+                    GlassSegment(value: true, label: 'Sem marcações'),
                   ],
-                  selected: {_original},
-                  showSelectedIcon: false,
-                  onSelectionChanged: (selection) =>
-                      setState(() => _original = selection.first),
-                  style: SegmentedButton.styleFrom(
-                    foregroundColor: Colors.white70,
-                    selectedForegroundColor: Colors.white,
-                    selectedBackgroundColor: Colors.white24,
-                    side: const BorderSide(color: Colors.white30),
-                  ),
+                  value: _original,
+                  onChanged: (next) => setState(() => _original = next),
                 ),
               ),
           ],

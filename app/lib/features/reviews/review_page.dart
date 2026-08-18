@@ -5,6 +5,7 @@ import '../../core/design/blocks.dart';
 import '../../core/design/format.dart';
 import '../../core/design/tokens.dart';
 import '../../core/widgets/blocks.dart';
+import '../../core/widgets/glass_segmented.dart';
 import '../../core/widgets/empty_state.dart';
 // O relógio do app, injetável: a idade de cada plano na fila é o número que mais muda de
 // significado com o tempo, e é justamente o que a galeria e os testes precisam fixar.
@@ -115,15 +116,14 @@ class _Queue extends ConsumerWidget {
               Space.gutter,
               0,
             ),
-            child: SegmentedButton<ReviewKind>(
+            child: GlassSegmented<ReviewKind>(
               segments: [
                 for (final k in available)
-                  ButtonSegment(value: k, label: Text(k.label)),
+                  GlassSegment(value: k, label: k.label),
               ],
-              selected: {selected},
-              showSelectedIcon: false,
-              onSelectionChanged: (s) =>
-                  ref.read(reviewKindProvider.notifier).state = s.first,
+              value: selected,
+              onChanged: (next) =>
+                  ref.read(reviewKindProvider.notifier).state = next,
             ),
           ),
         Expanded(
