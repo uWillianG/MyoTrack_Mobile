@@ -12,29 +12,29 @@ class ReviewBadge extends StatelessWidget {
     super.key,
     required this.reviewStatus,
     this.reviewNote,
-    this.onTone,
+    this.onGlass,
   });
 
   final String reviewStatus;
   final String? reviewNote;
 
-  /// A cor do texto quando o selo vive **dentro de um bloco em cor cheia**.
+  /// A cor do texto quando o selo vive **dentro de um bloco de vidro de alguma família**.
   ///
   /// Sem isto o selo aprovado saía esmeralda dentro do herói índigo do treino — uma cor de
   /// outra família no meio do bloco, que é exatamente o que o sistema proíbe. Passando a cor
   /// do bloco, o selo vira um véu translúcido sobre ele e continua sendo a mesma peça.
-  final Color? onTone;
+  final Color? onGlass;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    // Sobre cor cheia o selo não muda de matiz por status: quem dá o recado é o ícone e o
-    // texto, e três cores de fundo diferentes ali dentro brigariam com o bloco.
-    if (onTone case final onTone?) {
+    // Dentro de um bloco de família o selo não muda de matiz por status: quem dá o recado é o
+    // ícone e o texto, e três cores de fundo diferentes ali dentro brigariam com o bloco.
+    if (onGlass case final onGlass?) {
       return _Pill(
-        background: onTone.withValues(alpha: 0.18),
-        foreground: onTone,
+        background: onGlass.withValues(alpha: 0.18),
+        foreground: onGlass,
         icon: _iconOf(reviewStatus),
         label: _labelOf(reviewStatus, reviewNote),
         note: reviewNote,

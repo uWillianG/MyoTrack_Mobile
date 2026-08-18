@@ -29,6 +29,7 @@ import 'package:myotrack/features/checkin/day_close_page.dart';
 import 'package:myotrack/features/home/home_page.dart';
 import 'package:myotrack/features/home/today_controller.dart';
 import 'package:myotrack/features/nutrition/nutrition_page.dart';
+import 'package:myotrack/features/profile/profile_page.dart';
 import 'package:myotrack/features/logging/data/logging_models.dart';
 import 'package:myotrack/features/logging/data/logging_repository.dart';
 import 'package:myotrack/features/logging/log_session_controller.dart';
@@ -420,21 +421,19 @@ void main() {
     // As duas caras do perfil. O cadastro é o que só quem chega vê, e a razão de a galeria
     // capturá-lo é a mesma do primeiro acesso da Hoje.
     testWidgets('perfil ($mode)', (tester) async {
-      final container = await pump(tester, brightness, const HomePage());
-      container.read(homeTabProvider.notifier).state = HomeTab.profile;
-      await tester.pumpAndSettle();
+      // Pela rota, e não pela barra: o Perfil deixou de ser aba quando o Progresso tomou a
+      // quarta vaga, e agora se chega nele pelo avatar.
+      await pump(tester, brightness, const ProfilePage());
       await shoot(tester, 'perfil-$mode');
     });
 
     testWidgets('perfil — cadastro ($mode)', (tester) async {
-      final container = await pump(
+      await pump(
         tester,
         brightness,
-        const HomePage(),
+        const ProfilePage(),
         extra: [...homeOverrides(profile: null)],
       );
-      container.read(homeTabProvider.notifier).state = HomeTab.profile;
-      await tester.pumpAndSettle();
       await shoot(tester, 'perfil-cadastro-$mode');
     });
 

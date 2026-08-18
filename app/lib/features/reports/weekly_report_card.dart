@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/design/materials.dart';
+
 import '../../core/network/api_exception.dart';
 import 'data/report_models.dart';
 import 'report_controller.dart';
@@ -80,8 +82,7 @@ class _GeneratePromptState extends ConsumerState<_GeneratePrompt> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Card(
-      margin: EdgeInsets.zero,
+    return GlassPanel(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -143,8 +144,7 @@ class _Card extends StatelessWidget {
     final metrics = report.metrics;
     final narrative = report.narrative;
 
-    return Card(
-      margin: EdgeInsets.zero,
+    return GlassPanel(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

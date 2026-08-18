@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/design/tokens.dart';
+import '../../core/design/materials.dart';
 import '../../core/router.dart';
 import 'privacy_controller.dart';
 
@@ -24,8 +25,7 @@ class AccountPage extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(Space.gutter, 8, Space.gutter, 16),
         children: [
-          Card(
-            margin: EdgeInsets.zero,
+          GlassPanel(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -218,8 +218,7 @@ class _ExportCard extends ConsumerWidget {
     final theme = Theme.of(context);
     final sending = ref.watch(exportProvider).sending;
 
-    return Card(
-      margin: EdgeInsets.zero,
+    return GlassPanel(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

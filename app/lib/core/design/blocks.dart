@@ -30,20 +30,38 @@ class BlockColors {
   const BlockColors({
     required this.tone,
     required this.onTone,
+    required this.onGlass,
     required this.wash,
     required this.ink,
   });
 
-  /// O fundo cheio do bloco herói.
+  /// O fundo cheio de um controle da família: o dia escolhido no diário, o balão da própria
+  /// mensagem no coach, o botão de enviar.
+  ///
+  /// **Não é mais o fundo do herói** — esse virou vidro. Sobrou para o que precisa de cor
+  /// chapada porque precisa gritar que está *selecionado* ou que é *a ação*.
   final Color tone;
 
   /// Texto e ícone sobre [tone].
   final Color onTone;
 
-  /// O fundo lavado do ladrilho.
+  /// **O texto de corpo sobre o vidro desta família.**
+  ///
+  /// É um quase-branco (ou um quase-preto, no tema claro) com um traço do matiz da família —
+  /// o suficiente para o herói de treino e o de nutrição não parecerem a mesma peça, longe o
+  /// bastante da cor cheia para uma frase inteira não sair colorida. Quem carrega a família em
+  /// força total é [ink], e ele fica no rótulo, no ícone e no número.
+  ///
+  /// Existe separado de [onTone] porque as duas superfícies são opostas: sobre a cor cheia o
+  /// texto precisa ser claro no tema claro (branco sobre esmeralda), e sobre o vidro ele
+  /// precisa ser escuro (quase-preto sobre branco translúcido). Um campo só cobria os dois
+  /// enquanto o herói era pintado; com vidro, ele erraria metade dos casos.
+  final Color onGlass;
+
+  /// Um fundo lavado da família, e a cor do texto sobre [ink] quando ele vira botão.
   final Color wash;
 
-  /// O número e o ícone sobre [wash]. É a cor da família em força total.
+  /// O número e o ícone da família em força total.
   final Color ink;
 }
 
@@ -55,12 +73,14 @@ abstract final class Blocks {
       ? const BlockColors(
           tone: Color(0xFF0B5F45),
           onTone: Color(0xFFD6F5E7),
+          onGlass: Color(0xFFDDF3E9),
           wash: Color(0xFF12291F),
           ink: Color(0xFF34D399),
         )
       : const BlockColors(
           tone: Color(0xFF047857),
           onTone: Color(0xFFFFFFFF),
+          onGlass: Color(0xFF0A2E22),
           wash: Color(0xFFDCF5EA),
           ink: Color(0xFF047857),
         );
@@ -71,12 +91,14 @@ abstract final class Blocks {
       ? const BlockColors(
           tone: Color(0xFF3730A3),
           onTone: Color(0xFFE0E7FF),
+          onGlass: Color(0xFFE4E8F5),
           wash: Color(0xFF1D1D3B),
           ink: Color(0xFFA5B4FC),
         )
       : const BlockColors(
           tone: Color(0xFF4338CA),
           onTone: Color(0xFFFFFFFF),
+          onGlass: Color(0xFF171545),
           wash: Color(0xFFE4E3FB),
           ink: Color(0xFF4338CA),
         );
@@ -89,12 +111,14 @@ abstract final class Blocks {
       ? const BlockColors(
           tone: Color(0xFF92400E),
           onTone: Color(0xFFFEF3C7),
+          onGlass: Color(0xFFF3EDE2),
           wash: Color(0xFF2E231A),
           ink: Color(0xFFFBBF24),
         )
       : const BlockColors(
           tone: Color(0xFFB45309),
           onTone: Color(0xFFFFFFFF),
+          onGlass: Color(0xFF3A2508),
           // Mais claro que os outros lavados de propósito: o âmbar é a família mais escura
           // das quatro, e sobre um fundo do mesmo tom dos demais ele não alcançava 4,5:1.
           wash: Color(0xFFFDF3E6),
@@ -107,12 +131,14 @@ abstract final class Blocks {
       ? const BlockColors(
           tone: Color(0xFF9D174D),
           onTone: Color(0xFFFCE7F3),
+          onGlass: Color(0xFFF4E6ED),
           wash: Color(0xFF311828),
           ink: Color(0xFFF472B6),
         )
       : const BlockColors(
           tone: Color(0xFFBE185D),
           onTone: Color(0xFFFFFFFF),
+          onGlass: Color(0xFF4A0F2A),
           wash: Color(0xFFFBE3EC),
           ink: Color(0xFFBE185D),
         );
@@ -131,6 +157,8 @@ abstract final class Blocks {
   static BlockColors neutral(ColorScheme scheme) => BlockColors(
     tone: scheme.inverseSurface,
     onTone: scheme.onInverseSurface,
+    // Sem família, sem traço de matiz: o neutro sobre vidro é simplesmente a tinta do tema.
+    onGlass: scheme.onSurface,
     wash: scheme.brightness == Brightness.light
         ? scheme.surfaceContainerHighest
         : scheme.surfaceContainerHigh,

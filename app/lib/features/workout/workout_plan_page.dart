@@ -182,7 +182,7 @@ class _PlanHero extends StatelessWidget {
             child: ReviewBadge(
               reviewStatus: plan.reviewStatus,
               reviewNote: plan.reviewNote,
-              onTone: colors.onTone,
+              onGlass: colors.onGlass,
             ),
           ),
         ],
@@ -221,7 +221,7 @@ class _NoPlanHero extends StatelessWidget {
               Text(
                 'Você ainda não\ntem um treino.',
                 style: theme.textTheme.displaySmall?.copyWith(
-                  color: colors.onTone,
+                  color: colors.onGlass,
                 ),
               ),
               const SizedBox(height: Space.sm),
@@ -231,7 +231,7 @@ class _NoPlanHero extends StatelessWidget {
                     : 'Ele é montado a partir do seu perfil: experiência, objetivo, '
                           'dias por semana e o que você tem à mão.',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colors.onTone.withValues(alpha: 0.85),
+                  color: colors.onGlass.withValues(alpha: 0.85),
                 ),
               ),
             ],

@@ -627,6 +627,9 @@ List<Override> homeOverrides({
   reviewQueueProvider.overrideWith((ref) async => reviewQueue),
   coachMessagesProvider.overrideWith((ref) async => coachMessages),
   diaryDayProvider.overrideWith((ref) async => day ?? diaryDay()),
+  // O carrossel do diário assiste a um provider por data, e não ao dia aberto: sem isto as
+  // páginas caem no repositório de verdade e ficam girando para sempre.
+  diaryDayOfProvider.overrideWith((ref, date) async => day ?? diaryDay()),
   dashboardStatsProvider.overrideWith((ref) async => stats ?? dashboardStats()),
   nextWorkoutProvider.overrideWith(
     (ref) async => hasNextWorkout ? (next ?? nextWorkout()) : null,

@@ -31,6 +31,19 @@ abstract final class Space {
   static const double gutter = 20;
 }
 
+/// Quanto uma lista precisa reservar no fim para não terminar debaixo da moldura.
+///
+/// **Existe porque a barra de abas virou vidro.** Ela deixou de ocupar espaço no layout e
+/// passou a flutuar por cima do conteúdo — que é o ponto: o que se vê borrado através dela é a
+/// própria lista continuando. O preço é que a lista não termina mais onde a tela termina, e
+/// sem este respiro o último cartão fica ilegível atrás do material.
+///
+/// O `Scaffold` com `extendBody` informa a altura da barra no `padding` do `MediaQuery`, então
+/// esta conta serve igual nas abas e nas telas com rota própria — nestas o número é só o
+/// recorte do sistema, que é o que elas precisam de qualquer jeito.
+double listBottomInset(BuildContext context) =>
+    Space.fabClearance + MediaQuery.paddingOf(context).bottom;
+
 /// Raios de canto.
 ///
 /// Três degraus e um pílula. O erro comum é usar o mesmo raio no cartão e no botão dentro

@@ -209,7 +209,7 @@ void main() {
         240,
         scrollable: find.byType(Scrollable).first,
       );
-      for (final title in ['Progresso', 'Assinatura', 'Conta e privacidade']) {
+      for (final title in ['Meu treino', 'Assinatura', 'Conta e privacidade']) {
         expect(find.text(title), findsOne, reason: title);
       }
     });

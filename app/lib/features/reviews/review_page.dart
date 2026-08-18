@@ -195,14 +195,14 @@ class _QueueBody extends ConsumerWidget {
                     Text(
                       'Nada pendente.',
                       style: theme.textTheme.displaySmall?.copyWith(
-                        color: colors.onTone,
+                        color: colors.onGlass,
                       ),
                     ),
                     const SizedBox(height: Space.sm),
                     Text(
                       'Todos os planos ativos já foram revisados.',
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colors.onTone.withValues(alpha: 0.85),
+                        color: colors.onGlass.withValues(alpha: 0.85),
                       ),
                     ),
                   ],

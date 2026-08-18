@@ -1,12 +1,15 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/design/blocks.dart';
 import '../../core/design/format.dart';
+import '../../core/design/materials.dart';
 import '../../core/design/tokens.dart';
+import '../../core/design/typography.dart';
 import '../../core/router.dart';
 import '../../core/widgets/blocks.dart';
 import '../achievements/achievements_controller.dart';
@@ -16,75 +19,239 @@ import '../diary/data/diary_models.dart';
 import '../diary/diary_controller.dart';
 import '../profile/onboarding_controller.dart';
 import 'account_avatar.dart';
+import 'today_ring.dart';
 import 'today_controller.dart';
 
-/// Hoje: um mosaico, e o assunto do momento no topo.
+/// Hoje: uma superfície, e o assunto do momento no topo.
 ///
-/// **A tela tem uma forma só, e ela se reorganiza conforme a hora.** No alto, um bloco em cor
-/// cheia — o herói — que responde a única pergunta que importa naquele momento do dia: de
-/// manhã, qual treino é hoje; à tarde, quanto ainda cabe de comida; à noite, fechar o dia.
-/// Abaixo dele, o resto do app em ladrilhos lavados, um por assunto, cada um com a cor da sua
-/// família.
+/// **A tela tem uma forma só, e ela se reorganiza conforme a hora.** No alto, o herói —
+/// que responde a única pergunta que importa naquele momento do dia: de manhã, qual treino é
+/// hoje; à tarde, quanto ainda cabe de comida; à noite, fechar o dia. Abaixo dele, o resto do
+/// app em cartões, um por assunto, cada um com a tinta da sua família.
 ///
-/// **Por que assim, depois de duas tentativas erradas.** A primeira empilhou seis cartões
+/// **Por que assim, depois de três tentativas erradas.** A primeira empilhou seis cartões
 /// brancos idênticos e o usuário não sabia por onde começar. A segunda cortou até sobrar um
 /// anel e um botão, e ficou vazia sem ficar bonita — o que provou que o problema nunca foi
-/// quantidade. Era que tudo tinha o mesmo peso e a mesma cor, e o app parecia o que era: um
-/// projeto Flutter novo com um verde. O mosaico resolve os dois de uma vez: a cor separa os
-/// assuntos sem precisar de rótulo, e a promoção de um deles a herói resolve "o que faço
-/// primeiro" sem esconder o resto.
+/// quantidade. A terceira acertou a hierarquia e errou o material: cada bloco ganhou um fundo
+/// pintado na cor do assunto, e a tela virou um mosaico de sete retângulos coloridos brigando
+/// entre si — separava bem os assuntos e parecia um painel de instrumentos.
 ///
-/// **O assunto promovido sai do mosaico.** Ele não aparece duas vezes.
-class TodayView extends ConsumerWidget {
+/// O que ficou de pé de cada uma: **a hora decide o herói** (a segunda), **a cor pertence ao
+/// assunto** (a terceira) — e a correção é de portador. O fundo é sempre o mesmo vidro; a cor
+/// vive na tinta. Quem separa as peças agora é profundidade e escala, não área de cor.
+///
+/// **E o herói deixou de ser só um bloco maior.** Sendo a nutrição, ele é o anel — que colapsa
+/// para dentro da barra ao rolar e guarda o dia inteiro atrás de si, a um puxão. Ver
+/// [TodayRingHero].
+///
+/// **O assunto promovido sai do resto.** Ele não aparece duas vezes.
+class TodayView extends ConsumerStatefulWidget {
   const TodayView({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return RefreshIndicator(
-      onRefresh: () async {
-        ref.invalidate(diaryDayProvider);
-        ref.invalidate(dashboardStatsProvider);
-        ref.invalidate(nextWorkoutProvider);
-        ref.invalidate(pendingReviewsProvider);
-        await ref.read(diaryDayProvider.future);
-      },
-      child: ListView(
-        // O respiro de baixo passa do botão flutuante: sem ele o último ladrilho para debaixo
-        // do "Registrar" e a rolagem acaba antes de tirá-lo de lá.
-        padding: const EdgeInsets.fromLTRB(Space.gutter, 0, Space.gutter, 148),
-        children: const [_TopRow(), _Mosaic()],
-      ),
+  ConsumerState<TodayView> createState() => _TodayViewState();
+}
+
+class _TodayViewState extends ConsumerState<TodayView> {
+  final ScrollController _scroll = ScrollController();
+
+  /// 0 no topo da lista, 1 com o herói fora de cena.
+  ///
+  /// Um `ValueNotifier` e não `setState`: o cabeçalho é a única coisa que muda com a rolagem, e
+  /// reconstruir a lista inteira a cada quadro de rolagem é o jeito mais caro possível de
+  /// desenhar um borrão.
+  final ValueNotifier<double> _collapse = ValueNotifier(0);
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scroll.removeListener(_onScroll);
+    _scroll.dispose();
+    _collapse.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    // 150 dp: a altura em que o número grande já saiu do enquadramento. Antes disso a barra
+    // materializando marcaria uma divisão que ainda não existe.
+    _collapse.value = (_scroll.offset / 150).clamp(0.0, 1.0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final headerHeight = MediaQuery.paddingOf(context).top + _headerBar;
+
+    // O cabeçalho **flutua sobre a lista**, e não acima dela: é o que permite ao conteúdo
+    // passar por baixo do vidro, que é a única razão de o vidro existir.
+    return Stack(
+      children: [
+        RefreshIndicator(
+          // Empurrado para baixo do cabeçalho: no lugar padrão o indicador nasce atrás do
+          // vidro e a pessoa vê um borrão girando.
+          edgeOffset: headerHeight,
+          onRefresh: () async {
+            ref.invalidate(diaryDayProvider);
+            ref.invalidate(dashboardStatsProvider);
+            ref.invalidate(nextWorkoutProvider);
+            ref.invalidate(pendingReviewsProvider);
+            await ref.read(diaryDayProvider.future);
+          },
+          child: ListView(
+            controller: _scroll,
+            padding: EdgeInsets.fromLTRB(
+              Space.gutter,
+              headerHeight + Space.xs,
+              Space.gutter,
+              // O respiro de baixo passa do botão flutuante e da barra de abas: sem ele o
+              // último cartão para debaixo dos dois e a rolagem acaba antes de tirá-lo de lá.
+              Space.huge + listBottomInset(context),
+            ),
+            children: [
+              const _DateLine(),
+              _Mosaic(scrollController: _scroll),
+            ],
+          ),
+        ),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: _TodayHeader(collapse: _collapse),
+        ),
+      ],
     );
   }
 }
 
-/// A data e o avatar, no lugar da barra de título.
+/// A altura da tira de título, abaixo do recorte do sistema.
+const double _headerBar = 46;
+
+/// O cabeçalho da Hoje: o nome da aba, o anel em miniatura e o avatar.
 ///
-/// A barra do Material gastava esta tira escrevendo "MyoTrack" — a única coisa que quem abriu
-/// o app já sabe. Uma tela chamada Hoje que em lugar nenhum dizia que dia era.
-class _TopRow extends ConsumerWidget {
-  const _TopRow();
+/// **Ele chega com a rolagem.** No topo da lista não há nada por baixo dele para borrar, e uma
+/// barra já materializada ali só desenharia uma divisão onde a tela é contínua. Conforme o
+/// conteúdo sobe, o véu e o borrão entram juntos — e o número que estava no anel grande
+/// reaparece em miniatura, para que a resposta que trouxe a pessoa ao app não saia da tela só
+/// porque ela rolou para ver o treino.
+class _TodayHeader extends StatelessWidget {
+  const _TodayHeader({required this.collapse});
+
+  final ValueListenable<double> collapse;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return ValueListenableBuilder<double>(
+      valueListenable: collapse,
+      builder: (context, p, _) {
+        // Só depois de o anel grande ter saído de cena: os dois na tela ao mesmo tempo seriam
+        // o mesmo número duas vezes.
+        //
+        // **E não basta deixá-lo transparente.** Um `Opacity(0)` continua na árvore: o leitor
+        // de tela anuncia "624 kcal" duas vezes numa tela que mostra o número uma vez, e o
+        // teste que conta o número na tela passa a contar dois. Invisível aqui quer dizer
+        // inexistente.
+        final compact = ((p - 0.45) / 0.4).clamp(0.0, 1.0);
+
+        return GlassChrome(
+          opacity: p,
+          edge: GlassEdgeSide.bottom,
+          child: SafeArea(
+            bottom: false,
+            child: SizedBox(
+              height: _headerBar,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text('Hoje', style: theme.textTheme.titleLarge),
+                    ),
+                    if (compact > 0) ...[
+                      Opacity(opacity: compact, child: const _CompactRing()),
+                      const SizedBox(width: Space.xs),
+                    ],
+                    const AccountAvatar(),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// O anel do herói, em 22 dp, com o número ao lado.
+class _CompactRing extends ConsumerWidget {
+  const _CompactRing();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final day = ref.watch(diaryDayProvider).valueOrNull;
+    final targets = day?.targets;
+
+    if (day == null || targets == null || targets.kcal <= 0) {
+      return const SizedBox.shrink();
+    }
+
+    final left = math.max(0, (targets.kcal - day.consumed.kcal).round());
+    final colors = Blocks.nutrition(theme.brightness);
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        CalorieRing(
+          progress: day.consumed.kcal / targets.kcal,
+          colors: colors,
+          diameter: 22,
+          stroke: 3,
+        ),
+        const SizedBox(width: 6),
+        Text(
+          Fmt.integer(left),
+          style: AppTypography.numeric(
+            size: 16,
+            color: theme.colorScheme.onSurface,
+            weight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(width: 3),
+        Text(
+          'kcal',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// "terça, 4 de agosto", acima do herói.
+///
+/// Uma tela chamada Hoje que em lugar nenhum dizia que dia era.
+class _DateLine extends ConsumerWidget {
+  const _DateLine();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
 
-    return SafeArea(
-      bottom: false,
-      child: Padding(
-        padding: const EdgeInsets.only(top: Space.xs, bottom: Space.md),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                _todayLabel(ref.watch(nowProvider)()),
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-            const AccountAvatar(),
-          ],
+    return Padding(
+      padding: const EdgeInsets.only(top: Space.xs, bottom: Space.md),
+      child: Text(
+        _todayLabel(ref.watch(nowProvider)()),
+        style: theme.textTheme.titleSmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
         ),
       ),
     );
@@ -157,7 +324,10 @@ HeroKind pickHero({
 // ---------------------------------------------------------------------------------------
 
 class _Mosaic extends ConsumerWidget {
-  const _Mosaic();
+  const _Mosaic({required this.scrollController});
+
+  /// A rolagem da tela, que o anel precisa conhecer para devolver a ela o arrasto para cima.
+  final ScrollController scrollController;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -200,6 +370,12 @@ class _Mosaic extends ConsumerWidget {
       children: [
         _hero(context, ref, hero, day: day, next: next, hasDiet: hasDiet),
         const SizedBox(height: Space.sm),
+        // O treino, quando não é ele o herói. Ver [_WorkoutCard] para por que ele deixou de
+        // ser um ladrilho de meia largura.
+        if (hero != HeroKind.workout && next != null) ...[
+          _WorkoutCard(next: next, colors: Blocks.workout(brightness)),
+          const SizedBox(height: Space.sm),
+        ],
         TileGrid(
           tiles: _tiles(
             context,
@@ -231,9 +407,12 @@ class _Mosaic extends ConsumerWidget {
         next: next!,
         colors: Blocks.workout(brightness),
       ),
-      HeroKind.nutrition => _NutritionHero(
+      // A nutrição virou o anel: mesmo assunto, mesma pergunta, outro corpo — e agora com o
+      // dia inteiro guardado atrás dele. Ver [TodayRingHero].
+      HeroKind.nutrition => TodayRingHero(
         day: day!,
         colors: Blocks.nutrition(brightness),
+        scrollController: scrollController,
       ),
       HeroKind.closeDay => _CloseDayHero(
         day: day,
@@ -295,20 +474,6 @@ class _Mosaic extends ConsumerWidget {
               ? 'meta do dia alcançada'
               : 'faltam de ${Fmt.grams(targets.proteinG)}',
           onTap: () => context.push(Routes.diary),
-        ),
-      );
-    }
-
-    if (hero != HeroKind.workout && next != null) {
-      final done = next.daysSince() == 0;
-      tiles.add(
-        Tile(
-          colors: Blocks.workout(brightness),
-          label: 'Treino',
-          icon: Icons.fitness_center,
-          value: done ? 'Feito' : '${next.estimatedMinutes} min',
-          detail: next.day.label,
-          onTap: () => context.push(Routes.workoutMode),
         ),
       );
     }
@@ -477,59 +642,144 @@ class _Mosaic extends ConsumerWidget {
 // Os heróis
 // ---------------------------------------------------------------------------------------
 
-/// Quanto ainda cabe hoje, e a barra de refeições.
-class _NutritionHero extends StatelessWidget {
-  const _NutritionHero({required this.day, required this.colors});
+/// O treino do dia, quando não é ele o herói.
+///
+/// **Era um ladrilho de meia largura, e a conta não fechava.** Num quadrado de 146 dp cabia
+/// "55 min" e o nome do dia cortado ao meio; para saber o que ia treinar, a pessoa tinha de
+/// abrir outra tela — e para *começar*, mais uma. É o segundo assunto do app inteiro reduzido
+/// a um selo.
+///
+/// Em largura cheia ele diz o que a pergunta pede: qual treino, quanto dura, quando foi a
+/// última vez, os primeiros exercícios — e traz o botão de começar junto. O que ele **não**
+/// vira é um segundo herói: o fundo é o mesmo vidro dos outros cartões, e a única coisa em cor
+/// cheia é o botão.
+class _WorkoutCard extends StatelessWidget {
+  const _WorkoutCard({required this.next, required this.colors});
 
-  final DiaryDay day;
+  final NextWorkout next;
   final BlockColors colors;
 
   @override
   Widget build(BuildContext context) {
-    final targets = day.targets!;
-    final consumed = day.consumed;
-    final left = math.max(0, (targets.kcal - consumed.kcal).round());
+    final theme = Theme.of(context);
+    final days = next.daysSince();
+    final done = days == 0;
+    final exercises = next.day.exercises;
 
-    return HeroBlock(
-      colors: colors,
-      label: 'Nutrição',
-      icon: Icons.restaurant,
-      // "Fotografar" e não "Registrar": o botão flutuante da tela já diz Registrar, e dois
-      // botões com o mesmo verbo fazem o usuário procurar a diferença entre eles. Este leva
-      // direto à câmera, que é o caminho mais curto e o melhor recurso do app.
-      action: HeroAction(
-        label: 'Fotografar refeição',
-        onPressed: () => context.push(Routes.mealAnalysis),
-      ),
+    return GlassPanel(
+      radius: Radii.xlAll,
+      tint: colors.ink.withValues(alpha: 0.06),
+      padding: const EdgeInsets.all(Space.lg),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // O número é o que **resta**, e não o que foi comido: às três da tarde a pergunta é
-          // quanto ainda dá para comer, e transformar 1.476 em 624 é uma conta que ninguém
-          // deveria fazer de cabeça na fila do restaurante.
-          //
-          // A linha da proteína saiu daqui e virou ladrilho: ela é outra pergunta ("estou
-          // batendo a proteína?"), e como frase dentro do herói ela empurrava o bloco para
-          // metade da tela sem ganhar o destaque que um número teria.
-          HeroFigure(
-            value: Fmt.integer(left),
-            unit: 'kcal restam',
-            colors: colors,
-            detail:
-                '${Fmt.integer(consumed.kcal)} de ${Fmt.kcal(targets.kcal)}',
+          Row(
+            children: [
+              Icon(Icons.fitness_center, size: 17, color: colors.ink),
+              const SizedBox(width: 6),
+              Text(
+                'TREINO DE HOJE',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colors.ink,
+                  letterSpacing: 0.6,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: Space.sm),
+          Text(next.day.label, style: theme.textTheme.headlineSmall),
+          const SizedBox(height: Space.xxs),
+          Text(
+            [
+              next.exerciseCount == 1
+                  ? '1 exercício'
+                  : '${next.exerciseCount} exercícios',
+              '${next.estimatedMinutes} min',
+              // A recência só entra quando existe: "último há 0 dias" em quem nunca treinou
+              // este dia seria mentira, e a ausência da frase já diz que é a primeira vez.
+              if (days != null)
+                switch (days) {
+                  0 => 'feito hoje',
+                  1 => 'feito ontem',
+                  _ => 'feito há $days dias',
+                },
+            ].join(' · '),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: Space.md),
-          MealBar(
-            slices: MealBar.slicesOf(
-              mealKcal: [
-                for (final entry in day.entries)
-                  if (!entry.excludedFromDiary) entry.totalKcal,
-              ],
-              consumed: consumed.kcal,
-              target: targets.kcal,
-            ),
-            colors: colors,
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: colors.ink,
+                    foregroundColor: colors.wash,
+                    minimumSize: const Size.fromHeight(50),
+                  ),
+                  // Leva à escolha do dia em `/treinar`, e não direto ao treino sugerido. A
+                  // diferença é de um toque, e existe porque a sugestão pode estar errada —
+                  // quem trocou a ordem da semana acharia o app teimoso se ele começasse
+                  // sozinho o treino errado, com as mãos já na barra.
+                  onPressed: () => context.push(Routes.workoutMode),
+                  child: Text(done ? 'Treinar de novo' : 'Começar'),
+                ),
+              ),
+              const SizedBox(width: Space.sm),
+              SizedBox.square(
+                dimension: 50,
+                child: IconButton(
+                  onPressed: () => context.push(Routes.workoutPlan),
+                  tooltip: 'Ver o plano inteiro',
+                  icon: Icon(Icons.list_alt, color: colors.ink),
+                  style: IconButton.styleFrom(
+                    backgroundColor: colors.ink.withValues(alpha: 0.12),
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: Radii.smAll,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
+          if (exercises.isNotEmpty) ...[
+            const SizedBox(height: Space.md),
+            // Três, e o resto contado. A lista inteira é a tela do plano; aqui ela serve para
+            // reconhecer o treino, não para conferi-lo.
+            for (final exercise in exercises.take(3))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 7),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        exercise.exerciseName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ),
+                    const SizedBox(width: Space.sm),
+                    Text(
+                      '${exercise.sets} × '
+                      '${exercise.repsMin}–${exercise.repsMax}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (exercises.length > 3)
+              Text(
+                'e mais ${exercises.length - 3} '
+                '${exercises.length - 3 == 1 ? 'exercício' : 'exercícios'}',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+          ],
         ],
       ),
     );
@@ -566,7 +816,7 @@ class _WorkoutHero extends StatelessWidget {
           Text(
             next.day.label,
             style: theme.textTheme.headlineSmall?.copyWith(
-              color: colors.onTone,
+              color: colors.onGlass,
             ),
           ),
           const SizedBox(height: Space.md),
@@ -626,7 +876,7 @@ class _CloseDayHero extends StatelessWidget {
           Text(
             'Como foi hoje?',
             style: theme.textTheme.headlineMedium?.copyWith(
-              color: colors.onTone,
+              color: colors.onGlass,
             ),
           ),
           const SizedBox(height: Space.xs),
@@ -638,14 +888,14 @@ class _CloseDayHero extends StatelessWidget {
               if (trained) 'treino feito' else 'sem treino',
             ].join(' · '),
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: colors.onTone.withValues(alpha: 0.8),
+              color: colors.onGlass.withValues(alpha: 0.8),
             ),
           ),
           const SizedBox(height: Space.sm),
           Text(
             'Três perguntas: esforço, peso e energia.',
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: colors.onTone.withValues(alpha: 0.8),
+              color: colors.onGlass.withValues(alpha: 0.8),
             ),
           ),
         ],
@@ -692,14 +942,16 @@ class _OnboardingHero extends ConsumerWidget {
         children: [
           Text(
             'Vamos montar\nseu plano.',
-            style: theme.textTheme.displaySmall?.copyWith(color: colors.onTone),
+            style: theme.textTheme.displaySmall?.copyWith(
+              color: colors.onGlass,
+            ),
           ),
           const SizedBox(height: Space.sm),
           Text(
             'Três passos, e o app passa a saber quanto você precisa comer e '
             'treinar por dia.',
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: colors.onTone.withValues(alpha: 0.85),
+              color: colors.onGlass.withValues(alpha: 0.85),
             ),
           ),
           const SizedBox(height: Space.lg),
@@ -751,15 +1003,15 @@ class _Step extends StatelessWidget {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: colors.onTone.withValues(alpha: done ? 1 : 0.18),
+                color: colors.ink.withValues(alpha: done ? 1 : 0.18),
               ),
               // O visto não é só cor: quem não distingue as duas precisa do símbolo.
               child: done
-                  ? Icon(Icons.check, size: 15, color: colors.tone)
+                  ? Icon(Icons.check, size: 15, color: colors.wash)
                   : Text(
                       '$number',
                       style: theme.textTheme.labelMedium?.copyWith(
-                        color: colors.onTone,
+                        color: colors.ink,
                       ),
                     ),
             ),
@@ -768,9 +1020,9 @@ class _Step extends StatelessWidget {
               child: Text(
                 label,
                 style: theme.textTheme.titleSmall?.copyWith(
-                  color: colors.onTone,
+                  color: colors.onGlass,
                   decoration: done ? TextDecoration.lineThrough : null,
-                  decorationColor: colors.onTone.withValues(alpha: 0.6),
+                  decorationColor: colors.onGlass.withValues(alpha: 0.6),
                 ),
               ),
             ),
@@ -778,7 +1030,7 @@ class _Step extends StatelessWidget {
               Icon(
                 Icons.chevron_right,
                 size: 20,
-                color: colors.onTone.withValues(alpha: 0.7),
+                color: colors.onGlass.withValues(alpha: 0.7),
               ),
           ],
         ),
@@ -830,39 +1082,32 @@ class _WeekDots extends StatelessWidget {
   }
 }
 
-/// O mosaico enquanto as chamadas não voltam.
+/// A tela enquanto as chamadas não voltam.
 ///
-/// Blocos cinzas do tamanho exato dos de verdade. Sem isto a tela nasce vazia e empurra tudo
-/// para baixo quando a resposta chega — e o salto é mais visível que a espera.
+/// Blocos do tamanho exato dos de verdade. Sem isto a tela nasce vazia e empurra tudo para
+/// baixo quando a resposta chega — e o salto é mais visível que a espera.
+///
+/// **E é o mesmo vidro dos blocos de verdade**, não um cinza qualquer: a espera passa a ser o
+/// cartão ainda sem conteúdo, e a chegada do dado não troca a superfície debaixo dele.
 class _MosaicSkeleton extends StatelessWidget {
   const _MosaicSkeleton();
 
   @override
   Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.surfaceContainerHigh;
-
-    return Column(
+    return const Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(
-          height: 236,
-          decoration: BoxDecoration(color: color, borderRadius: Radii.xlAll),
-        ),
-        const SizedBox(height: Space.sm),
+        GlassPanel(child: SizedBox(height: 236)),
+        SizedBox(height: Space.sm),
         Row(
           children: [
-            for (var i = 0; i < 2; i++) ...[
-              if (i > 0) const SizedBox(width: Space.sm),
-              Expanded(
-                child: Container(
-                  height: Tile.height,
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: Radii.lgAll,
-                  ),
-                ),
-              ),
-            ],
+            Expanded(
+              child: GlassPanel(child: SizedBox(height: Tile.height)),
+            ),
+            SizedBox(width: Space.sm),
+            Expanded(
+              child: GlassPanel(child: SizedBox(height: Tile.height)),
+            ),
           ],
         ),
       ],

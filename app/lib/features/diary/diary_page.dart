@@ -45,37 +45,85 @@ class DiaryPage extends StatelessWidget {
 /// Hoje, e ela é deliberada: a Hoje responde "quanto ainda cabe", pergunta que só faz sentido
 /// hoje; o diário é navegável para trás, e "restam 624" num sábado que já acabou não significa
 /// nada.
-class DiaryView extends ConsumerWidget {
+class DiaryView extends ConsumerStatefulWidget {
   const DiaryView({super.key});
 
+  /// Quantos dias o carrossel cobre, terminando em hoje.
+  ///
+  /// Sete: é a janela que o próprio backend devolve no gráfico da semana, e é até onde alguém
+  /// se lembra do que comeu sem ir procurar a foto.
+  static const int days = 7;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final date = ref.watch(diaryDateProvider);
-    final dayAsync = ref.watch(diaryDayProvider);
+  ConsumerState<DiaryView> createState() => _DiaryViewState();
+}
+
+class _DiaryViewState extends ConsumerState<DiaryView> {
+  /// A página é a distância até hoje, ao contrário: 0 é o dia mais antigo, o último é hoje.
+  late final PageController _pager = PageController(
+    initialPage: _indexOf(ref.read(diaryDateProvider)),
+  );
+
+  late final DateTime _today = _dateOnly(DateTime.now());
+
+  DateTime _dateAt(int index) =>
+      _today.subtract(Duration(days: DiaryView.days - 1 - index));
+
+  int _indexOf(DateTime date) =>
+      (DiaryView.days - 1 - _today.difference(_dateOnly(date)).inDays).clamp(
+        0,
+        DiaryView.days - 1,
+      );
+
+  @override
+  void dispose() {
+    _pager.dispose();
+    super.dispose();
+  }
+
+  void _onPageChanged(int index) {
+    // O provider global segue o carrossel: quem lê o "dia aberto" de fora — a Hoje, o botão de
+    // fotografar — precisa ver a mesma data que está na tela.
+    ref.read(diaryDateProvider.notifier).state = _dateAt(index);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colors = Blocks.nutrition(Theme.of(context).brightness);
+
+    // Um `listener` do provider e não `watch`: quem manda no carrossel é o gesto, e reagir à
+    // própria escrita que ele acabou de fazer devolveria a página ao ponto de partida no meio
+    // do arrasto. Só a mudança que veio *de fora* move o carrossel.
+    ref.listen<DateTime>(diaryDateProvider, (previous, next) {
+      final target = _indexOf(next);
+      if (_pager.hasClients && _pager.page?.round() != target) {
+        _pager.animateToPage(
+          target,
+          duration: Motion.slow,
+          curve: Motion.enter,
+        );
+      }
+    });
 
     return Column(
       children: [
-        _DayPicker(date: date, colors: colors),
+        _WeekStrip(
+          pager: _pager,
+          today: _today,
+          colors: colors,
+          onPick: (index) => _pager.animateToPage(
+            index,
+            duration: Motion.slow,
+            curve: Motion.enter,
+          ),
+        ),
         Expanded(
-          child: RefreshIndicator(
-            onRefresh: () async {
-              ref.invalidate(diaryDayProvider);
-              await ref.read(diaryDayProvider.future);
-            },
-            child: dayAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => EmptyState(
-                icon: Icons.cloud_off_outlined,
-                title: 'Não foi possível carregar o diário.',
-                detail: '$error',
-                action: FilledButton.tonal(
-                  onPressed: () => ref.invalidate(diaryDayProvider),
-                  child: const Text('Tentar de novo'),
-                ),
-              ),
-              data: (day) => _Body(day: day, date: date, colors: colors),
-            ),
+          child: PageView.builder(
+            controller: _pager,
+            onPageChanged: _onPageChanged,
+            itemCount: DiaryView.days,
+            itemBuilder: (context, index) =>
+                _DayPage(date: _dateAt(index), colors: colors),
           ),
         ),
       ],
@@ -83,106 +131,170 @@ class DiaryView extends ConsumerWidget {
   }
 }
 
-/// A semana em sete alvos, terminando em hoje.
+DateTime _dateOnly(DateTime date) => DateTime(date.year, date.month, date.day);
+
+/// Um dia do carrossel.
 ///
-/// Substituiu as setas "dia anterior / próximo dia". Com setas, chegar em segunda-feira a
-/// partir de domingo custava seis toques e nenhum deles dizia onde a pessoa estava; aqui a
-/// semana inteira está à vista e a distância é sempre um toque.
-///
-/// Não passa de hoje: o diário registra o que foi comido, e um dia futuro só poderia estar
-/// vazio — o usuário acharia que perdeu dados.
-class _DayPicker extends ConsumerWidget {
-  const _DayPicker({required this.date, required this.colors});
+/// Cada página assiste à **própria** data — ver [diaryDayOfProvider] —, e é isso que faz o dia
+/// vizinho já estar desenhado quando o dedo o traz para dentro da tela em vez de aparecer
+/// depois, num segundo quadro.
+class _DayPage extends ConsumerWidget {
+  const _DayPage({required this.date, required this.colors});
 
   final DateTime date;
   final BlockColors colors;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+    final dayAsync = ref.watch(diaryDayOfProvider(date));
 
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(diaryDayOfProvider(date));
+        await ref.read(diaryDayOfProvider(date).future);
+      },
+      child: dayAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, _) => EmptyState(
+          icon: Icons.cloud_off_outlined,
+          title: 'Não foi possível carregar o diário.',
+          detail: '$error',
+          action: FilledButton.tonal(
+            onPressed: () => ref.invalidate(diaryDayOfProvider(date)),
+            child: const Text('Tentar de novo'),
+          ),
+        ),
+        data: (day) => _Body(day: day, date: date, colors: colors),
+      ),
+    );
+  }
+}
+
+/// A semana em sete alvos, terminando em hoje — e a pastilha que corre com o dedo.
+///
+/// Substituiu as setas "dia anterior / próximo dia". Com setas, chegar em segunda-feira a
+/// partir de domingo custava seis toques e nenhum deles dizia onde a pessoa estava; aqui a
+/// semana inteira está à vista, a distância é sempre um toque, **e agora também um arrasto**.
+///
+/// **A pastilha é solidária ao carrossel, não à página escolhida.** Ela lê a posição contínua
+/// do `PageController` — que durante o arrasto é 3,4, 3,7, 3,9 — e não o índice inteiro. É a
+/// diferença entre um marcador que *acompanha* o gesto e um que *salta* quando ele termina: o
+/// primeiro faz a tira e o conteúdo parecerem a mesma peça, o segundo faz a tira parecer um
+/// menu que foi avisado depois.
+///
+/// Não passa de hoje: o diário registra o que foi comido, e um dia futuro só poderia estar
+/// vazio — o usuário acharia que perdeu dados.
+class _WeekStrip extends StatelessWidget {
+  const _WeekStrip({
+    required this.pager,
+    required this.today,
+    required this.colors,
+    required this.onPick,
+  });
+
+  final PageController pager;
+  final DateTime today;
+  final BlockColors colors;
+  final ValueChanged<int> onPick;
+
+  @override
+  Widget build(BuildContext context) {
     return SizedBox(
       height: 66,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
+      child: Padding(
         padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 4),
-        children: [
-          for (var back = 6; back >= 0; back--) ...[
-            if (back < 6) const SizedBox(width: 6),
-            () {
-              final day = today.subtract(Duration(days: back));
-              return _DayChip(
-                date: day,
-                selected: day == date,
-                colors: colors,
-                onTap: () => ref.read(diaryDateProvider.notifier).state = day,
-              );
-            }(),
-          ],
-        ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // O passo sai da largura disponível, e não de um chip de tamanho fixo: sete alvos
+            // de 44 dp estouram um celular de 360, e a tira que rolava para caber tirava da
+            // pastilha a única coisa que ela precisa ter — uma posição que o olho confere.
+            final step = constraints.maxWidth / DiaryView.days;
+
+            return Stack(
+              children: [
+                AnimatedBuilder(
+                  animation: pager,
+                  builder: (context, _) {
+                    final page =
+                        pager.hasClients && pager.position.haveDimensions
+                        ? pager.page ?? 0
+                        : pager.initialPage.toDouble();
+                    return Positioned(
+                      left: page * step + 2,
+                      top: 0,
+                      width: step - 4,
+                      height: 58,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          // Um véu da família com um contorno dela, e não a cor cheia: sobre
+                          // vidro a pastilha é um realce, não um botão.
+                          color: colors.ink.withValues(alpha: 0.16),
+                          borderRadius: Radii.mdAll,
+                          border: Border.all(
+                            color: colors.ink.withValues(alpha: 0.35),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                Row(
+                  children: [
+                    for (var i = 0; i < DiaryView.days; i++)
+                      SizedBox(
+                        width: step,
+                        height: 58,
+                        child: _DayChip(
+                          date: today.subtract(
+                            Duration(days: DiaryView.days - 1 - i),
+                          ),
+                          onTap: () => onPick(i),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
 }
 
 class _DayChip extends StatelessWidget {
-  const _DayChip({
-    required this.date,
-    required this.selected,
-    required this.colors,
-    required this.onTap,
-  });
+  const _DayChip({required this.date, required this.onTap});
 
   final DateTime date;
-  final bool selected;
-  final BlockColors colors;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final foreground = selected
-        ? colors.onTone
-        : theme.colorScheme.onSurfaceVariant;
 
     return Semantics(
-      selected: selected,
       button: true,
       // A data por extenso para o leitor de tela: "S 27" não diz nada em voz alta.
       label: DateFormat("EEEE, d 'de' MMMM").format(date),
       excludeSemantics: true,
-      child: Material(
-        // Cor cheia da família, e não mais o container claro do Material: o dia escolhido é o
-        // que comanda a tela inteira abaixo dele, e um chip pálido não sustentava esse papel
-        // ao lado de um herói em esmeralda cheio.
-        color: selected ? colors.tone : Colors.transparent,
-        shape: const StadiumBorder(),
-        child: InkWell(
-          customBorder: const StadiumBorder(),
-          onTap: onTap,
-          child: SizedBox(
-            width: 44,
-            height: 58,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  DateFormat('E').format(date).substring(0, 1).toUpperCase(),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: foreground,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${date.day}',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: foreground,
-                  ),
-                ),
-              ],
+      child: InkWell(
+        borderRadius: Radii.mdAll,
+        onTap: onTap,
+        // O texto não muda de cor com a seleção: quem marca o dia aberto é a pastilha que
+        // corre por trás dele, e trocar a cor da letra no meio de um arrasto contínuo faria a
+        // tira piscar de degrau em degrau.
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              DateFormat('E').format(date).substring(0, 1).toUpperCase(),
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
-          ),
+            const SizedBox(height: 2),
+            Text('${date.day}', style: theme.textTheme.titleMedium),
+          ],
         ),
       ),
     );
@@ -325,7 +437,7 @@ class _DayHero extends ConsumerWidget {
                   ? '1 refeição registrada'
                   : '${mealKcal.length} refeições registradas',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: colors.onTone.withValues(alpha: 0.75),
+                color: colors.onGlass.withValues(alpha: 0.75),
               ),
             ),
           ],

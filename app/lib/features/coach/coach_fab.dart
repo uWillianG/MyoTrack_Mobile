@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/design/materials.dart';
 import '../../core/design/tokens.dart';
 import '../../core/router.dart';
 
@@ -18,35 +19,42 @@ import '../../core/router.dart';
 /// **Por que não é esmeralda cheio.** Na Hoje ele divide a tira de baixo com o `Registrar`,
 /// que é a ação principal da tela e já ocupa a cor cheia (§4 do design system: a coisa mais
 /// berrante da tela é o que se quer que a pessoa faça). Dois botões cheios lado a lado
-/// cancelariam os dois. Aqui a superfície é neutra e o esmeralda fica só no traço do ícone —
-/// o coach ganhou o canto da mão direita, e não precisa ganhar a cor também.
+/// cancelariam os dois — o coach ganhou o canto da mão direita, e não precisa ganhar a cor
+/// também.
+///
+/// **Ele é de vidro, e é o único flutuante que é.** Os dois moram sobre o conteúdo rolando, e
+/// o material diz qual é qual sem precisar de rótulo: o `Registrar` é opaco porque é uma ação
+/// que interrompe, o coach é translúcido porque é uma porta que fica aberta. Pelo mesmo motivo
+/// o ícone é neutro e não esmeralda: sobre vidro, um traço da marca a 54 dp do botão da marca
+/// faria os dois parecerem metades do mesmo controle.
 class CoachFab extends StatelessWidget {
   const CoachFab({super.key});
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final isDark = scheme.brightness == Brightness.dark;
 
-    return FloatingActionButton.small(
-      // Sem tag própria os dois flutuantes da Hoje entram no mesmo voo de herói e a primeira
-      // navegação estoura. O nome é fixo porque só existe um destes na árvore.
-      heroTag: 'coach-fab',
-      onPressed: () => context.push(Routes.coach),
-      tooltip: 'Falar com o coach',
-      backgroundColor: isDark
-          ? scheme.surfaceContainerHigh
-          : scheme.surfaceContainerLowest,
-      foregroundColor: scheme.primary,
-      // A mesma física de elevação do resto do app: no claro, sombra; no escuro, superfície
-      // mais clara com 1 px de borda — sombra preta sobre preto é sujeira, não altura.
-      shape: RoundedRectangleBorder(
-        borderRadius: Radii.mdAll,
-        side: isDark
-            ? BorderSide(color: scheme.outlineVariant)
-            : BorderSide.none,
+    return Semantics(
+      button: true,
+      label: 'Falar com o coach',
+      child: Tooltip(
+        message: 'Falar com o coach',
+        child: GlassPanel(
+          radius: Radii.mdAll,
+          // O borrão vale a passada aqui: ele flutua sobre a lista, e é o que passa por trás
+          // dele que faz o vidro ler como vidro em vez de um cinza mais claro.
+          blur: true,
+          onTap: () => context.push(Routes.coach),
+          child: SizedBox.square(
+            dimension: 54,
+            child: Icon(
+              Icons.chat_bubble_outline,
+              color: scheme.onSurface,
+              size: 22,
+            ),
+          ),
+        ),
       ),
-      child: const Icon(Icons.chat_bubble_outline),
     );
   }
 }

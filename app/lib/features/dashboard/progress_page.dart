@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/design/blocks.dart';
+import '../../core/design/materials.dart';
 import '../../core/design/format.dart';
 import '../../core/design/tokens.dart';
 import '../../core/router.dart';
@@ -342,7 +343,7 @@ class _WeightHeadline extends StatelessWidget {
                 : '${Fmt.delta(delta, Fmt.kg)} no período',
           ),
           const SizedBox(height: Space.md),
-          WeightChart(points: points, colors: colors, onTone: true),
+          WeightChart(points: points, colors: colors),
         ],
       ),
     );
@@ -385,7 +386,7 @@ class _VolumeHeadline extends StatelessWidget {
                       'que a semana passada',
           ),
           const SizedBox(height: Space.md),
-          VolumeChart(weeks: weeks, colors: colors, onTone: true),
+          VolumeChart(weeks: weeks, colors: colors),
         ],
       ),
     );
@@ -441,7 +442,7 @@ class _ConsistencyHeadline extends ConsumerWidget {
                 : 'Sequência atual de $streak semanas seguidas',
           ),
           const SizedBox(height: Space.md),
-          _WeekBars(weeks: weeks, colors: colors, onTone: true),
+          _WeekBars(weeks: weeks, colors: colors),
         ],
       ),
     );
@@ -476,19 +477,14 @@ class _ConsistencySection extends StatelessWidget {
 /// a pergunta da constância é "apareci?", e uma barra proporcional faria a semana de dois
 /// treinos parecer meio ausente.
 class _WeekBars extends StatelessWidget {
-  const _WeekBars({
-    required this.weeks,
-    required this.colors,
-    this.onTone = false,
-  });
+  const _WeekBars({required this.weeks, required this.colors});
 
   final List<WeeklyVolume> weeks;
   final BlockColors colors;
-  final bool onTone;
 
   @override
   Widget build(BuildContext context) {
-    final ink = onTone ? colors.onTone : colors.ink;
+    final ink = colors.ink;
 
     return Semantics(
       label:
@@ -704,7 +700,7 @@ class _FirstSteps extends StatelessWidget {
               Text(
                 'Ainda não há\no que comparar.',
                 style: theme.textTheme.displaySmall?.copyWith(
-                  color: colors.onTone,
+                  color: colors.onGlass,
                 ),
               ),
               const SizedBox(height: Space.sm),
@@ -712,7 +708,7 @@ class _FirstSteps extends StatelessWidget {
                 'Registre seu primeiro treino e seu peso. A partir daí esta tela mostra '
                 'volume por semana, evolução do peso e seus recordes.',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colors.onTone.withValues(alpha: 0.85),
+                  color: colors.onGlass.withValues(alpha: 0.85),
                 ),
               ),
             ],
@@ -728,21 +724,15 @@ class _Skeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.surfaceContainerHigh;
-
+    // O mesmo vidro dos blocos de verdade: a espera é o cartão ainda sem conteúdo, e a chegada
+    // do dado não troca a superfície debaixo dele.
     return ListView(
       padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 32),
       children: [
         for (final height in [48.0, 260.0, 170.0, 170.0])
           Padding(
             padding: const EdgeInsets.only(bottom: Space.sm),
-            child: Container(
-              height: height,
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: Radii.lgAll,
-              ),
-            ),
+            child: GlassPanel(child: SizedBox(height: height)),
           ),
       ],
     );

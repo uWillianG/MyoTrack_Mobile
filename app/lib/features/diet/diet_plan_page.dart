@@ -174,7 +174,7 @@ class _PlanHero extends StatelessWidget {
           Text(
             plan.name,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: colors.onTone.withValues(alpha: 0.85),
+              color: colors.onGlass.withValues(alpha: 0.85),
             ),
           ),
           // O selo da revisão fica no herói e não perdido no meio da lista: ele diz se este
@@ -186,7 +186,7 @@ class _PlanHero extends StatelessWidget {
             child: ReviewBadge(
               reviewStatus: plan.reviewStatus,
               reviewNote: plan.reviewNote,
-              onTone: colors.onTone,
+              onGlass: colors.onGlass,
             ),
           ),
         ],
@@ -225,7 +225,7 @@ class _NoPlanHero extends StatelessWidget {
               Text(
                 'Você ainda não\ntem uma dieta.',
                 style: theme.textTheme.displaySmall?.copyWith(
-                  color: colors.onTone,
+                  color: colors.onGlass,
                 ),
               ),
               const SizedBox(height: Space.sm),
@@ -237,7 +237,7 @@ class _NoPlanHero extends StatelessWidget {
                     : 'Complete o perfil e registre seu peso — é o peso que define a meta '
                           'de calorias.',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colors.onTone.withValues(alpha: 0.85),
+                  color: colors.onGlass.withValues(alpha: 0.85),
                 ),
               ),
             ],

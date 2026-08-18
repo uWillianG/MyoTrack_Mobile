@@ -10,6 +10,7 @@ import 'package:myotrack/features/analysis/analysis_page.dart';
 import 'package:myotrack/features/coach/coach_fab.dart';
 import 'package:myotrack/features/coach/coach_page.dart';
 import 'package:myotrack/features/home/home_page.dart';
+import 'package:myotrack/features/home/account_destinations.dart';
 import 'package:myotrack/features/home/account_sheet.dart';
 import 'package:myotrack/features/logging/data/logging_models.dart';
 import 'package:myotrack/features/logging/data/logging_repository.dart';
@@ -111,7 +112,7 @@ void main() {
 
     expect(find.widgetWithText(FloatingActionButton, 'Registrar'), findsOne);
 
-    container.read(homeTabProvider.notifier).state = HomeTab.profile;
+    container.read(homeTabProvider.notifier).state = HomeTab.progress;
     await tester.pumpAndSettle();
 
     expect(
@@ -165,13 +166,14 @@ void main() {
   testWidgets('os dois flutuantes da Hoje convivem na mesma navegação', (
     tester,
   ) async {
-    // Dois `FloatingActionButton` na mesma árvore compartilham a etiqueta de herói por
-    // omissão, e aí a primeira navegação estoura em vez de navegar. O teste é a única coisa
-    // que segura a etiqueta explícita no lugar: sem ele, apagá-la não quebra nada até o
-    // usuário tocar num dos dois.
+    // Eram dois `FloatingActionButton`, e dois deles na mesma árvore compartilham a etiqueta
+    // de herói por omissão — a primeira navegação estourava em vez de navegar. O coach virou
+    // vidro e saiu do tipo, o que resolve a colisão pela raiz; o que este teste ainda segura é
+    // o resto, que continua valendo: um flutuante em cada ponta, e os dois tocáveis.
     await pump(tester);
 
-    expect(find.byType(FloatingActionButton), findsNWidgets(2));
+    expect(find.byType(FloatingActionButton), findsOne);
+    expect(find.byType(CoachFab), findsOne);
 
     // Um em cada ponta, e o coach na direita: se os dois caírem no mesmo canto eles se
     // sobrepõem, e o de baixo fica intocável sem nada estourar.
@@ -261,7 +263,8 @@ void main() {
     expect(sheet, findsOne);
 
     for (final title in [
-      'Progresso',
+      // O Perfil trocou de lugar com o Progresso: saiu da barra de abas e entrou aqui.
+      'Meu perfil',
       'Meu treino',
       'Registrar treino',
       'Coach',
@@ -306,14 +309,18 @@ void main() {
     );
   });
 
-  testWidgets('a aba Perfil mostra o perfil de quem já o tem', (tester) async {
-    // Ela abria o assistente de cadastro, inclusive para quem já tinha perfil: a aba chamada
-    // "Perfil" era a única do app que nunca mostrava o seu assunto.
+  testWidgets('a aba Progresso abre a evolução, e não o perfil', (
+    tester,
+  ) async {
+    // A quarta aba trocou de assunto: era o Perfil — assinatura, medidas, exclusão de conta,
+    // coisas que se mexe uma vez — e virou a pergunta que traz a pessoa de volta ao app.
     final container = await pump(tester);
-    container.read(homeTabProvider.notifier).state = HomeTab.profile;
+    container.read(homeTabProvider.notifier).state = HomeTab.progress;
     await tester.pumpAndSettle();
 
-    expect(find.text('Seu plano'), findsOne);
-    expect(find.text('4 dias — ABCD'), findsOne);
+    expect(find.text('Progresso'), findsWidgets);
+    // E o Perfil continua alcançável: ele desceu para a folha do avatar, que é onde todo app
+    // põe conta e configuração.
+    expect(accountDestinations.first.route, Routes.profile);
   });
 }

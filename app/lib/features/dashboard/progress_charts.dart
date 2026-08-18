@@ -19,18 +19,10 @@ import '../progress/progress_controller.dart';
 
 /// Volume levantado por semana.
 class VolumeChart extends StatelessWidget {
-  const VolumeChart({
-    required this.weeks,
-    required this.colors,
-    this.onTone = false,
-    super.key,
-  });
+  const VolumeChart({required this.weeks, required this.colors, super.key});
 
   final List<WeeklyVolume> weeks;
   final BlockColors colors;
-
-  /// Verdadeiro sobre a cor cheia do herói, falso sobre o fundo lavado da seção.
-  final bool onTone;
 
   @override
   Widget build(BuildContext context) {
@@ -39,10 +31,8 @@ class VolumeChart extends StatelessWidget {
       0,
       (max, w) => w.volumeKg > max ? w.volumeKg.toDouble() : max,
     );
-    final ink = onTone ? colors.onTone : colors.ink;
-    final muted = onTone
-        ? colors.onTone.withValues(alpha: 0.7)
-        : theme.colorScheme.onSurfaceVariant;
+    final ink = colors.ink;
+    final muted = theme.colorScheme.onSurfaceVariant;
 
     if (maxVolume <= 0) {
       return _NoData(
@@ -141,24 +131,16 @@ class VolumeChart extends StatelessWidget {
 
 /// Peso corporal ao longo do tempo.
 class WeightChart extends StatelessWidget {
-  const WeightChart({
-    required this.points,
-    required this.colors,
-    this.onTone = false,
-    super.key,
-  });
+  const WeightChart({required this.points, required this.colors, super.key});
 
   final List<WeightPoint> points;
   final BlockColors colors;
-  final bool onTone;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final ink = onTone ? colors.onTone : colors.ink;
-    final muted = onTone
-        ? colors.onTone.withValues(alpha: 0.7)
-        : theme.colorScheme.onSurfaceVariant;
+    final ink = colors.ink;
+    final muted = theme.colorScheme.onSurfaceVariant;
 
     if (points.length < 2) {
       return _NoData(message: 'Duas pesagens e a linha aparece.', color: muted);

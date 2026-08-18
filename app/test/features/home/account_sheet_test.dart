@@ -62,7 +62,7 @@ void main() {
 
     // Um cartão vermelho permanente ensinaria a ignorar a cor justamente quando ela importa.
     expect(find.textContaining('recusado'), findsNothing);
-    expect(find.text('Progresso'), findsOne);
+    expect(find.text('Meu perfil'), findsOne);
   });
 
   testWidgets('o aviso diz o que se perdeu, não o endpoint', (tester) async {

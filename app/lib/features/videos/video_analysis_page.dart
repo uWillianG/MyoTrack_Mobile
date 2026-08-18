@@ -15,6 +15,7 @@ import '../../core/widgets/empty_state.dart';
 // captura da galeria e a execução do teste.
 import '../home/today_controller.dart' show nowProvider;
 import 'data/video_models.dart';
+import 'form_scrubber.dart';
 import 'video_analysis_controller.dart';
 
 /// O histórico partido em dias. Ver [groupByDay], que é onde a regra mora.
@@ -297,7 +298,7 @@ class _CaptureHero extends StatelessWidget {
             Text(
               'Grave uma\nsérie.',
               style: theme.textTheme.displaySmall?.copyWith(
-                color: colors.onTone,
+                color: colors.onGlass,
               ),
             ),
             const SizedBox(height: Space.sm),
@@ -305,7 +306,7 @@ class _CaptureHero extends StatelessWidget {
               'A IA compara seu movimento com o padrão do exercício e aponta onde corrigir. '
               'Ela lê o que o quadro mostra — não substitui um profissional.',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: colors.onTone.withValues(alpha: 0.85),
+                color: colors.onGlass.withValues(alpha: 0.85),
               ),
             ),
           ] else if (scored != null)
@@ -337,7 +338,7 @@ class _CaptureHero extends StatelessWidget {
             child: TextButton.icon(
               onPressed: () => onCapture(ImageSource.gallery),
               style: TextButton.styleFrom(
-                foregroundColor: colors.onTone,
+                foregroundColor: colors.onGlass,
                 padding: EdgeInsets.zero,
                 minimumSize: const Size(0, 44),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -364,7 +365,7 @@ class _Framing extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colors.onTone.withValues(alpha: 0.15),
+        color: colors.onGlass.withValues(alpha: 0.15),
         borderRadius: Radii.mdAll,
       ),
       child: Padding(
@@ -378,7 +379,7 @@ class _Framing extends StatelessWidget {
             Icon(
               Icons.crop_free,
               size: 16,
-              color: colors.onTone.withValues(alpha: 0.9),
+              color: colors.onGlass.withValues(alpha: 0.9),
             ),
             const SizedBox(width: Space.xs + 2),
             Expanded(
@@ -386,7 +387,7 @@ class _Framing extends StatelessWidget {
                 'De lado, corpo inteiro no quadro, '
                 'até ${maxVideoDuration.inSeconds}s.',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: colors.onTone.withValues(alpha: 0.9),
+                  color: colors.onGlass.withValues(alpha: 0.9),
                 ),
               ),
             ),
@@ -466,8 +467,8 @@ class _ProgressHeroState extends State<_ProgressHero> {
             child: LinearProgressIndicator(
               value: uploading ? widget.progress : null,
               minHeight: 7,
-              color: colors.onTone,
-              backgroundColor: colors.onTone.withValues(alpha: 0.25),
+              color: colors.onGlass,
+              backgroundColor: colors.onGlass.withValues(alpha: 0.25),
             ),
           ),
           const SizedBox(height: Space.sm),
@@ -476,7 +477,7 @@ class _ProgressHeroState extends State<_ProgressHero> {
                 ? 'Enviando — ${(widget.progress * 100).round()}%.'
                 : 'Quadro a quadro leva alguns minutos. Pode sair da tela.',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: colors.onTone.withValues(alpha: 0.85),
+              color: colors.onGlass.withValues(alpha: 0.85),
             ),
           ),
         ],
@@ -514,6 +515,19 @@ class _AnalysisRow extends StatefulWidget {
 
 class _AnalysisRowState extends State<_AnalysisRow> {
   late bool _open = widget.justAnalyzed;
+
+  /// A cabeça de leitura do vídeo desta execução.
+  ///
+  /// Mora aqui, e não dentro do player, porque ela é justamente o que liga as duas metades da
+  /// avaliação: o player escreve nela, a lista de correções lê dela, e nenhuma das duas
+  /// precisa conhecer a outra.
+  final Playhead _playhead = Playhead();
+
+  @override
+  void dispose() {
+    _playhead.dispose();
+    super.dispose();
+  }
 
   /// A recém-analisada abre também quando a linha já existia. Só na virada: depois disso quem
   /// manda é o toque, e um rebuild qualquer não reabre o que a pessoa fechou.
@@ -631,6 +645,7 @@ class _AnalysisRowState extends State<_AnalysisRow> {
           _OverlayPlayer(
             url: analysis.overlayVideoUrl!,
             colors: colors,
+            playhead: _playhead,
             marks: [for (final issue in result.issues) ...issue.timestampsSec],
           ),
         Padding(
@@ -649,19 +664,26 @@ class _AnalysisRowState extends State<_AnalysisRow> {
                 BlockNotice(message: notEvaluable, colors: colors),
               if (result.issues.isNotEmpty) ...[
                 const SizedBox(height: Space.md),
-                _PointGroup(
-                  label: 'O que corrigir',
-                  icon: Icons.error_outline,
-                  // A única cor fora da família nesta tela, e ela não anda sozinha: o ícone
-                  // tem forma própria e o grupo tem título escrito. Quem não distingue
-                  // vermelho de índigo continua lendo "O que corrigir".
-                  iconColor: theme.colorScheme.error,
-                  colors: colors,
-                  points: [
-                    for (final issue in result.issues)
-                      (message: issue.message, detail: _timestamps(issue)),
-                  ],
+                Text(
+                  'O que corrigir',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colors.ink,
+                    letterSpacing: 0.1,
+                  ),
                 ),
+                // Cada correção presa ao instante dela: acende sozinha quando o vídeo passa
+                // por ali, e leva o vídeo até lá quando é tocada. Ver [IssueRow].
+                //
+                // A única cor fora da família nesta tela, e ela não anda sozinha: o ícone tem
+                // forma própria e o grupo tem título escrito. Quem não distingue vermelho de
+                // índigo continua lendo "O que corrigir".
+                for (final issue in result.issues)
+                  IssueRow(
+                    playhead: _playhead,
+                    message: issue.message,
+                    marks: issue.timestampsSec,
+                    colors: colors,
+                  ),
               ],
               if (result.correctPoints.isNotEmpty) ...[
                 const SizedBox(height: Space.md),
@@ -681,18 +703,6 @@ class _AnalysisRowState extends State<_AnalysisRow> {
         ),
       ],
     );
-  }
-
-  /// Os instantes em que o erro apareceu — é o que permite achar o trecho no vídeo.
-  static String? _timestamps(VideoIssue issue) {
-    if (issue.timestampsSec.isEmpty) {
-      return null;
-    }
-    final marks = issue.timestampsSec.map((s) {
-      final total = s.round();
-      return '${total ~/ 60}:${(total % 60).toString().padLeft(2, '0')}';
-    });
-    return 'em ${marks.join(', ')}';
   }
 }
 
@@ -869,11 +879,15 @@ class _OverlayPlayer extends StatefulWidget {
   const _OverlayPlayer({
     required this.url,
     required this.colors,
+    required this.playhead,
     this.marks = const [],
   });
 
   final String url;
   final BlockColors colors;
+
+  /// Onde o vídeo está. O player escreve nela; a lista de correções lê dela.
+  final Playhead playhead;
 
   /// Momentos, em segundos, em que houve problema.
   final List<double> marks;
@@ -886,6 +900,7 @@ class _OverlayPlayerState extends State<_OverlayPlayer> {
   VideoPlayerController? _controller;
   bool _failed = false;
   bool _loading = false;
+  bool _playing = false;
 
   Future<void> _load() async {
     setState(() => _loading = true);
@@ -898,6 +913,10 @@ class _OverlayPlayerState extends State<_OverlayPlayer> {
         // A barra precisa acompanhar a reprodução: sem ouvir o controller ela ficaria
         // parada no zero enquanto o vídeo corre.
         controller.addListener(_onTick);
+        // A partir daqui a lista de correções tem para onde mandar o vídeo, e as linhas dela
+        // viram atalhos.
+        widget.playhead.onSeek = (seconds) =>
+            controller.seekTo(Duration(milliseconds: (seconds * 1000).round()));
         setState(() {
           _controller = controller;
           _loading = false;
@@ -919,13 +938,26 @@ class _OverlayPlayerState extends State<_OverlayPlayer> {
   }
 
   void _onTick() {
-    if (mounted) {
-      setState(() {});
+    final controller = _controller;
+    if (!mounted || controller == null) {
+      return;
+    }
+    final value = controller.value;
+    widget.playhead.report(
+      seconds: value.position.inMilliseconds / 1000,
+      duration: value.duration.inMilliseconds / 1000,
+    );
+    // Só o botão de play depende de `setState`: a posição já viaja pela cabeça de leitura, e
+    // reconstruir a avaliação inteira a cada quadro de vídeo seria o jeito mais caro possível
+    // de mover um cursor.
+    if (_playing != value.isPlaying) {
+      setState(() => _playing = value.isPlaying);
     }
   }
 
   @override
   void dispose() {
+    widget.playhead.onSeek = null;
     _controller?.removeListener(_onTick);
     _controller?.dispose();
     super.dispose();
@@ -962,32 +994,39 @@ class _OverlayPlayerState extends State<_OverlayPlayer> {
 
     return Column(
       children: [
-        AspectRatio(
-          aspectRatio: value.aspectRatio,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              GestureDetector(
-                onTap: _togglePlay,
-                child: VideoPlayer(controller),
-              ),
-              // O botão só aparece com o vídeo parado: em cima da execução ele taparia
-              // justamente o quadril e o joelho, que é onde se olha.
-              if (!value.isPlaying)
-                IconButton.filled(
-                  onPressed: _togglePlay,
-                  icon: const Icon(Icons.play_arrow),
-                  tooltip: 'Reproduzir',
+        ClipRRect(
+          borderRadius: Radii.xlAll,
+          child: AspectRatio(
+            aspectRatio: value.aspectRatio,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                GestureDetector(
+                  onTap: _togglePlay,
+                  child: VideoPlayer(controller),
                 ),
-            ],
+                // O quadro pisca quando a cabeça de leitura entra num instante marcado: é o
+                // que amarra a correção acesa lá embaixo ao que está acontecendo aqui em
+                // cima, sem escrever nada por cima do corpo de quem gravou.
+                _IssueFlash(playhead: widget.playhead, marks: widget.marks),
+                // O botão só aparece com o vídeo parado: em cima da execução ele taparia
+                // justamente o quadril e o joelho, que é onde se olha.
+                if (!value.isPlaying)
+                  IconButton.filled(
+                    onPressed: _togglePlay,
+                    icon: const Icon(Icons.play_arrow),
+                    tooltip: 'Reproduzir',
+                  ),
+              ],
+            ),
           ),
         ),
-        _Scrubber(
-          position: value.position,
-          duration: value.duration,
+        FormScrubber(
+          playhead: widget.playhead,
           marks: widget.marks,
           colors: widget.colors,
-          onSeek: (position) => controller.seekTo(position),
+          playing: _playing,
+          onTogglePlay: _togglePlay,
         ),
       ],
     );
@@ -1076,150 +1115,39 @@ class _PlayerPlaceholder extends StatelessWidget {
   }
 }
 
-/// Barra de progresso do vídeo, com as marcas das ocorrências.
-class _Scrubber extends StatelessWidget {
-  const _Scrubber({
-    required this.position,
-    required this.duration,
-    required this.marks,
-    required this.colors,
-    required this.onSeek,
-  });
+/// O piscar do quadro quando a cabeça de leitura entra num instante marcado.
+///
+/// **É a metade visual do que a lista de correções faz em texto.** A correção acende lá
+/// embaixo; aqui em cima o quadro ganha uma moldura da cor do erro. Sem isso, arrastar a barra
+/// até uma marca acende um cartão fora do campo de visão de quem está olhando o vídeo — e a
+/// ligação entre as duas metades, que é o ponto inteiro, não se vê.
+///
+/// Uma moldura e um véu fraco, e nada desenhado por cima do corpo: marcar a articulação errada
+/// exigiria saber qual é, e o serviço devolve o instante, não a coordenada.
+class _IssueFlash extends StatelessWidget {
+  const _IssueFlash({required this.playhead, required this.marks});
 
-  final Duration position;
-  final Duration duration;
+  final Playhead playhead;
   final List<double> marks;
-  final BlockColors colors;
-  final ValueChanged<Duration> onSeek;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final total = duration.inMilliseconds;
-    final ratio = total <= 0
-        ? 0.0
-        : (position.inMilliseconds / total).clamp(0.0, 1.0);
+    final error = Theme.of(context).colorScheme.error;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        Space.md,
-        Space.sm,
-        Space.md,
-        Space.xs,
-      ),
-      child: Column(
-        children: [
-          LayoutBuilder(
-            builder: (context, constraints) => SizedBox(
-              height: 24,
-              child: Stack(
-                alignment: Alignment.centerLeft,
-                children: [
-                  // Arrastar em qualquer ponto da faixa busca o instante: um alvo de 24 dp
-                  // de altura para uma trilha de 4, porque o dedo não acerta 4 dp.
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTapDown: (details) =>
-                        _seekTo(details.localPosition.dx, constraints.maxWidth),
-                    onHorizontalDragUpdate: (details) =>
-                        _seekTo(details.localPosition.dx, constraints.maxWidth),
-                    child: SizedBox(
-                      height: 24,
-                      width: constraints.maxWidth,
-                      child: Center(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(2),
-                          child: LinearProgressIndicator(
-                            value: ratio,
-                            minHeight: 4,
-                            color: colors.ink,
-                            backgroundColor: colors.ink.withValues(alpha: 0.18),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  for (final mark in marks)
-                    if (total > 0 && mark * 1000 <= total)
-                      Positioned(
-                        left: (mark * 1000 / total) * constraints.maxWidth - 5,
-                        child: _IssueMark(
-                          seconds: mark,
-                          onTap: () => onSeek(
-                            Duration(milliseconds: (mark * 1000).round()),
-                          ),
-                        ),
-                      ),
-                ],
-              ),
+    return IgnorePointer(
+      child: AnimatedBuilder(
+        animation: playhead,
+        builder: (context, _) => AnimatedOpacity(
+          opacity: marks.isNotEmpty && playhead.isNear(marks) ? 1 : 0,
+          duration: Motion.fast,
+          curve: Motion.enter,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: error.withValues(alpha: 0.12),
+              border: Border.all(color: error.withValues(alpha: 0.5), width: 2),
+              borderRadius: Radii.xlAll,
             ),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                _clock(position),
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              Text(
-                _clock(duration),
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _seekTo(double dx, double width) {
-    if (width <= 0 || duration.inMilliseconds <= 0) {
-      return;
-    }
-    final ratio = (dx / width).clamp(0.0, 1.0);
-    onSeek(Duration(milliseconds: (duration.inMilliseconds * ratio).round()));
-  }
-
-  static String _clock(Duration duration) {
-    final seconds = duration.inSeconds;
-    return '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
-  }
-}
-
-class _IssueMark extends StatelessWidget {
-  const _IssueMark({required this.seconds, required this.onTap});
-
-  final double seconds;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Semantics(
-      button: true,
-      label: 'Ir para ${seconds.toStringAsFixed(1)} segundos',
-      child: GestureDetector(
-        onTap: onTap,
-        // O alvo tocável é maior que o ponto desenhado: 10 dp de bolinha não se acerta com
-        // o polegar, e errar aqui significa buscar o instante errado.
-        child: SizedBox(
-          width: 24,
-          height: 24,
-          child: Center(
-            child: Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: theme.colorScheme.error,
-                border: Border.all(color: theme.colorScheme.surface, width: 2),
-              ),
-            ),
+            child: const SizedBox.expand(),
           ),
         ),
       ),

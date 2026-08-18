@@ -311,7 +311,7 @@ class _CaptureHero extends StatelessWidget {
             Text(
               'Fotografe\nseu prato.',
               style: theme.textTheme.displaySmall?.copyWith(
-                color: colors.onTone,
+                color: colors.onGlass,
               ),
             ),
             const SizedBox(height: Space.sm),
@@ -319,7 +319,7 @@ class _CaptureHero extends StatelessWidget {
               'A IA estima as calorias e os macros — e a estimativa fica editável, item por '
               'item, antes de contar no seu dia.',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: colors.onTone.withValues(alpha: 0.85),
+                color: colors.onGlass.withValues(alpha: 0.85),
               ),
             ),
             const SizedBox(height: Space.xs),
@@ -332,7 +332,7 @@ class _CaptureHero extends StatelessWidget {
               // o mais do bloco, e um item fora da margem é o que faz uma coluna parecer
               // desalinhada sem que se saiba dizer onde.
               style: TextButton.styleFrom(
-                foregroundColor: colors.onTone,
+                foregroundColor: colors.onGlass,
                 padding: EdgeInsets.zero,
                 minimumSize: const Size(0, 44),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -454,15 +454,15 @@ class _ProgressHeroState extends State<_ProgressHero> {
             child: LinearProgressIndicator(
               value: uploading ? widget.progress : null,
               minHeight: 7,
-              color: colors.onTone,
-              backgroundColor: colors.onTone.withValues(alpha: 0.25),
+              color: colors.onGlass,
+              backgroundColor: colors.onGlass.withValues(alpha: 0.25),
             ),
           ),
           const SizedBox(height: Space.sm),
           Text(
             'A estimativa fica editável no fim.',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: colors.onTone.withValues(alpha: 0.85),
+              color: colors.onGlass.withValues(alpha: 0.85),
             ),
           ),
         ],

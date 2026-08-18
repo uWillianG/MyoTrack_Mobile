@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/design/blocks.dart';
 import '../../core/design/tokens.dart';
+import '../../core/router.dart';
 import '../../core/widgets/blocks.dart';
 import '../dashboard/dashboard_controller.dart';
 import '../home/account_destinations.dart';
@@ -279,7 +280,10 @@ class _Summary extends ConsumerWidget {
         // outra coisa. A lista vem de um lugar só para as duas nunca divergirem.
         _Destinations(
           destinations: [
-            ...accountDestinations,
+            // Menos o próprio Perfil, que entrou na lista quando saiu da barra de abas: um
+            // item levando à tela em que a pessoa já está é um beco.
+            for (final destination in accountDestinations)
+              if (destination.route != Routes.profile) destination,
             if (canReview) reviewDestination,
           ],
         ),

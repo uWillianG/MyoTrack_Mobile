@@ -95,7 +95,9 @@ class _DayPicker extends ConsumerWidget {
           icon: Icons.fitness_center,
           child: Text(
             'Qual treino\né o de hoje?',
-            style: theme.textTheme.displaySmall?.copyWith(color: colors.onTone),
+            style: theme.textTheme.displaySmall?.copyWith(
+              color: colors.onGlass,
+            ),
           ),
         ),
         for (final day in workout.days) ...[
@@ -340,7 +342,7 @@ class _CurrentSetHero extends StatelessWidget {
           Text(
             exercise.exerciseName,
             style: theme.textTheme.headlineSmall?.copyWith(
-              color: colors.onTone,
+              color: colors.onGlass,
             ),
           ),
           const SizedBox(height: Space.xs),
@@ -348,7 +350,7 @@ class _CurrentSetHero extends StatelessWidget {
             '${exercise.repsMin}–${exercise.repsMax} repetições'
             '  ·  ${exercise.restSeconds}s de descanso',
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: colors.onTone.withValues(alpha: 0.85),
+              color: colors.onGlass.withValues(alpha: 0.85),
             ),
           ),
           if (exercise.notes case final notes? when notes.isNotEmpty) ...[
@@ -356,7 +358,7 @@ class _CurrentSetHero extends StatelessWidget {
             Text(
               notes,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: colors.onTone.withValues(alpha: 0.85),
+                color: colors.onGlass.withValues(alpha: 0.85),
               ),
             ),
           ],
@@ -394,7 +396,7 @@ class _RestHero extends ConsumerWidget {
             finished ? 'Pode ir' : timer.label,
             style: AppTypography.numeric(
               size: finished ? 44 : 64,
-              color: colors.onTone,
+              color: colors.onGlass,
             ),
           ),
           const SizedBox(height: Space.sm),
@@ -404,8 +406,8 @@ class _RestHero extends ConsumerWidget {
               child: LinearProgressIndicator(
                 value: timer.progress,
                 minHeight: 8,
-                color: colors.onTone,
-                backgroundColor: colors.onTone.withValues(alpha: 0.25),
+                color: colors.onGlass,
+                backgroundColor: colors.onGlass.withValues(alpha: 0.25),
               ),
             ),
           const SizedBox(height: Space.sm),
@@ -420,7 +422,7 @@ class _RestHero extends ConsumerWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: colors.onTone.withValues(alpha: 0.85),
+              color: colors.onGlass.withValues(alpha: 0.85),
             ),
           ),
           const SizedBox(height: Space.md),
@@ -487,16 +489,16 @@ class _RestButton extends StatelessWidget {
     return filled
         ? FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: colors.onTone,
-              foregroundColor: colors.tone,
+              backgroundColor: colors.ink,
+              foregroundColor: colors.wash,
             ).merge(style),
             onPressed: onPressed,
             child: Text(label),
           )
         : OutlinedButton(
             style: OutlinedButton.styleFrom(
-              foregroundColor: colors.onTone,
-              side: BorderSide(color: colors.onTone.withValues(alpha: 0.45)),
+              foregroundColor: colors.ink,
+              side: BorderSide(color: colors.ink.withValues(alpha: 0.45)),
             ).merge(style),
             onPressed: onPressed,
             child: Text(label),

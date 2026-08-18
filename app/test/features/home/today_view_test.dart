@@ -123,8 +123,9 @@ void main() {
       // já foi comido.
       expect(find.text('624'), findsOne);
       expect(find.text('kcal restam'), findsOne);
-      expect(find.text('1.476 de 2.100 kcal'), findsOne);
-      expect(find.text('Fotografar refeição'), findsOne);
+      expect(find.text('1.476 de 2.100'), findsOne);
+      // O convite ao gesto: sem ele, "dá para puxar o anel" só se descobre por acidente.
+      expect(find.text('arraste para ver o dia'), findsOne);
 
       // A proteína saiu de dentro do herói e virou ladrilho: como frase ali ela empurrava o
       // bloco para metade da tela sem ganhar o destaque que um número tem.
@@ -140,11 +141,17 @@ void main() {
     // nada a mais.
     await pump(tester, homeOverrides());
 
-    // O herói é a nutrição: o rótulo aparece uma vez só, no bloco grande.
-    expect(find.text('Nutrição'), findsOne);
-    // E o treino, que não é o herói, está no mosaico.
-    expect(find.text('Treino'), findsOne);
-    expect(find.text('55 min'), findsOne);
+    // O herói é a nutrição, e ela não se repete como ladrilho: o único "kcal restam" da tela
+    // é o do anel. (O anel não leva rótulo escrito — quem nomeia o assunto é a unidade em
+    // esmeralda debaixo do número.)
+    expect(find.text('kcal restam'), findsOne);
+    expect(find.text('Nutrição'), findsNothing);
+    // E o treino, que não é o herói, está logo abaixo — em largura cheia, com o botão de
+    // começar e os primeiros exercícios: é o segundo assunto do app, e num ladrilho de meia
+    // largura ele cabia como um selo com o nome cortado ao meio.
+    expect(find.text('TREINO DE HOJE'), findsOne);
+    expect(find.text('Começar'), findsOne);
+    expect(find.textContaining('55 min'), findsOne);
   });
 
   testWidgets('de manhã o herói é o treino, e a nutrição vira ladrilho', (

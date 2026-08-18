@@ -51,6 +51,21 @@ final diaryDateProvider = StateProvider<DateTime>((ref) {
   return DateTime(now.year, now.month, now.day);
 });
 
+/// Um dia qualquer do diário, por data.
+///
+/// **Existe por causa do carrossel.** Enquanto o diário abria um dia por vez, um provider só
+/// bastava: trocar de dia era trocar o parâmetro dele. O gesto de arrastar entre dias precisa
+/// de outra coisa — durante o arrasto **duas datas estão na tela ao mesmo tempo**, a que sai e
+/// a que entra, e um provider único não sabe responder duas perguntas.
+///
+/// Com a família, cada página assiste à sua data e o Riverpod guarda o que já veio: voltar dois
+/// dias e avançar de novo não refaz chamada nenhuma, e o dia vizinho aparece pronto no meio do
+/// gesto em vez de piscar um carregando.
+final diaryDayOfProvider = FutureProvider.family<DiaryDay, DateTime>(
+  (ref, date) => ref.watch(diaryRepositoryProvider).day(date),
+);
+
+/// O dia aberto. É o que a Hoje e as telas que não navegam por data usam.
 final diaryDayProvider = FutureProvider<DiaryDay>(
-  (ref) => ref.watch(diaryRepositoryProvider).day(ref.watch(diaryDateProvider)),
+  (ref) => ref.watch(diaryDayOfProvider(ref.watch(diaryDateProvider)).future),
 );

@@ -3,12 +3,24 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../design/blocks.dart';
+import '../design/materials.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 
 /// As formas do sistema: um herói, ladrilhos e seções.
 ///
-/// O herói é o assunto do momento — cor cheia, número grande, uma ação. **Um por tela**, e o
+/// **Todas as três são de vidro** — ver [GlassPanel]. Elas já foram retângulos pintados na cor
+/// do assunto, e a tela cheia delas era um mosaico: sete áreas de cor competindo, nenhuma
+/// superfície. O fundo agora é sempre o mesmo material translúcido e **a cor do assunto passou
+/// para a tinta**: o rótulo, o ícone, o traço do anel, a barra do macro, o botão da ação. O que
+/// separa uma peça da outra deixou de ser o matiz do fundo e passou a ser profundidade e
+/// escala, que é o que o olho lê mais rápido.
+///
+/// A consequência prática, e ela é deliberada: **o número grande de um bloco é branco**, não é
+/// mais da cor da família. Quem diz de que assunto o bloco fala é a linha de rótulo acima dele.
+/// Um número colorido a cada dois cartões devolveria o mosaico por outro caminho.
+///
+/// O herói é o assunto do momento — número grande e uma ação. **Um por tela**, e o
 /// assunto promovido a herói sai do resto: repeti-lo nos dois lugares é a duplicação que faz
 /// uma tela parecer cheia sem dizer nada a mais.
 ///
@@ -70,7 +82,7 @@ class HeroBlock extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, size: 18, color: colors.onTone.withValues(alpha: 0.8)),
+              Icon(icon, size: 18, color: colors.ink),
               const SizedBox(width: Space.xs),
               // `Expanded` e não largura natural: o rótulo do herói é conteúdo, não constante
               // — no diário ele é a data do dia aberto, e "quinta, 31 de julho" estoura a
@@ -80,7 +92,7 @@ class HeroBlock extends StatelessWidget {
                   label,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.labelMedium?.copyWith(
-                    color: colors.onTone.withValues(alpha: 0.8),
+                    color: colors.ink,
                   ),
                 ),
               ),
@@ -96,11 +108,14 @@ class HeroBlock extends StatelessWidget {
       ),
     );
 
-    return Material(
-      color: colors.tone,
-      borderRadius: Radii.xlAll,
-      clipBehavior: Clip.antiAlias,
-      child: onTap == null ? content : InkWell(onTap: onTap, child: content),
+    return GlassPanel(
+      radius: Radii.xlAll,
+      // Um traço da família no véu, e nada além disso. O herói já se destaca por tamanho e
+      // pela ação cheia no rodapé; devolver a ele um fundo saturado seria refazer o mosaico
+      // com um cartão só.
+      tint: colors.ink.withValues(alpha: 0.07),
+      onTap: onTap,
+      child: content,
     );
   }
 }
@@ -121,12 +136,18 @@ class HeroAction {
       width: double.infinity,
       child: FilledButton(
         style: FilledButton.styleFrom(
-          backgroundColor: colors.onTone,
-          foregroundColor: colors.tone,
-          // O desabilitado do tema é um cinza pensado para fundo claro; sobre a cor cheia do
-          // herói ele sairia como uma mancha de outra paleta.
-          disabledBackgroundColor: colors.onTone.withValues(alpha: 0.35),
-          disabledForegroundColor: colors.tone.withValues(alpha: 0.75),
+          // **A ação é o único lugar do bloco que ainda usa a cor cheia.** Com o fundo virando
+          // vidro, ela ficou sendo a coisa mais saturada da tela — que é exatamente onde a
+          // saturação deve estar: no que se quer que a pessoa faça.
+          backgroundColor: colors.ink,
+          // O lavado da família como cor do texto. Nos dois temas ele é o extremo oposto da
+          // tinta em luminância — escuro sob a tinta clara do tema escuro, claro sob a tinta
+          // escura do claro —, e é o par que já estava conferido em contraste.
+          foregroundColor: colors.wash,
+          // O desabilitado do tema é um cinza pensado para fundo claro; sobre a cor cheia da
+          // ação ele sairia como uma mancha de outra paleta.
+          disabledBackgroundColor: colors.ink.withValues(alpha: 0.35),
+          disabledForegroundColor: colors.wash.withValues(alpha: 0.75),
           minimumSize: const Size.fromHeight(46),
         ),
         onPressed: onPressed,
@@ -176,7 +197,10 @@ class HeroFigure extends StatelessWidget {
                   // 48 e não 56: continua sendo, com folga, a maior coisa da tela — o próximo
                   // número é o do ladrilho, a 28 —, e oito pixels a menos aqui são oito
                   // pixels que o mosaico ganha.
-                  style: AppTypography.numeric(size: 48, color: colors.onTone),
+                  style: AppTypography.numeric(
+                    size: 48,
+                    color: theme.colorScheme.onSurface,
+                  ),
                 ),
               ),
             ),
@@ -193,8 +217,10 @@ class HeroFigure extends StatelessWidget {
                   unit,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
+                  // A unidade é quem carrega a cor da família aqui: colada no número, ela diz
+                  // de que assunto ele é sem precisar que o próprio número mude de cor.
                   style: theme.textTheme.titleMedium?.copyWith(
-                    color: colors.onTone.withValues(alpha: 0.85),
+                    color: colors.ink,
                   ),
                 ),
               ),
@@ -206,7 +232,7 @@ class HeroFigure extends StatelessWidget {
           Text(
             detail,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: colors.onTone.withValues(alpha: 0.85),
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ],
@@ -278,12 +304,7 @@ class Tile extends StatelessWidget {
 
     return SizedBox(
       height: wide ? wideHeight : height,
-      child: Material(
-        color: colors.wash,
-        borderRadius: Radii.lgAll,
-        clipBehavior: Clip.antiAlias,
-        child: onTap == null ? content : InkWell(onTap: onTap, child: content),
-      ),
+      child: GlassPanel(radius: Radii.xlAll, onTap: onTap, child: content),
     );
   }
 
@@ -332,7 +353,10 @@ class Tile extends StatelessWidget {
           Text(
             value,
             maxLines: 1,
-            style: AppTypography.numeric(size: 28, color: colors.ink),
+            style: AppTypography.numeric(
+              size: 28,
+              color: theme.colorScheme.onSurface,
+            ),
           ),
           if (footer case final footer?) ...[
             const SizedBox(width: Space.sm),
@@ -372,7 +396,10 @@ class Tile extends StatelessWidget {
             child: Text(
               value,
               maxLines: 1,
-              style: AppTypography.numeric(size: 28, color: colors.ink),
+              style: AppTypography.numeric(
+                size: 28,
+                color: theme.colorScheme.onSurface,
+              ),
             ),
           ),
           if (detail case final detail?)
@@ -544,22 +571,19 @@ class BlockSection extends StatelessWidget {
       ],
     );
 
-    // `Material` e não `Container`: um fundo pintado por `BoxDecoration` fica **acima** do
-    // Material mais próximo, e todo respingo de toque dos filhos desaparece atrás dele. O
-    // Flutter chega a avisar quando um `ListTile` cai nessa armadilha — foi assim que apareceu.
-    return Material(
-      color: colors.wash,
-      borderRadius: Radii.lgAll,
-      clipBehavior: Clip.antiAlias,
+    // O `Material` transparente que embrulha o conteúdo mora dentro do [GlassPanel], e é ele
+    // que recebe o respingo do toque: um fundo pintado por `BoxDecoration` fica **acima** do
+    // Material mais próximo, e todo respingo dos filhos desaparece atrás dele. O Flutter chega
+    // a avisar quando um `ListTile` cai nessa armadilha — foi assim que apareceu.
+    return GlassPanel(
+      radius: Radii.xlAll,
+      onTap: onEdit,
       child: onEdit == null
           ? content
-          : InkWell(
-              onTap: onEdit,
-              child: Semantics(
-                button: true,
-                label: '$actionVerb $label',
-                child: content,
-              ),
+          : Semantics(
+              button: true,
+              label: '$actionVerb $label',
+              child: content,
             ),
     );
   }
@@ -682,20 +706,12 @@ class BlockMeter extends StatelessWidget {
 /// Satura em 100% em vez de continuar: passar da meta não merece uma segunda barra, e o número
 /// acima já conta o resto.
 class MealBar extends StatelessWidget {
-  const MealBar({
-    super.key,
-    required this.slices,
-    required this.colors,
-    this.onTone = true,
-  });
+  const MealBar({super.key, required this.slices, required this.colors});
 
   /// Uma fração da meta por refeição, na ordem do dia. Monte com [slicesOf].
   final List<double> slices;
 
   final BlockColors colors;
-
-  /// Verdadeiro sobre o herói (cor cheia), falso sobre um fundo lavado.
-  final bool onTone;
 
   static const double _height = 10;
   static const double _gap = 3;
@@ -703,7 +719,9 @@ class MealBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final filled = slices.fold<double>(0, (sum, s) => sum + s).clamp(0.0, 1.0);
-    final fill = onTone ? colors.onTone : colors.ink;
+    // Sempre a tinta da família: as duas superfícies que o parâmetro antigo separava — o
+    // herói em cor cheia e o lavado — viraram a mesma, vidro.
+    final fill = colors.ink;
 
     return Semantics(
       label:

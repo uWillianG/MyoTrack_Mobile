@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/design/tokens.dart';
 import '../../core/design/format.dart';
+import '../../core/design/materials.dart';
 import '../../core/design/typography.dart';
 import '../../core/sync/sync_queue.dart';
 import '../../core/widgets/review_badge.dart';
@@ -357,7 +358,8 @@ class _Tile extends StatelessWidget {
       color: theme.colorScheme.onSurfaceVariant,
     );
 
-    return Card(
+    return GlassPanel(
+      radius: Radii.lgAll,
       child: Padding(
         padding: const EdgeInsets.all(Space.sm),
         child: Column(
@@ -418,10 +420,11 @@ class _TomorrowCard extends ConsumerWidget {
 
     final onContainer = theme.colorScheme.onPrimaryContainer;
 
-    return Card(
-      margin: EdgeInsets.zero,
-      color: theme.colorScheme.primaryContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    return GlassPanel(
+      // O plano de amanhã é a única peça desta tela que precisa se destacar das outras — ela
+      // fecha o dia e aponta o próximo. Um véu da marca basta; a cor cheia que ela tinha
+      // competia com o botão de responder.
+      tint: theme.colorScheme.primary.withValues(alpha: 0.1),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -484,8 +487,7 @@ class _AnswersNote extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return Card(
-      margin: EdgeInsets.zero,
+    return GlassPanel(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

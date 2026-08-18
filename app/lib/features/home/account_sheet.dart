@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/db/local_database.dart';
+import '../../core/design/materials.dart';
 import '../../core/design/tokens.dart';
 import '../../core/providers.dart';
 import '../../core/sync/discarded_write_summary.dart';
@@ -82,8 +83,7 @@ class _PendingWritesNotice extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(Space.gutter, 0, Space.gutter, 8),
-      child: Card(
-        margin: EdgeInsets.zero,
+      child: GlassPanel(
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
@@ -130,9 +130,11 @@ class _DiscardedWritesNotice extends ConsumerWidget {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(Space.gutter, 0, Space.gutter, 8),
-      child: Card(
-        margin: EdgeInsets.zero,
-        color: theme.colorScheme.errorContainer,
+      child: GlassPanel(
+        // Tingido de erro, e não pintado dele: escrita recusada é perda de dado e precisa se
+        // distinguir do aviso de pendente logo acima — mas um retângulo vermelho cheio no meio
+        // de uma folha de vidro grita mais alto que o conteúdo dele.
+        tint: theme.colorScheme.error.withValues(alpha: 0.14),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(

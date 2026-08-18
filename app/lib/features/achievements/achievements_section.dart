@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/design/blocks.dart';
+import '../../core/design/materials.dart';
 import '../../core/design/tokens.dart';
 import '../../core/widgets/blocks.dart';
 import 'achievement.dart';
@@ -191,14 +192,17 @@ class _ActiveGrant extends StatelessWidget {
     final theme = Theme.of(context);
     final days = grant.daysLeft(DateTime.now());
 
-    return Material(
-      color: colors.tone,
-      borderRadius: Radii.lgAll,
+    // Vidro tingido de magenta, e não o retângulo em cor cheia que era: a faixa continua
+    // sendo a peça mais festiva da tela — ela é a única que anuncia um prêmio —, só que agora
+    // isso vem do véu de cor e do ícone em força total, e não de pintar o bloco inteiro.
+    return GlassPanel(
+      radius: Radii.xlAll,
+      tint: colors.ink.withValues(alpha: 0.1),
       child: Padding(
         padding: const EdgeInsets.all(Space.md),
         child: Row(
           children: [
-            Icon(Icons.workspace_premium, color: colors.onTone),
+            Icon(Icons.workspace_premium, color: colors.ink),
             const SizedBox(width: Space.sm),
             Expanded(
               child: Column(
@@ -207,7 +211,7 @@ class _ActiveGrant extends StatelessWidget {
                   Text(
                     'Pro ativo pela sua constância',
                     style: theme.textTheme.titleSmall?.copyWith(
-                      color: colors.onTone,
+                      color: colors.onGlass,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -219,7 +223,7 @@ class _ActiveGrant extends StatelessWidget {
                         'Faltam $days dias. Análises e coach ampliados até lá.',
                     },
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: colors.onTone.withValues(alpha: 0.85),
+                      color: colors.onGlass.withValues(alpha: 0.85),
                     ),
                   ),
                 ],

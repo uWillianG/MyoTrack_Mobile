@@ -158,12 +158,21 @@ class AppTheme {
         errorStyle: text.bodySmall?.copyWith(color: scheme.error),
       ),
 
+      // **Transparente, e sem a pastilha.** A barra inteira virou vidro — quem pinta o fundo
+      // dela é o `GlassChrome` do shell, e o conteúdo do app passa rolando por baixo. Uma cor
+      // de fundo aqui taparia o borrão e devolveria a tampa opaca.
+      //
+      // A pastilha do indicador saiu junto: ela existe para marcar o item corrente numa barra
+      // opaca, onde só a cor do ícone não bastaria. Sobre vidro ela vira um retângulo claro
+      // flutuando dentro de outro, e o que marca o item passa a ser o que já marcava melhor —
+      // o ícone preenchido, na cor da marca, com o rótulo no mesmo tom.
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: scheme.surface,
+        backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.transparent,
         elevation: 0,
-        height: 72,
-        indicatorColor: scheme.primaryContainer,
+        height: 60,
+        indicatorColor: Colors.transparent,
         indicatorShape: const RoundedRectangleBorder(borderRadius: Radii.pill),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
@@ -172,28 +181,32 @@ class AppTheme {
             fontSize: 11.5,
             letterSpacing: 0.2,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            color: selected ? scheme.onSurface : scheme.onSurfaceVariant,
+            color: selected ? scheme.primary : scheme.onSurfaceVariant,
           );
         }),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return IconThemeData(
             size: 24,
-            color: selected
-                ? scheme.onPrimaryContainer
-                : scheme.onSurfaceVariant,
+            color: selected ? scheme.primary : scheme.onSurfaceVariant,
           );
         }),
       ),
 
+      // 54 dp de altura nos dois flutuantes da tira de baixo. O `extended` do Material nasce
+      // com 48 e o `small` com 40, e os dois lado a lado — que é como a Hoje os usa — leem
+      // como um botão e o irmão menor dele em vez de um par. Sombra longa mesmo no escuro:
+      // eles são a única coisa do app que flutua *sobre* o conteúdo rolando, e sem ela o
+      // `Registrar` esmeralda encosta no cartão que passa por trás.
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: scheme.primary,
         foregroundColor: scheme.onPrimary,
-        elevation: isDark ? 0 : 3,
-        focusElevation: isDark ? 0 : 3,
-        hoverElevation: isDark ? 0 : 4,
-        highlightElevation: isDark ? 0 : 6,
+        elevation: isDark ? 6 : 3,
+        focusElevation: isDark ? 6 : 3,
+        hoverElevation: isDark ? 8 : 4,
+        highlightElevation: isDark ? 10 : 6,
         extendedTextStyle: text.labelLarge?.copyWith(color: scheme.onPrimary),
+        extendedSizeConstraints: const BoxConstraints.tightFor(height: 54),
         shape: const RoundedRectangleBorder(borderRadius: Radii.mdAll),
       ),
 

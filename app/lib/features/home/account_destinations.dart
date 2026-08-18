@@ -20,19 +20,26 @@ class AccountDestination {
 /// Os destinos que não cabem na barra inferior.
 ///
 /// **Mora em arquivo próprio porque aparece em dois lugares.** A folha do avatar é o atalho de
-/// quem está no meio de outra coisa; a aba Perfil é onde a pessoa vai quando *procura* — e é
-/// lá que quase todo app põe conta, assinatura e configuração. Duas listas escritas à mão
-/// divergem na primeira tela nova, e aí o mesmo app passa a ter dois mapas diferentes de si
-/// mesmo.
+/// quem está no meio de outra coisa; a tela de perfil repete a mesma lista para quem chegou lá
+/// *procurando* — e é ali que quase todo app põe conta, assinatura e configuração. Duas listas
+/// escritas à mão divergem na primeira tela nova, e aí o mesmo app passa a ter dois mapas
+/// diferentes de si mesmo.
+///
+/// **O Progresso saiu daqui ao virar aba.** Repetido nos dois lugares ele sugeriria que a folha
+/// leva a uma tela diferente da barra. Quem ocupou a vaga foi o próprio Perfil, que fez o
+/// caminho contrário — ver [HomeTab].
 ///
 /// A exclusão de conta, em particular, precisa ser fácil de achar ou a revisão das lojas
 /// recusa o app.
 const List<AccountDestination> accountDestinations = [
+  // **Primeiro da lista desde que o Progresso tomou o lugar dele na barra.** O Perfil é onde
+  // moram objetivo, medidas e o caminho para assinatura e exclusão de conta: coisas que se
+  // mexe uma vez. Atrás do avatar é onde qualquer app as põe, e é onde a pessoa procura.
   AccountDestination(
-    icon: Icons.insights_outlined,
-    title: 'Progresso',
-    subtitle: 'Volume, peso, recordes e o que sua evolução já rendeu',
-    route: Routes.progress,
+    icon: Icons.person_outline,
+    title: 'Meu perfil',
+    subtitle: 'Objetivo, medidas e o que alimenta seus planos',
+    route: Routes.profile,
   ),
   AccountDestination(
     icon: Icons.fitness_center_outlined,

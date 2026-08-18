@@ -185,14 +185,14 @@ class _PlanHero extends StatelessWidget {
         children: [
           Text(
             status.isPro ? 'MyoTrack Pro' : 'Plano gratuito',
-            style: AppTypography.numeric(size: 34, color: colors.onTone),
+            style: AppTypography.numeric(size: 34, color: colors.onGlass),
           ),
           if (renewal != null) ...[
             const SizedBox(height: Space.xs),
             Text(
               status.isPro ? 'Renova em $renewal' : 'Válido até $renewal',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: colors.onTone.withValues(alpha: 0.85),
+                color: colors.onGlass.withValues(alpha: 0.85),
               ),
             ),
           ],
@@ -211,7 +211,7 @@ class _PlanHero extends StatelessWidget {
               'O Pro amplia os três limites diários: mais análises de refeição, mais '
               'análises de execução e mais conversa com o coach.',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: colors.onTone.withValues(alpha: 0.85),
+                color: colors.onGlass.withValues(alpha: 0.85),
               ),
             ),
             const SizedBox(height: Space.sm),
@@ -220,7 +220,7 @@ class _PlanHero extends StatelessWidget {
               'A cobrança é feita pela loja e renova sozinha. Cancele quando quiser, nos '
               'ajustes do aparelho.',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: colors.onTone.withValues(alpha: 0.75),
+                color: colors.onGlass.withValues(alpha: 0.75),
               ),
             ),
           ],
@@ -273,7 +273,7 @@ class _PastDue extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colors.onTone.withValues(alpha: 0.15),
+        color: colors.onGlass.withValues(alpha: 0.15),
         borderRadius: Radii.mdAll,
       ),
       child: Padding(
@@ -284,14 +284,14 @@ class _PastDue extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.warning_amber_outlined, size: 18, color: colors.onTone),
+            Icon(Icons.warning_amber_outlined, size: 18, color: colors.onGlass),
             const SizedBox(width: Space.xs + 2),
             Expanded(
               child: Text(
                 'A última cobrança falhou. Atualize a forma de pagamento na loja para não '
                 'perder o acesso.',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: colors.onTone,
+                  color: colors.onGlass,
                 ),
               ),
             ),

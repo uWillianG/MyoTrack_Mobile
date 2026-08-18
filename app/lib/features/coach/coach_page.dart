@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/design/blocks.dart';
+import '../../core/design/materials.dart';
 import '../../core/design/format.dart';
 import '../../core/design/tokens.dart';
 import '../../core/jobs/job_status.dart';
@@ -303,7 +304,7 @@ class _Intro extends StatelessWidget {
               Text(
                 'O que você\nquer saber?',
                 style: theme.textTheme.displaySmall?.copyWith(
-                  color: colors.onTone,
+                  color: colors.onGlass,
                 ),
               ),
               const SizedBox(height: Space.sm),
@@ -314,7 +315,7 @@ class _Intro extends StatelessWidget {
                 'Ele conhece seu perfil, seus planos e seus últimos treinos — e não substitui '
                 'avaliação médica.',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colors.onTone.withValues(alpha: 0.85),
+                  color: colors.onGlass.withValues(alpha: 0.85),
                 ),
               ),
             ],
@@ -673,9 +674,11 @@ class _Composer extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Expanded(
-              child: Material(
-                color: colors.wash,
-                borderRadius: Radii.lgAll,
+              // Vidro, como o resto do app: o campo fica sobre a conversa rolando, e um
+              // retângulo chapado ali era a última superfície pintada que sobrou da versão
+              // anterior — lia como uma peça colada por cima da tela.
+              child: GlassPanel(
+                radius: Radii.lgAll,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: Space.md,
@@ -695,8 +698,11 @@ class _Composer extends StatelessWidget {
                           ? 'Pergunte ao coach…'
                           : 'Aguarde a resposta…',
                       isDense: true,
-                      // Sem moldura: quem delimita o campo é a faixa lavada em volta dele, e
-                      // uma borda por dentro de outra é caixa dentro de caixa.
+                      // **Nem moldura nem preenchimento.** Quem delimita o campo é o vidro em
+                      // volta dele; o `filled` que o tema liga em todo campo do app pintaria
+                      // um segundo retângulo por dentro do primeiro — caixa dentro de caixa, e
+                      // a de dentro com o raio errado.
+                      filled: false,
                       border: InputBorder.none,
                       enabledBorder: InputBorder.none,
                       focusedBorder: InputBorder.none,
