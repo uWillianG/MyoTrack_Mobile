@@ -77,3 +77,9 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
+
+# Ferramentas de assistente. Os documentos de design de `.CLAUDE/` são versionados; a
+# configuração local, não — ela guarda permissões concedidas nesta máquina, e a lista é
+# pessoal e cheia de comandos de sessões passadas.
+.CLAUDE/settings.local.json
+.claude/settings.local.json
