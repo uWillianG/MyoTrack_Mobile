@@ -4,6 +4,7 @@ import '../../core/providers.dart';
 import '../dashboard/dashboard_controller.dart';
 import '../diary/data/diary_models.dart';
 import '../diary/diary_controller.dart';
+import '../home/today_controller.dart' show nowProvider;
 import '../profile/data/profile_models.dart';
 import '../profile/onboarding_controller.dart';
 import 'achievement.dart';
@@ -60,9 +61,11 @@ final seenAchievementsProvider =
 
 /// Os dados agregados que a avaliação consome, montados a partir do que as telas já pedem.
 ///
-/// Reusa `dashboardStatsProvider` e `diaryDayProvider` de propósito: são as mesmas chamadas
-/// que a Hoje e a Nutrição fazem, então abrir as conquistas não custa uma rodada de rede
-/// nova — o Riverpod entrega o valor já em cache.
+/// Reusa `dashboardStatsProvider` e o dia de hoje de propósito: são as mesmas chamadas que a
+/// Hoje faz, então abrir as conquistas não custa uma rodada de rede nova — o Riverpod entrega
+/// o valor já em cache. Por isso o dia vem da família em hoje e não de `diaryDayProvider`: o
+/// segundo segue o cursor do carrossel do diário, e avaliaria a conquista de nutrição contra
+/// a terça-feira que o usuário estava olhando — gastando uma chamada nova para errar.
 final achievementInputProvider = FutureProvider<AchievementInput>((ref) async {
   final stats = await ref.watch(dashboardStatsProvider.future);
 
@@ -76,7 +79,9 @@ final achievementInputProvider = FutureProvider<AchievementInput>((ref) async {
   // diário não respondeu seria desproporcional.
   DiaryDay? day;
   try {
-    day = await ref.watch(diaryDayProvider.future);
+    day = await ref.watch(
+      diaryDayOfProvider(diaryDateOf(ref.read(nowProvider)())).future,
+    );
   } catch (_) {
     day = null;
   }

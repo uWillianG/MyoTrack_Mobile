@@ -242,7 +242,9 @@ class _Summary extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final day = ref.watch(diaryDayProvider).valueOrNull;
+    final day = ref
+        .watch(diaryDayOfProvider(diaryDateOf(ref.read(nowProvider)())))
+        .valueOrNull;
     final stats = ref.watch(dashboardStatsProvider).valueOrNull;
     final answers = ref.watch(dayCloseProvider);
 
@@ -266,7 +268,7 @@ class _Summary extends ConsumerWidget {
         const SizedBox(height: 20),
         FilledButton(
           onPressed: () {
-            ref.invalidate(diaryDayProvider);
+            ref.refreshDiaryDay(ref.read(nowProvider)());
             Navigator.of(context).pop();
           },
           child: const Text('Concluir'),

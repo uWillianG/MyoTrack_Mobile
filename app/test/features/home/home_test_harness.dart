@@ -623,13 +623,22 @@ List<Override> homeOverrides({
   /// A fila de revisão. Vazia no caso comum: quase ninguém é revisor, e `reviewableKinds`
   /// já vem vazio por padrão.
   List<ReviewQueueItem> reviewQueue = const [],
+
+  /// O dia do diário **por data**, para quem precisa de dias diferentes entre si — o carrossel
+  /// parado em ontem, o totalizador recarregando com outro número. É função e não mapa porque
+  /// o teste do recarregamento precisa que a resposta mude entre duas chamadas na mesma data.
+  /// Quem não pede recebe [day] em qualquer data.
+  DiaryDay Function(DateTime date)? dayOf,
 }) => [
   reviewQueueProvider.overrideWith((ref) async => reviewQueue),
   coachMessagesProvider.overrideWith((ref) async => coachMessages),
-  diaryDayProvider.overrideWith((ref) async => day ?? diaryDay()),
-  // O carrossel do diário assiste a um provider por data, e não ao dia aberto: sem isto as
-  // páginas caem no repositório de verdade e ficam girando para sempre.
-  diaryDayOfProvider.overrideWith((ref, date) async => day ?? diaryDay()),
+  // Só a família, e de propósito. Sobrescrever também o `diaryDayProvider` deixava os testes
+  // cegos para a cadeia que a tela usa de verdade: com o repassador falso no lugar, a Hoje
+  // nunca atravessava a família, e o bug de o totalizador não recarregar passou por ela sem
+  // que teste nenhum piscasse.
+  diaryDayOfProvider.overrideWith(
+    (ref, date) async => dayOf?.call(date) ?? day ?? diaryDay(),
+  ),
   dashboardStatsProvider.overrideWith((ref) async => stats ?? dashboardStats()),
   nextWorkoutProvider.overrideWith(
     (ref) async => hasNextWorkout ? (next ?? nextWorkout()) : null,

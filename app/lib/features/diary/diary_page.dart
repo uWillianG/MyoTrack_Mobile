@@ -355,7 +355,7 @@ class _Body extends StatelessWidget {
           _WeekSection(week: day.week, colors: colors),
         ],
         const SizedBox(height: Space.sm),
-        _MealsSection(entries: day.entries, colors: colors),
+        _MealsSection(entries: day.entries, date: date, colors: colors),
       ],
     );
   }
@@ -564,9 +564,14 @@ class _WeekSection extends StatelessWidget {
 /// separadas por um fio. O respiro lateral é zero de propósito — com margem dos dois lados o
 /// fio deixa de encostar nas bordas e a lista parece um monte de itens soltos.
 class _MealsSection extends StatelessWidget {
-  const _MealsSection({required this.entries, required this.colors});
+  const _MealsSection({
+    required this.entries,
+    required this.date,
+    required this.colors,
+  });
 
   final List<DiaryEntry> entries;
+  final DateTime date;
   final BlockColors colors;
 
   @override
@@ -594,7 +599,7 @@ class _MealsSection extends StatelessWidget {
                       endIndent: Space.md,
                       color: colors.ink.withValues(alpha: 0.14),
                     ),
-                  _EntryRow(entry: entries[i], colors: colors),
+                  _EntryRow(entry: entries[i], date: date, colors: colors),
                 ],
               ],
             ),
@@ -624,9 +629,20 @@ class _NoMeals extends StatelessWidget {
 }
 
 class _EntryRow extends ConsumerWidget {
-  const _EntryRow({required this.entry, required this.colors});
+  const _EntryRow({
+    required this.entry,
+    required this.date,
+    required this.colors,
+  });
 
   final DiaryEntry entry;
+
+  /// O dia a que esta linha pertence — e o que ela recarrega ao mexer no interruptor.
+  ///
+  /// Vem de cima em vez de sair de [diaryDateProvider]: no meio do arrasto entre dois dias há
+  /// duas páginas vivas, e "o dia aberto" pode já ser o vizinho quando o toque chegar.
+  final DateTime date;
+
   final BlockColors colors;
 
   @override
@@ -695,7 +711,7 @@ class _EntryRow extends ConsumerWidget {
   ) async {
     try {
       await ref.read(diaryRepositoryProvider).setIncluded(entry.id, included);
-      ref.invalidate(diaryDayProvider);
+      ref.refreshDiaryDay(date);
     } catch (error) {
       if (context.mounted) {
         ScaffoldMessenger.of(context)

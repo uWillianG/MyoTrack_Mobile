@@ -22,6 +22,18 @@ import 'account_avatar.dart';
 import 'today_ring.dart';
 import 'today_controller.dart';
 
+/// O dia que o totalizador da Hoje soma.
+///
+/// **Não é `diaryDayProvider`.** Aquele segue o cursor do carrossel do diário: quem arrastava
+/// até terça-feira lá dentro e voltava encontrava a Hoje somando terça, porque as abas ficam
+/// montadas no IndexedStack e a Hoje nunca reconstrói do zero. A Hoje mostra hoje.
+///
+/// A data vem do relógio a cada leitura, e não de um provider que a congela no arranque — é o
+/// que faz a virada da meia-noite chegar sozinha. `diaryDateOf` trunca a hora porque a família
+/// é indexada por igualdade de `DateTime`.
+FutureProvider<DiaryDay> _todayDiary(WidgetRef ref) =>
+    diaryDayOfProvider(diaryDateOf(ref.read(nowProvider)()));
+
 /// Hoje: uma superfície, e o assunto do momento no topo.
 ///
 /// **A tela tem uma forma só, e ela se reorganiza conforme a hora.** No alto, o herói —
@@ -95,11 +107,11 @@ class _TodayViewState extends ConsumerState<TodayView> {
           // vidro e a pessoa vê um borrão girando.
           edgeOffset: headerHeight,
           onRefresh: () async {
-            ref.invalidate(diaryDayProvider);
+            ref.refreshDiaryDay(ref.read(nowProvider)());
             ref.invalidate(dashboardStatsProvider);
             ref.invalidate(nextWorkoutProvider);
             ref.invalidate(pendingReviewsProvider);
-            await ref.read(diaryDayProvider.future);
+            await ref.read(_todayDiary(ref).future);
           },
           child: ListView(
             controller: _scroll,
@@ -196,7 +208,7 @@ class _CompactRing extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final day = ref.watch(diaryDayProvider).valueOrNull;
+    final day = ref.watch(_todayDiary(ref)).valueOrNull;
     final targets = day?.targets;
 
     if (day == null || targets == null || targets.kcal <= 0) {
@@ -333,7 +345,7 @@ class _Mosaic extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final brightness = theme.brightness;
-    final dayAsync = ref.watch(diaryDayProvider);
+    final dayAsync = ref.watch(_todayDiary(ref));
     final workoutAsync = ref.watch(nextWorkoutProvider);
 
     // Enquanto o diário não respondeu não dá para escolher o herói, e trocá-lo depois faria a
@@ -345,7 +357,7 @@ class _Mosaic extends ConsumerWidget {
     if (dayAsync.hasError && workoutAsync.hasError) {
       return _MosaicError(
         onRetry: () {
-          ref.invalidate(diaryDayProvider);
+          ref.refreshDiaryDay(ref.read(nowProvider)());
           ref.invalidate(nextWorkoutProvider);
         },
       );

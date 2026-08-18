@@ -211,7 +211,9 @@ void main() {
     // perfil e o plano dele não existem. Erro é "não sei".
     await pump(tester, [
       ...homeOverrides(),
-      diaryDayProvider.overrideWith((ref) async => throw Exception('sem rede')),
+      diaryDayOfProvider.overrideWith(
+        (ref, date) async => throw Exception('sem rede'),
+      ),
       userProfileProvider.overrideWith(
         (ref) async => throw Exception('sem rede'),
       ),

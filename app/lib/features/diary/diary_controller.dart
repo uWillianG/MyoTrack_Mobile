@@ -65,7 +65,37 @@ final diaryDayOfProvider = FutureProvider.family<DiaryDay, DateTime>(
   (ref, date) => ref.watch(diaryRepositoryProvider).day(date),
 );
 
-/// O dia aberto. É o que a Hoje e as telas que não navegam por data usam.
+/// O dia aberto no carrossel. É o que as telas que **navegam por data** leem.
+///
+/// A Hoje não usa este: ela mostra hoje, e hoje não muda porque alguém arrastou o diário até
+/// terça-feira — ver [diaryDayOfProvider] e [diaryDateOf].
 final diaryDayProvider = FutureProvider<DiaryDay>(
   (ref) => ref.watch(diaryDayOfProvider(ref.watch(diaryDateProvider)).future),
 );
+
+/// A data sem hora, que é a **chave** de [diaryDayOfProvider].
+///
+/// Truncar não é arredondamento estético: a família é indexada por igualdade de `DateTime`, e
+/// uma data com hora e microssegundos abriria um membro novo — e uma chamada de rede nova — a
+/// cada quadro em que a tela reconstruísse.
+DateTime diaryDateOf(DateTime date) =>
+    DateTime(date.year, date.month, date.day);
+
+/// Recarrega um dia do diário de verdade.
+///
+/// Existe porque o reflexo — `invalidate(diaryDayProvider)` — **não recarrega nada**. Aquele
+/// provider não busca: ele repassa o que a família guardou. E invalidação no Riverpod desce
+/// para os dependentes, nunca sobe para as dependências: o repassador reconstruía, reencostava
+/// no mesmo future já completo e devolvia o mesmo número, sem sair para a rede. O totalizador
+/// da Hoje ficou parado por isso.
+extension DiaryRefresh on Ref {
+  void refreshDiaryDay(DateTime date) =>
+      invalidate(diaryDayOfProvider(diaryDateOf(date)));
+}
+
+/// O mesmo, para quem tem [WidgetRef] em vez de [Ref]. São tipos sem supertipo comum no
+/// Riverpod 2, e o único jeito de o chamador escrever a mesma linha nos dois lugares.
+extension DiaryRefreshFromWidget on WidgetRef {
+  void refreshDiaryDay(DateTime date) =>
+      invalidate(diaryDayOfProvider(diaryDateOf(date)));
+}

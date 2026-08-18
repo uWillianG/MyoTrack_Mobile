@@ -226,7 +226,7 @@ void main() {
         dashboardStatsProvider.overrideWith(
           (ref) async => DashboardStats.empty,
         ),
-        diaryDayProvider.overrideWith((ref) async => diaryDay(kcal: 0)),
+        diaryDayOfProvider.overrideWith((ref, date) async => diaryDay(kcal: 0)),
         // Sem histórico não há sequência: o servidor devolveria zero, e o fixture precisa
         // dizer o mesmo que os outros dois.
         rewardStatusProvider.overrideWith(

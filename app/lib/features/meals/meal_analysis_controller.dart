@@ -7,6 +7,8 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/jobs/generation_controller.dart';
 import '../../core/jobs/job_status.dart';
 import '../../core/providers.dart';
+import '../diary/diary_controller.dart';
+import '../home/today_controller.dart' show nowProvider;
 import 'data/meal_models.dart';
 import 'data/meal_repository.dart';
 
@@ -147,6 +149,10 @@ class MealAnalysisController extends JobGenerationController {
     _result = recent.isEmpty ? null : recent.first;
 
     ref.invalidate(mealHistoryProvider);
+    // O prato acabou de entrar no diário, e é o diário que alimenta o totalizador da Hoje.
+    // Sem esta linha o número só mudaria no puxar-para-atualizar — que é o que o usuário
+    // via como "o app não conta o que eu como".
+    ref.refreshDiaryDay(_dayOf(_result));
     // A foto some da tela junto com o resultado; guardá-la manteria vários MB vivos.
     _photo = null;
   }
@@ -175,8 +181,19 @@ class MealAnalysisController extends JobGenerationController {
       _result = updated;
     }
     ref.invalidate(mealHistoryProvider);
+    // A correção muda as calorias do prato, e portanto as do dia.
+    ref.refreshDiaryDay(_dayOf(updated));
     return updated;
   }
+
+  /// O dia do diário em que uma análise cai.
+  ///
+  /// Sai do `createdAt` e não do relógio: corrigir a foto de ontem tem de recarregar ontem, e
+  /// não hoje. Sem data — o servidor pode omiti-la — hoje é o palpite certo, porque é quando a
+  /// foto acabou de ser tirada.
+  DateTime _dayOf(MealAnalysis? analysis) =>
+      DateTime.tryParse(analysis?.createdAt ?? '')?.toLocal() ??
+      ref.read(nowProvider)();
 }
 
 final mealAnalysisProvider =
