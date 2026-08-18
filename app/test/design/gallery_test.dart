@@ -10,11 +10,14 @@ import 'package:intl/intl.dart';
 import 'package:drift/native.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:myotrack/core/db/local_database.dart';
+import 'package:myotrack/core/jobs/generation_controller.dart';
+import 'package:myotrack/core/jobs/job_status.dart';
 import 'package:myotrack/core/providers.dart';
 import 'package:myotrack/core/sync/sync_queue.dart';
 import 'package:myotrack/core/theme.dart';
 import 'package:myotrack/features/analysis/analysis_page.dart';
 import 'package:myotrack/features/billing/billing_page.dart';
+import 'package:myotrack/features/coach/coach_controller.dart';
 import 'package:myotrack/features/coach/coach_page.dart';
 import 'package:myotrack/features/dashboard/progress_page.dart';
 import 'package:myotrack/features/reviews/review_controller.dart';
@@ -67,6 +70,10 @@ void main() {
     Brightness brightness,
     Widget home, {
     List<Override> extra = const [],
+
+    /// False para tela com animação que não termina: a espera do coach pulsa para sempre, e
+    /// `pumpAndSettle` esperaria por um repouso que nunca chega.
+    bool settle = true,
   }) async {
     tester.view.physicalSize = phone * 3;
     tester.view.devicePixelRatio = 3;
@@ -100,7 +107,12 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    if (settle) {
+      await tester.pumpAndSettle();
+    } else {
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+    }
     return container;
   }
 
@@ -322,6 +334,24 @@ void main() {
       await shoot(tester, 'coach-conversa-$mode');
     });
 
+    // **A espera é um estado de tela por direito próprio.** São dez a quarenta segundos — mais
+    // tempo do que a maioria das telas deste catálogo fica à vista —, e é o único momento em
+    // que a pergunta aparece sem ainda existir no servidor.
+    testWidgets('coach — esperando ($mode)', (tester) async {
+      await pump(
+        tester,
+        brightness,
+        const CoachPage(),
+        settle: false,
+        extra: [
+          ...homeOverrides(coachMessages: conversaComOCoach),
+          nowProvider.overrideWithValue(() => DateTime(2026, 8, 4, 15)),
+          coachProvider.overrideWith(_Esperando.new),
+        ],
+      );
+      await shoot(tester, 'coach-esperando-$mode');
+    });
+
     // A fila de revisão nas duas cores: ela é a única tela cuja família **muda** com o
     // segmentado, porque o que a fila alimenta muda junto — treino revisado vira plano de
     // treino, dieta revisada vira plano alimentar.
@@ -460,4 +490,18 @@ void main() {
       await shoot(tester, 'fechar-resumo-$mode');
     });
   }
+}
+
+/// O coach respondendo, com a pergunta ainda só no balão otimista — os dois estados que a
+/// captura da espera existe para julgar.
+class _Esperando extends CoachController {
+  @override
+  GenerationState build() => const GenerationState(
+    running: true,
+    step: 'O coach está pensando…',
+    phase: JobState.processing,
+  );
+
+  @override
+  String? get pending => 'Posso trocar o agachamento por leg press?';
 }

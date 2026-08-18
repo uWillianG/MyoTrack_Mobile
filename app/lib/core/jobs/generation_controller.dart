@@ -6,12 +6,27 @@ import 'job_status.dart';
 
 /// Estado de uma operação assíncrona de IA vista pela tela.
 class GenerationState {
-  const GenerationState({this.running = false, this.step, this.error});
+  const GenerationState({
+    this.running = false,
+    this.step,
+    this.phase,
+    this.error,
+  });
 
   final bool running;
 
   /// Texto de progresso — muda quando o worker pega o job.
   final String? step;
+
+  /// A fase crua do job, quando ela já é conhecida. Null entre o toque em enviar e a
+  /// primeira resposta do servidor, que é quando ainda não há job para ter fase.
+  ///
+  /// Existe ao lado de [step] porque rótulo é para ler e fase é para decidir: a tela do coach
+  /// só narra o que o worker está fazendo depois que ele **de fato** pegou o job, e comparar
+  /// o texto de [step] para descobrir isso quebraria na primeira vez que alguém reescrevesse
+  /// a frase.
+  final JobState? phase;
+
   final String? error;
 
   static const idle = GenerationState();
@@ -56,7 +71,11 @@ abstract class JobGenerationController extends Notifier<GenerationState> {
       JobStatus? last;
       await for (final status in ref.read(jobWatcherProvider).watch(jobId)) {
         last = status;
-        state = GenerationState(running: true, step: stepLabel(status.state));
+        state = GenerationState(
+          running: true,
+          step: stepLabel(status.state),
+          phase: status.state,
+        );
       }
 
       if (last == null || !last.succeeded) {

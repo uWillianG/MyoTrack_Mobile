@@ -21,6 +21,11 @@ abstract final class Space {
   static const double xxl = 32;
   static const double huge = 48;
 
+  /// Respiro no fim de uma lista que corre por baixo de um botão flutuante: 40 dp de botão
+  /// pequeno mais a margem que o `Scaffold` já reserva. Sem ele o último cartão da tela para
+  /// debaixo do botão e a rolagem acaba antes de tirá-lo de lá.
+  static const double fabClearance = 56;
+
   /// Margem lateral das telas. Vale para todo conteúdo de leitura: o alinhamento entre um
   /// título de seção e a borda do cartão abaixo dele é o que dá a sensação de grade.
   static const double gutter = 20;

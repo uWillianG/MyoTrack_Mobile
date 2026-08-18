@@ -205,7 +205,12 @@ class _Body extends StatelessWidget {
     ];
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 24),
+      padding: const EdgeInsets.fromLTRB(
+        Space.gutter,
+        4,
+        Space.gutter,
+        24 + Space.fabClearance,
+      ),
       children: [
         _DayHero(day: day, date: date, colors: colors, mealKcal: included),
         if (targets != null) ...[

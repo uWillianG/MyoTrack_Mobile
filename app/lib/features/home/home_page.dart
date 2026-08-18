@@ -7,6 +7,7 @@ import '../../core/router.dart';
 import '../../core/sync/sync_queue.dart';
 import '../analysis/analysis_page.dart';
 import '../checkin/weigh_in.dart';
+import '../coach/coach_fab.dart';
 import '../nutrition/nutrition_page.dart';
 import '../profile/profile_page.dart';
 import 'account_avatar.dart';
@@ -56,7 +57,7 @@ enum HomeTab {
 /// enxerga o estado do widget que a abriu.
 final homeTabProvider = StateProvider<HomeTab>((ref) => HomeTab.today);
 
-/// O shell do app: barra inferior, botão de registrar e a aba corrente.
+/// O shell do app: barra inferior, os dois flutuantes e a aba corrente.
 ///
 /// Todas as telas continuam tendo rota própria — os deep links do e-mail e das notificações
 /// apontam para elas, e uma aba não tem endereço. O shell é um segundo caminho, o de quem
@@ -98,15 +99,51 @@ class HomePage extends ConsumerWidget {
           ProfileView(),
         ],
       ),
-      // Só na Hoje. Nas outras abas a ação principal já está na tela (fotografar, gerar
-      // dieta), e um botão flutuante repetindo-a esconderia conteúdo por nada.
-      floatingActionButton: tab == HomeTab.today
-          ? FloatingActionButton.extended(
-              onPressed: () => showQuickCaptureSheet(context, ref),
-              icon: const Icon(Icons.add),
-              label: const Text('Registrar'),
-            )
-          : null,
+      // Os dois flutuantes ocupam a tira de baixo inteira, um em cada ponta, e cada um tem
+      // uma regra de presença diferente.
+      //
+      // **O coach fica nas quatro abas, sempre à direita.** A pergunta que ele responde
+      // ("posso trocar esse exercício?", "isso cabe na minha meta de hoje?") nasce olhando
+      // qualquer uma delas, e até aqui o único caminho até a conversa era a folha do avatar —
+      // dois toques e um item no meio de seis. À direita porque é o canto onde o polegar
+      // chega sem a mão sair do lugar, e porque é o mesmo canto nas quatro: botão que muda de
+      // lado conforme a aba obriga a procurá-lo toda vez.
+      //
+      // **O `Registrar` continua só na Hoje**, agora à esquerda. Nas outras abas a ação
+      // principal já está na tela (fotografar, gerar dieta), e um botão repetindo-a esconderia
+      // conteúdo por nada.
+      //
+      // Uma linha e não uma coluna: empilhados, o de cima cobria mais um cartão do mosaico e
+      // os dois liam como um controle só de duas partes.
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: SafeArea(
+        // Só as laterais: o recorte da câmera em paisagem comeria o botão da ponta. O respiro
+        // de baixo é do `Scaffold`, que já conta a barra de navegação.
+        top: false,
+        bottom: false,
+        child: Padding(
+          // A mesma margem que o `endFloat` reservaria sozinho. Ela precisa ser escrita aqui
+          // porque a linha ocupa a largura toda: sem ela, cada botão encostaria na sua borda.
+          padding: const EdgeInsets.symmetric(horizontal: Space.md),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Nas outras três abas a ponta esquerda fica vazia, e o `spaceBetween` empurra
+              // o coach para a direita do mesmo jeito — é o que mantém o canto dele estável.
+              if (tab == HomeTab.today)
+                FloatingActionButton.extended(
+                  heroTag: 'registrar-fab',
+                  onPressed: () => showQuickCaptureSheet(context, ref),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Registrar'),
+                )
+              else
+                const SizedBox.shrink(),
+              const CoachFab(),
+            ],
+          ),
+        ),
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: tab.index,
         onDestinationSelected: (index) =>

@@ -1,9 +1,13 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/design/blocks.dart';
 import '../../core/design/format.dart';
 import '../../core/design/tokens.dart';
+import '../../core/jobs/job_status.dart';
 import '../../core/widgets/blocks.dart';
 import '../../core/widgets/empty_state.dart';
 // O relógio do app, injetável: sem ele o "Hoje" que separa um dia do outro na conversa mudaria
@@ -70,9 +74,8 @@ class _CoachPageState extends ConsumerState<CoachPage> {
     super.dispose();
   }
 
-  Future<void> _send() async {
-    final text = _input.text;
-    if (!await ref.read(coachProvider.notifier).ask(text)) {
+  void _send() {
+    if (!ref.read(coachProvider.notifier).ask(_input.text)) {
       return;
     }
     // Limpa só depois de aceitar: se a pergunta foi recusada (vazia, ou outra em curso), o
@@ -139,7 +142,12 @@ class _CoachPageState extends ConsumerState<CoachPage> {
                       colors: colors,
                       controller: _scroll,
                       now: ref.read(nowProvider)(),
-                      typing: state.running ? state.step : null,
+                      typing: state.running,
+                      step: state.step,
+                      phase: state.phase,
+                      // O balão otimista. `watch` no estado logo acima é o que traz o
+                      // rebuild; o notifier em si não muda de instância.
+                      pending: ref.watch(coachProvider.notifier).pending,
                     ),
             ),
           ),
@@ -162,6 +170,9 @@ class _Conversation extends StatelessWidget {
     required this.controller,
     required this.now,
     required this.typing,
+    required this.step,
+    required this.phase,
+    required this.pending,
   });
 
   final List<CoachMessage> messages;
@@ -169,8 +180,16 @@ class _Conversation extends StatelessWidget {
   final ScrollController controller;
   final DateTime now;
 
-  /// A etapa em curso, ou null quando o coach não está respondendo.
-  final String? typing;
+  /// True enquanto o coach está respondendo.
+  final bool typing;
+
+  /// O rótulo que veio do servidor, e a fase crua por trás dele.
+  final String? step;
+  final JobState? phase;
+
+  /// A pergunta já enviada e ainda ausente de [messages] — desenhada como balão comum, no
+  /// lugar que ela vai ocupar quando a lista voltar do servidor.
+  final String? pending;
 
   @override
   Widget build(BuildContext context) {
@@ -189,7 +208,18 @@ class _Conversation extends StatelessWidget {
         // Nesta lista, "depois" significa "acima": os filhos são empilhados de baixo para
         // cima. Daí a conversa vir do fim para o começo, e a régua do dia sair **depois** da
         // primeira mensagem dele.
-        if (typing != null) _Typing(step: typing, colors: colors),
+        if (typing) _Typing(step: step, phase: phase, colors: colors),
+        if (pending case final question?)
+          _Bubble(
+            // Id de mentira e sem data: ele nunca é comparado com nada, e a régua de dia só
+            // olha as mensagens que vieram do servidor.
+            message: CoachMessage(
+              id: 'pendente',
+              fromUser: true,
+              content: question,
+            ),
+            colors: colors,
+          ),
         for (var i = messages.length - 1; i >= 0; i--) ...[
           _Bubble(message: messages[i], colors: colors),
           if (daySeparator(messages, i, now) case final label?)
@@ -379,15 +409,111 @@ class _Bubble extends StatelessWidget {
 }
 
 /// O coach pensando. Fica no lugar onde a resposta vai aparecer, para a espera ter endereço.
-class _Typing extends StatelessWidget {
-  const _Typing({required this.step, required this.colors});
+/// O coach trabalhando: três pontos que não param e uma frase que troca.
+///
+/// **Por que o rodinha com um rótulo fixo não bastava.** A resposta leva de dez a quarenta
+/// segundos — é uma chamada de LLM com perfil, planos, sessões recentes e a transcrição no
+/// contexto —, e uma frase parada esse tempo todo é indistinguível de um app travado. Quem
+/// espera não tem como saber se a resposta ainda está vindo.
+///
+/// **A narração não é enfeite inventado.** É a ordem em que o worker monta o contexto antes de
+/// chamar o modelo (`CoachChatHandler.handle`): perfil, plano de treino, sessões, dieta,
+/// conversa. O que ela não é — e não finge ser — é um traço ao vivo: o servidor só informa
+/// três fases. Por isso **o que ele diz tem precedência**: o rótulo verdadeiro abre a
+/// sequência, a narração só entra depois que o worker de fato pegou o job, e qualquer notícia
+/// nova do servidor recomeça tudo.
+///
+/// **Ela para na última frase em vez de voltar ao começo.** Reexibir "Lendo seu perfil…"
+/// depois de "Escrevendo a resposta…" leria como trabalho refeito. Numa espera longa, quem
+/// sustenta a sensação de vivo são os pontos — e eles não param.
+class _Typing extends StatefulWidget {
+  const _Typing({
+    required this.step,
+    required this.phase,
+    required this.colors,
+  });
 
   final String? step;
+  final JobState? phase;
   final BlockColors colors;
+
+  @override
+  State<_Typing> createState() => _TypingState();
+}
+
+class _TypingState extends State<_Typing> with SingleTickerProviderStateMixin {
+  /// O que o worker faz antes de chamar o modelo, na ordem em que ele faz.
+  static const _narration = [
+    'Lendo seu perfil…',
+    'Abrindo seu plano de treino…',
+    'Conferindo seus últimos treinos…',
+    'Olhando sua dieta…',
+    'Relendo a conversa…',
+    'Escrevendo a resposta…',
+  ];
+
+  /// Quanto cada frase fica na tela. Abaixo de uns três segundos a troca vira pisca-pisca e
+  /// ninguém termina de ler a anterior.
+  static const _dwell = Duration(seconds: 3);
+
+  late final AnimationController _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  )..repeat();
+
+  Timer? _clock;
+  int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _restart();
+  }
+
+  @override
+  void didUpdateWidget(_Typing oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // O servidor deu notícia: o que ele diz volta a ser o que está escrito, e a narração
+    // recomeça a partir dali.
+    if (oldWidget.step != widget.step || oldWidget.phase != widget.phase) {
+      _restart();
+    }
+  }
+
+  @override
+  void dispose() {
+    _clock?.cancel();
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  void _restart() {
+    _clock?.cancel();
+    _index = 0;
+
+    if (_labels.length < 2) {
+      return;
+    }
+    _clock = Timer.periodic(_dwell, (timer) {
+      if (_index >= _labels.length - 1) {
+        timer.cancel();
+        return;
+      }
+      setState(() => _index++);
+    });
+  }
+
+  /// O rótulo verdadeiro na frente; a narração atrás dele, e só quando há o que narrar.
+  List<String> get _labels => [
+    widget.step ?? 'O coach está pensando…',
+    if (widget.phase == JobState.processing) ..._narration,
+  ];
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final labels = _labels;
+    final label = labels[_index.clamp(0, labels.length - 1)];
 
     return Align(
       alignment: Alignment.centerLeft,
@@ -398,7 +524,7 @@ class _Typing extends StatelessWidget {
           vertical: Space.sm,
         ),
         decoration: BoxDecoration(
-          color: colors.wash,
+          color: widget.colors.wash,
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(Radii.md),
             topRight: Radius.circular(Radii.md),
@@ -406,27 +532,108 @@ class _Typing extends StatelessWidget {
             bottomRight: Radius.circular(Radii.md),
           ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              height: 14,
-              width: 14,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
+        // Frases de larguras diferentes fariam o balão saltar de tamanho a cada três
+        // segundos; assim ele acompanha.
+        child: AnimatedSize(
+          duration: Motion.base,
+          curve: Motion.enter,
+          alignment: Alignment.centerLeft,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _PulsingDots(
+                animation: _pulse,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
-            ),
-            const SizedBox(width: Space.sm - 2),
-            Flexible(
-              child: Text(
-                step ?? 'O coach está pensando…',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+              const SizedBox(width: Space.sm - 2),
+              Flexible(
+                child: AnimatedSwitcher(
+                  duration: Motion.base,
+                  switchInCurve: Motion.enter,
+                  switchOutCurve: Motion.exit,
+                  // A frase nova sobe empurrando a anterior — o gesto de "avançou uma etapa".
+                  // Apagar e acender no mesmo lugar leria como correção de um erro.
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: Tween(
+                        begin: const Offset(0, 0.4),
+                        end: Offset.zero,
+                      ).animate(animation),
+                      child: child,
+                    ),
+                  ),
+                  child: Text(
+                    label,
+                    key: ValueKey(label),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Três pontos subindo e descendo em ondas defasadas.
+///
+/// O rodinha do Material dizia "carregando", que é o que toda tela do app diz enquanto espera
+/// alguma coisa. Os pontos dizem outra: que tem alguém do outro lado escrevendo. É a convenção
+/// de qualquer aplicativo de conversa, e aqui ela custa três círculos.
+class _PulsingDots extends StatelessWidget {
+  const _PulsingDots({required this.animation, required this.color});
+
+  final Animation<double> animation;
+  final Color color;
+
+  static const _count = 3;
+  static const _diameter = 6.0;
+
+  /// O quanto o ponto sobe no alto da onda.
+  static const _travel = 2.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      // Altura reservada para o curso inteiro: sem ela o ponto no alto da onda invade o
+      // respiro do balão, e a linha de texto ao lado dança junto.
+      height: _diameter + _travel * 2,
+      child: AnimatedBuilder(
+        animation: animation,
+        builder: (context, _) => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < _count; i++) ...[
+              if (i > 0) const SizedBox(width: 3),
+              _dot(i),
+            ],
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _dot(int index) {
+    // Cada ponto entra um terço de ciclo depois do anterior: é a defasagem que faz a onda
+    // correr da esquerda para a direita em vez de os três piscarem juntos.
+    final phase = (animation.value + index / _count) % 1;
+    // Seno e não uma rampa: a volta ao início do ciclo precisa ser contínua, senão a cada
+    // 1,1 s o ponto salta do alto para o chão.
+    final wave = (math.sin(phase * 2 * math.pi) + 1) / 2;
+
+    return Transform.translate(
+      offset: Offset(0, -wave * _travel),
+      child: Container(
+        width: _diameter,
+        height: _diameter,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.3 + wave * 0.7),
+          shape: BoxShape.circle,
         ),
       ),
     );

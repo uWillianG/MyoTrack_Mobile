@@ -112,7 +112,12 @@ class _Setup extends ConsumerWidget {
     void change(OnboardingForm updated) => controller.update(updated);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 32),
+      padding: const EdgeInsets.fromLTRB(
+        Space.gutter,
+        4,
+        Space.gutter,
+        32 + Space.fabClearance,
+      ),
       children: [
         HeroBlock(
           colors: Blocks.workout(brightness),
@@ -235,7 +240,12 @@ class _Summary extends ConsumerWidget {
         ref.watch(reviewableKindsProvider).valueOrNull?.isNotEmpty ?? false;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 32),
+      padding: const EdgeInsets.fromLTRB(
+        Space.gutter,
+        4,
+        Space.gutter,
+        32 + Space.fabClearance,
+      ),
       children: [
         HeroBlock(
           colors: Blocks.workout(brightness),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
@@ -63,14 +65,51 @@ final coachMessagesProvider = FutureProvider<List<CoachMessage>>(
 class CoachController extends JobGenerationController {
   String _pending = '';
 
-  /// Devolve false quando não há o que mandar.
-  Future<bool> ask(String content) async {
+  /// A pergunta em voo: já enviada, e ainda ausente da lista que veio do servidor.
+  ///
+  /// **A tela desenha ela como um balão comum enquanto o job roda.** Sem isso a mensagem só
+  /// aparecia junto com a resposta — dez, vinte segundos olhando uma conversa que não
+  /// registrou o que a pessoa acabou de dizer, que é como se perde a confiança de que o envio
+  /// funcionou. A pergunta já está salva no servidor nesse meio-tempo; o que falta é só a
+  /// lista ser recarregada, e é isso que o balão cobre.
+  ///
+  /// Amarrada a `running` de propósito: o balão otimista sai de cena no mesmo instante em que
+  /// o [reload] traz o verdadeiro, e não há uma janela em que os dois existam.
+  String? get pending => state.running && _pending.isNotEmpty ? _pending : null;
+
+  @override
+  GenerationState build() {
+    // Falhou **depois** de enfileirar? A pergunta já está gravada no servidor, e o balão
+    // otimista some junto com o `running` — sem esta recarga ela sumiria da tela e só
+    // reapareceria na próxima vez que a conversa fosse aberta.
+    //
+    // Quando a falha é do próprio envio (limite diário, resposta anterior em curso), nada foi
+    // gravado e isto vira uma releitura à toa da lista. É barato, e a alternativa seria a tela
+    // ter que adivinhar de que lado o erro nasceu.
+    listenSelf((previous, next) {
+      if (previous?.running == true && next.error != null) {
+        ref.invalidate(coachMessagesProvider);
+      }
+    });
+
+    return super.build();
+  }
+
+  /// Aceita a pergunta e devolve false quando não há o que mandar.
+  ///
+  /// **Responde na hora, sem esperar o coach.** Ela já esperou a resposta inteira, e o campo de
+  /// texto só era limpo quando a conversa voltava do servidor — de dez a quarenta segundos com
+  /// a pergunta escrita em dois lugares ao mesmo tempo, no balão e no campo desabilitado.
+  ///
+  /// O `start()` solto não perde falha nenhuma: ele guarda tudo o que dá errado no próprio
+  /// estado, que é de onde a tela tira o snackbar.
+  bool ask(String content) {
     final text = content.trim();
     if (text.isEmpty || state.running) {
       return false;
     }
     _pending = text;
-    await start();
+    unawaited(start());
     return true;
   }
 

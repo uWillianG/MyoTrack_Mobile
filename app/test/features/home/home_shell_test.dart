@@ -5,7 +5,10 @@ import 'package:go_router/go_router.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:myotrack/core/sync/sync_queue.dart';
 import 'package:myotrack/core/theme.dart';
+import 'package:myotrack/core/router.dart';
 import 'package:myotrack/features/analysis/analysis_page.dart';
+import 'package:myotrack/features/coach/coach_fab.dart';
+import 'package:myotrack/features/coach/coach_page.dart';
 import 'package:myotrack/features/home/home_page.dart';
 import 'package:myotrack/features/home/account_sheet.dart';
 import 'package:myotrack/features/logging/data/logging_models.dart';
@@ -50,7 +53,12 @@ void main() {
           // Um roteador de verdade: os cartões da Hoje e os itens do Perfil chamam
           // `context.push`, que estoura sem GoRouter na árvore.
           routerConfig: GoRouter(
-            routes: [GoRoute(path: '/', builder: (_, _) => const HomePage())],
+            routes: [
+              GoRoute(path: '/', builder: (_, _) => const HomePage()),
+              // A de verdade, e não uma tela de mentira: o botão do coach só cumpre o que
+              // promete se o destino existir, e é o `CoachPage` que o teste procura depois.
+              GoRoute(path: Routes.coach, builder: (_, _) => const CoachPage()),
+            ],
           ),
         ),
       ),
@@ -110,6 +118,73 @@ void main() {
       find.widgetWithText(FloatingActionButton, 'Registrar'),
       findsNothing,
     );
+  });
+
+  testWidgets('o botão do coach acompanha as quatro abas', (tester) async {
+    // Ele é o contrário do `Registrar`: a dúvida que o coach responde nasce olhando qualquer
+    // aba, e antes dele o único caminho até a conversa era a folha do avatar — dois toques e
+    // um item no meio de seis, para o recurso que mais distingue o produto.
+    final container = await pump(tester);
+
+    for (final tab in HomeTab.values) {
+      container.read(homeTabProvider.notifier).state = tab;
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CoachFab), findsOne, reason: 'aba ${tab.label}');
+      // O mesmo balão da folha da conta. Dois desenhos para o mesmo recurso fariam o usuário
+      // achar que são dois recursos.
+      expect(
+        find.descendant(
+          of: find.byType(CoachFab),
+          matching: find.byIcon(Icons.chat_bubble_outline),
+        ),
+        findsOne,
+        reason: 'aba ${tab.label}',
+      );
+
+      // E sempre no mesmo canto: botão que troca de lado conforme a aba obriga a procurá-lo
+      // de novo a cada troca.
+      expect(
+        tester.getCenter(find.byType(CoachFab)).dx,
+        greaterThan(smallPhone.width / 2),
+        reason: 'aba ${tab.label}',
+      );
+    }
+  });
+
+  testWidgets('tocar no botão do coach abre a conversa', (tester) async {
+    await pump(tester);
+
+    await tester.tap(find.byType(CoachFab));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(CoachPage), findsOne);
+  });
+
+  testWidgets('os dois flutuantes da Hoje convivem na mesma navegação', (
+    tester,
+  ) async {
+    // Dois `FloatingActionButton` na mesma árvore compartilham a etiqueta de herói por
+    // omissão, e aí a primeira navegação estoura em vez de navegar. O teste é a única coisa
+    // que segura a etiqueta explícita no lugar: sem ele, apagá-la não quebra nada até o
+    // usuário tocar num dos dois.
+    await pump(tester);
+
+    expect(find.byType(FloatingActionButton), findsNWidgets(2));
+
+    // Um em cada ponta, e o coach na direita: se os dois caírem no mesmo canto eles se
+    // sobrepõem, e o de baixo fica intocável sem nada estourar.
+    final registrar = tester.getRect(
+      find.widgetWithText(FloatingActionButton, 'Registrar'),
+    );
+    final coach = tester.getRect(find.byType(CoachFab));
+    expect(registrar.right, lessThan(coach.left));
+
+    await tester.tap(find.widgetWithText(FloatingActionButton, 'Registrar'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('O que você quer registrar?'), findsOne);
   });
 
   testWidgets('a captura rápida leva para Analisar na sub-aba certa', (

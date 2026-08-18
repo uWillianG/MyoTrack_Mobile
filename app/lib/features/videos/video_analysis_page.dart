@@ -182,7 +182,12 @@ class _Body extends StatelessWidget {
     final colors = Blocks.workout(Theme.of(context).brightness);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 32),
+      padding: const EdgeInsets.fromLTRB(
+        Space.gutter,
+        4,
+        Space.gutter,
+        32 + Space.fabClearance,
+      ),
       children: [
         // A manchete é o estado do trabalho: o convite enquanto nada corre, o progresso
         // enquanto a análise acontece. Mesma mecânica da metade de refeição, e do modo treino

@@ -167,7 +167,12 @@ class _Body extends StatelessWidget {
     final colors = Blocks.nutrition(Theme.of(context).brightness);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 32),
+      padding: const EdgeInsets.fromLTRB(
+        Space.gutter,
+        4,
+        Space.gutter,
+        32 + Space.fabClearance,
+      ),
       children: [
         // O herói é o estado do trabalho: o convite enquanto nada corre, o progresso enquanto
         // a análise acontece. Mesma mecânica do modo treino — o que muda sozinho ocupa o bloco
