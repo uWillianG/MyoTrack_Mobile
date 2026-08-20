@@ -83,3 +83,9 @@ __pycache__/
 # pessoal e cheia de comandos de sessões passadas.
 .CLAUDE/settings.local.json
 .claude/settings.local.json
+
+# --- Material de marketing ---
+# Prints do app usados para montar post de rede social. São imagens grandes, refeitas a cada
+# mudança de tela, e mostram dados de uma conta de teste — nada disso é fonte, e versionar
+# engorda o clone de todo mundo para sempre por causa de captura que vale uma semana.
+marketing/
