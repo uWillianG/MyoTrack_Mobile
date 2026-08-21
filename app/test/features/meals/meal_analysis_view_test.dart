@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myotrack/core/jobs/generation_controller.dart';
 import 'package:myotrack/core/theme.dart';
+import 'package:myotrack/core/widgets/blocks.dart';
 import 'package:myotrack/features/home/today_controller.dart';
 import 'package:myotrack/features/meals/data/meal_models.dart';
 import 'package:myotrack/features/meals/meal_analysis_controller.dart';
@@ -64,9 +65,10 @@ void main() {
     // gastava 118 dp para repetir a soma deles.
     expect(find.text('analisadas por foto'), findsNothing);
 
-    // O que fica é o que só ele tem: as duas formas de mandar uma foto.
+    // O que fica é o que só ele tem: as duas formas de mandar uma foto. A da galeria virou
+    // ícone ao lado da ação — sem palavra na tela, e com o nome ainda dito a quem não a vê.
     expect(find.text('Fotografar prato'), findsOne);
-    expect(find.text('Escolher da galeria'), findsOne);
+    expect(find.byTooltip('Escolher da galeria'), findsOne);
   });
 
   testWidgets('enquanto a análise corre, o herói vira o progresso', (
@@ -82,6 +84,9 @@ void main() {
     // O convite sai enquanto o trabalho corre: um botão de fotografar vivo aqui convidaria a
     // disparar uma segunda análise por cima da primeira.
     expect(find.text('Fotografar prato'), findsNothing);
+    // E o modo ilustrado sai com ele: mora dentro do convite, e vale para a próxima captura —
+    // mexer nele agora não mudaria a foto que já subiu.
+    expect(find.text('Marcar os alimentos na foto'), findsNothing);
   });
 
   testWidgets('a lista traz nome, hora e total — e nenhuma análise aberta', (
@@ -137,15 +142,23 @@ void main() {
     expect(find.text('Mamão papaia'), findsNothing);
   });
 
-  // O interruptor já morou no fim da lista. Com o histórico fechado em linhas, o custo de
-  // tê-lo no topo acabou — e o de rolar até o fim para ligá-lo antes de fotografar, não.
-  testWidgets('o interruptor da análise ilustrada fica acima do histórico', (
-    tester,
-  ) async {
+  // O interruptor já morou no fim da lista, e depois num cartão só dele acima do histórico.
+  // Agora mora onde está o que ele muda — dentro do bloco que manda a foto, e antes do botão:
+  // lido depois dele, chegaria com a câmera já aberta.
+  testWidgets('o modo ilustrado é parte do bloco da captura', (tester) async {
     await pump(tester, homeOverrides(analyzedMeals: refeicoesAnalisadas));
 
+    const modo = 'Marcar os alimentos na foto';
     expect(
-      tester.getTopLeft(find.text('Análise ilustrada')).dy,
+      find.descendant(of: find.byType(HeroBlock), matching: find.text(modo)),
+      findsOne,
+    );
+    expect(
+      tester.getTopLeft(find.text(modo)).dy,
+      lessThan(tester.getTopLeft(find.text('Fotografar prato')).dy),
+    );
+    expect(
+      tester.getTopLeft(find.text(modo)).dy,
       lessThan(tester.getTopLeft(find.text('Hoje')).dy),
     );
   });

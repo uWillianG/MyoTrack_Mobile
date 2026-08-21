@@ -31,6 +31,7 @@ import 'package:myotrack/features/workout/workout_plan_page.dart';
 import 'package:myotrack/features/workout/workout_plan_controller.dart';
 import 'package:myotrack/features/dashboard/dashboard_stats.dart';
 import 'package:myotrack/features/checkin/day_close_page.dart';
+import 'package:myotrack/features/home/app_shell.dart';
 import 'package:myotrack/features/home/home_page.dart';
 import 'package:myotrack/features/home/today_controller.dart';
 import 'package:myotrack/features/nutrition/nutrition_page.dart';
@@ -82,6 +83,10 @@ void main() {
     /// False para tela com animação que não termina: a espera do coach pulsa para sempre, e
     /// `pumpAndSettle` esperaria por um repouso que nunca chega.
     bool settle = true,
+
+    /// False para as telas públicas — entrar e criar conta —, que no roteador do app ficam
+    /// **fora** do `ShellRoute`: quem ainda não tem sessão não tem para onde a barra levar.
+    bool shell = true,
   }) async {
     tester.view.physicalSize = phone * 3;
     tester.view.devicePixelRatio = 3;
@@ -109,8 +114,22 @@ void main() {
           theme: brightness == Brightness.light
               ? AppTheme.light()
               : AppTheme.dark(),
+          // **A tela vai dentro do shell, como no app.** A barra de abas deixou de morar na
+          // `HomePage` e virou o chão de tudo que exige sessão (ver `app_shell.dart`); uma
+          // bancada que monta a tela solta captura um app que não existe mais — sem a barra,
+          // e com os últimos 90 dp de cada rolagem livres, que é justamente o espaço que ela
+          // cobre.
           routerConfig: GoRouter(
-            routes: [GoRoute(path: '/', builder: (_, _) => home)],
+            routes: [
+              if (shell)
+                ShellRoute(
+                  builder: (_, state, child) =>
+                      AppShell(location: state.uri.path, child: child),
+                  routes: [GoRoute(path: '/', builder: (_, _) => home)],
+                )
+              else
+                GoRoute(path: '/', builder: (_, _) => home),
+            ],
           ),
         ),
       ),
@@ -529,6 +548,7 @@ void main() {
         brightness,
         const LoginPage(),
         extra: [autenticacaoDisponivel()],
+        shell: false,
       );
       await shoot(tester, 'entrar-$mode');
     });
@@ -539,6 +559,7 @@ void main() {
         brightness,
         const LoginPage(),
         extra: [autenticacaoDisponivel()],
+        shell: false,
       );
       await tester.tap(find.text('Criar conta'));
       await tester.pumpAndSettle();

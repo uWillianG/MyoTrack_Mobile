@@ -12,6 +12,7 @@ import '../../core/design/tokens.dart';
 import '../../core/widgets/blocks.dart';
 import '../../core/widgets/glass_segmented.dart';
 import '../../core/widgets/empty_state.dart';
+import '../../core/widgets/pressable.dart';
 // O relógio do app, injetável: sem ele o bloco "Hoje" do histórico mudaria de valor entre a
 // captura da galeria e a execução do teste.
 import '../home/today_controller.dart' show nowProvider;
@@ -121,9 +122,7 @@ class _MealAnalysisViewState extends ConsumerState<MealAnalysisView> {
           // resultado que ela foi buscar exigiria um toque a mais para aparecer.
           justAnalyzed: controller.result?.id,
           illustrated: _illustrated,
-          onIllustrated: state.running
-              ? null
-              : (v) => setState(() => _illustrated = v),
+          onIllustrated: (v) => setState(() => _illustrated = v),
           onCapture: (source) =>
               controller.analyzeFrom(source, illustrated: _illustrated),
         ),
@@ -157,9 +156,10 @@ class _Body extends StatelessWidget {
 
   final bool illustrated;
 
-  /// Nulo enquanto a análise corre: o modo vale para a próxima captura, e mudá-lo no meio de
-  /// uma que já subiu com a decisão tomada não teria efeito nenhum.
-  final ValueChanged<bool>? onIllustrated;
+  /// Não é mais anulável: o interruptor mora dentro do herói da captura, e o herói da captura
+  /// sai da tela enquanto a análise corre. O estado desabilitado que este campo descrevia
+  /// deixou de ter quadro em que aparecer.
+  final ValueChanged<bool> onIllustrated;
 
   final ValueChanged<ImageSource> onCapture;
 
@@ -184,23 +184,10 @@ class _Body extends StatelessWidget {
           _CaptureHero(
             colors: colors,
             hasHistory: meals.isNotEmpty,
+            illustrated: illustrated,
+            onIllustrated: onIllustrated,
             onCapture: onCapture,
           ),
-        // O interruptor vem logo abaixo do herói, encostado na ação que ele modifica.
-        //
-        // **Ele já morou no fim da lista**, com o argumento de que ajuste de comportamento
-        // futuro fica depois do conteúdo presente — e o argumento valia enquanto cada refeição
-        // era um cartão aberto de meia tela: ali, no topo, ele empurrava para baixo justamente
-        // o que a pessoa veio ver. Com a lista fechada em linhas, esse custo acabou: o
-        // histórico inteiro cabe na tela com o interruptor em cima dele. O que sobrou foi o
-        // custo oposto — ligar o modo ilustrado exigia rolar até o fim e voltar ao topo para
-        // fotografar.
-        const SizedBox(height: Space.sm),
-        _IllustratedSection(
-          colors: colors,
-          value: illustrated,
-          onChanged: onIllustrated,
-        ),
         for (final day in groupMealsByDay(meals, now)) ...[
           const SizedBox(height: Space.sm),
           _DaySection(day: day, colors: colors, justAnalyzed: justAnalyzed),
@@ -276,12 +263,21 @@ class _DaySection extends StatelessWidget {
 /// pessoa abriu para conferir.
 ///
 /// Nem toda manchete precisa de número: aqui o assunto é **o trabalho**, e parado o trabalho é
-/// um convite. O bloco continua sendo o único em cor cheia e o único com ação — que é o que faz
-/// dele o herói.
+/// um convite. O bloco continua sendo o único com ação — que é o que faz dele o herói.
+///
+/// **Ele terminou de reunir tudo o que manda uma foto para a IA.** As duas formas de entregar a
+/// foto viraram uma linha só, e o modo ilustrado — que morava num cartão à parte — entrou aqui
+/// em cima delas. Um controle mora perto do que ele muda: no cartão de baixo ele era um
+/// interruptor sem objeto à vista, e a pessoa precisava supor que aquilo valia para o botão do
+/// bloco de cima. O argumento que o mantinha fora era o de que interruptor sobre cor cheia não
+/// se lê de relance, e ele valia enquanto o herói era um retângulo esmeralda pintado; com o
+/// herói em vidro, a superfície aqui dentro é a mesma de qualquer outro cartão do app.
 class _CaptureHero extends StatelessWidget {
   const _CaptureHero({
     required this.colors,
     required this.hasHistory,
+    required this.illustrated,
+    required this.onIllustrated,
     required this.onCapture,
   });
 
@@ -290,6 +286,9 @@ class _CaptureHero extends StatelessWidget {
   /// Se já há refeições no histórico. É só isso que o bloco precisa saber: a contagem em si
   /// não aparece mais nele.
   final bool hasHistory;
+
+  final bool illustrated;
+  final ValueChanged<bool> onIllustrated;
 
   final ValueChanged<ImageSource> onCapture;
 
@@ -301,17 +300,16 @@ class _CaptureHero extends StatelessWidget {
       colors: colors,
       label: 'Refeição',
       icon: Icons.photo_camera_outlined,
-      action: HeroAction(
-        label: 'Fotografar prato',
-        onPressed: () => onCapture(ImageSource.camera),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (!hasHistory) ...[
             Text(
               'Fotografe\nseu prato.',
-              style: theme.textTheme.displaySmall?.copyWith(
+              // Um degrau acima do resto dos heróis do app, e só aqui: na primeira vez esta
+              // frase é a tela inteira — não há histórico abaixo dela para dividir a atenção
+              // com ela. Quanto maior o corpo, mais fechada a entreletra; a escala já faz isso.
+              style: theme.textTheme.displayMedium?.copyWith(
                 color: colors.onGlass,
               ),
             ),
@@ -323,37 +321,100 @@ class _CaptureHero extends StatelessWidget {
                 color: colors.onGlass.withValues(alpha: 0.85),
               ),
             ),
-            const SizedBox(height: Space.xs),
+            // A régua separa o que se lê do que se opera, e só existe quando há o que separar:
+            // com histórico o bloco começa nos controles, e um fio logo abaixo do rótulo
+            // partiria o cartão numa metade vazia e outra cheia.
+            const SizedBox(height: Space.md),
+            Divider(height: 1, color: colors.ink.withValues(alpha: 0.16)),
           ],
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: () => onCapture(ImageSource.gallery),
-              // Sem o respiro padrão do botão: com ele o ícone começa 12 dp à direita de tudo
-              // o mais do bloco, e um item fora da margem é o que faz uma coluna parecer
-              // desalinhada sem que se saiba dizer onde.
-              style: TextButton.styleFrom(
-                foregroundColor: colors.onGlass,
-                padding: EdgeInsets.zero,
-                minimumSize: const Size(0, 44),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              icon: const Icon(Icons.photo_library_outlined, size: 18),
-              label: const Text('Escolher da galeria'),
-            ),
+          // **O modo vem antes do botão, e não depois.** Ele vale para a *próxima* captura:
+          // lido depois da ação, ele chega quando a decisão já foi tomada e a câmera já abriu.
+          _IllustratedToggle(
+            colors: colors,
+            value: illustrated,
+            onChanged: onIllustrated,
           ),
+          const SizedBox(height: Space.sm),
+          _CaptureActions(colors: colors, onCapture: onCapture),
         ],
       ),
     );
   }
 }
 
-/// O modo ilustrado, fora do herói.
+/// As duas formas de entregar a foto, numa linha só.
 ///
-/// É uma preferência da próxima captura, não parte do convite: dentro do bloco ele competiria
-/// com a ação, e um interruptor sobre cor cheia é o controle que menos se lê de relance.
-class _IllustratedSection extends StatelessWidget {
-  const _IllustratedSection({
+/// **A galeria era um botão de texto acima da ação, e a ordem estava invertida**: a saída
+/// secundária vinha primeiro, a principal fechava o bloco, e o vão entre as duas fazia-as
+/// parecer assuntos diferentes. Lado a lado elas leem como o que são — duas portas para a mesma
+/// sala —, e a diferença de tamanho e de peso diz qual é a porta da frente sem precisar de
+/// rótulo explicando.
+///
+/// **A galeria fica à esquerda**, no lugar em que a câmera do próprio aparelho põe o rolo de
+/// fotos, e sem escrita: a pilha de fotos é dos ícones mais estabelecidos que existem, e assim
+/// o peso da linha cresce da esquerda para a direita até terminar na ação. O nome continua
+/// existindo para quem usa leitor de tela e para quem segura o botão.
+class _CaptureActions extends StatelessWidget {
+  const _CaptureActions({required this.colors, required this.onCapture});
+
+  final BlockColors colors;
+  final ValueChanged<ImageSource> onCapture;
+
+  /// A altura do botão de qualquer outro herói — ver [HeroAction]. O alvo da galeria é mais
+  /// largo do que alto de propósito: um quadrado ao lado de um botão comprido lê como um
+  /// terceiro componente, e deitado ele lê como o irmão menor da ação.
+  static const double _height = 46;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        // O aperto no toque, nos dois: a resposta nasce no dedo encostando, e não no botão
+        // sendo solto — ver [PressableScale].
+        PressableScale(
+          child: SizedBox(
+            width: 58,
+            height: _height,
+            child: IconButton(
+              onPressed: () => onCapture(ImageSource.gallery),
+              // O nome do alvo, e o que aparece ao segurá-lo: um ícone sozinho não tem nome
+              // para o leitor de tela anunciar.
+              tooltip: 'Escolher da galeria',
+              icon: const Icon(Icons.photo_library_outlined, size: 22),
+              style: IconButton.styleFrom(
+                // Um lavado da família, e não mais vidro: sobre o vidro do próprio herói, um
+                // botão translúcido não apareceria — empilhar material sobre material é o que
+                // faz a legibilidade das duas camadas cair junto.
+                backgroundColor: colors.ink.withValues(alpha: 0.14),
+                foregroundColor: colors.ink,
+                shape: const RoundedRectangleBorder(borderRadius: Radii.smAll),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: Space.sm),
+        Expanded(
+          // O botão do herói, com a cor e a forma que ele tem em todas as outras telas. Ele não
+          // vai no `action` do bloco porque precisa dividir a linha com a galeria.
+          child: PressableScale(
+            child: HeroAction(
+              label: 'Fotografar prato',
+              onPressed: () => onCapture(ImageSource.camera),
+            ).build(context, colors),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// O modo ilustrado: a IA anota os itens e os macros na própria foto.
+///
+/// A ressalva fica escrita, e não escondida atrás de um "saiba mais": o modo custa uma chamada
+/// a mais e nem sempre está disponível, e descobrir isso depois de esperar é pior do que ler
+/// antes de ligar.
+class _IllustratedToggle extends StatelessWidget {
+  const _IllustratedToggle({
     required this.colors,
     required this.value,
     required this.onChanged,
@@ -361,23 +422,42 @@ class _IllustratedSection extends StatelessWidget {
 
   final BlockColors colors;
   final bool value;
-  final ValueChanged<bool>? onChanged;
+  final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return BlockSection(
-      colors: colors,
-      label: 'Análise ilustrada',
-      icon: Icons.auto_fix_high_outlined,
-      padding: EdgeInsets.zero,
-      // `dense`, e a ressalva numa linha só: no fim da lista a altura dele não custava nada, no
-      // topo ela sai do conteúdo. Os dois fatos continuam escritos — o que some é o respiro.
+    final theme = Theme.of(context);
+
+    // Pelo título, e não pelo meio da linha: com a ressalva ocupando duas linhas, o centro
+    // vertical cai dentro dela, e tanto o ícone quanto o interruptor ficariam apontando para o
+    // texto miúdo em vez de para o nome daquilo que eles ligam. O `SwitchListTile` não expõe o
+    // alinhamento; quem o carrega é o tema do `ListTile` em volta.
+    return ListTileTheme.merge(
+      titleAlignment: ListTileTitleAlignment.titleHeight,
       child: SwitchListTile(
         value: value,
         onChanged: onChanged,
-        dense: true,
-        title: const Text('Marcar os alimentos na foto'),
-        subtitle: const Text('Uma chamada a mais, e nem sempre disponível.'),
+        // Sem o respiro do `ListTile`, e com o ícone ocupando exatamente o que ele mede: assim
+        // o título começa na mesma coluna de "Refeição" lá em cima, e os dois ícones da família
+        // ficam um debaixo do outro em vez de quase.
+        contentPadding: EdgeInsets.zero,
+        minLeadingWidth: 18,
+        horizontalTitleGap: Space.xs,
+        secondary: Icon(
+          Icons.auto_fix_high_outlined,
+          size: 18,
+          color: colors.ink,
+        ),
+        title: Text(
+          'Marcar os alimentos na foto',
+          style: theme.textTheme.titleSmall?.copyWith(color: colors.onGlass),
+        ),
+        subtitle: Text(
+          'Uma chamada a mais, e nem sempre disponível.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colors.onGlass.withValues(alpha: 0.7),
+          ),
+        ),
       ),
     );
   }
