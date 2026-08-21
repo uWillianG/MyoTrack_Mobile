@@ -16,6 +16,9 @@ import 'package:myotrack/core/providers.dart';
 import 'package:myotrack/core/sync/sync_queue.dart';
 import 'package:myotrack/core/theme.dart';
 import 'package:myotrack/features/analysis/analysis_page.dart';
+import 'package:myotrack/features/auth/auth_controller.dart';
+import 'package:myotrack/features/auth/data/auth_models.dart';
+import 'package:myotrack/features/auth/login_page.dart';
 import 'package:myotrack/features/billing/billing_controller.dart';
 import 'package:myotrack/features/billing/billing_page.dart';
 import 'package:myotrack/features/billing/data/billing_models.dart';
@@ -517,6 +520,48 @@ void main() {
       await shoot(tester, 'treino-plano-$mode');
     });
 
+    // A porta de entrada, nos dois modos. É a primeira tela que alguém vê do produto, e a
+    // única que muda de forma sem mudar de rota — avaliar só uma das duas metades deixaria
+    // metade do desenho sem captura.
+    testWidgets('entrar ($mode)', (tester) async {
+      await pump(
+        tester,
+        brightness,
+        const LoginPage(),
+        extra: [autenticacaoDisponivel()],
+      );
+      await shoot(tester, 'entrar-$mode');
+    });
+
+    testWidgets('criar conta ($mode)', (tester) async {
+      await pump(
+        tester,
+        brightness,
+        const LoginPage(),
+        extra: [autenticacaoDisponivel()],
+      );
+      await tester.tap(find.text('Criar conta'));
+      await tester.pumpAndSettle();
+
+      // Com a senha pela metade: é o estado em que as regras dizem alguma coisa — três
+      // marcadas e duas por marcar. Vazia, a lista nem apareceria; completa, ela é uma
+      // coluna de verdes que não mostra o contraste entre os dois estados.
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Nome'),
+        'Willian',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'E-mail'),
+        'willian@exemplo.com',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Senha'),
+        'Treino9',
+      );
+      await tester.pumpAndSettle();
+      await shoot(tester, 'criar-conta-$mode');
+    });
+
     testWidgets('fechar o dia — pergunta ($mode)', (tester) async {
       await pump(tester, brightness, const DayClosePage());
       await shoot(tester, 'fechar-pergunta-$mode');
@@ -534,6 +579,12 @@ void main() {
     });
   }
 }
+
+/// Uma instalação com Google e recuperação de senha ligados — sem isso a captura mostraria a
+/// tela mais pobre que existe, que é a de um servidor sem provedor nenhum configurado.
+Override autenticacaoDisponivel() => authProvidersProvider.overrideWith(
+  (ref) async => const AuthProviders(google: true, passwordReset: true),
+);
 
 /// O coach respondendo, com a pergunta ainda só no balão otimista — os dois estados que a
 /// captura da espera existe para julgar.
