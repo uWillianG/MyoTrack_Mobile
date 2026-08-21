@@ -16,7 +16,9 @@ import 'package:myotrack/core/providers.dart';
 import 'package:myotrack/core/sync/sync_queue.dart';
 import 'package:myotrack/core/theme.dart';
 import 'package:myotrack/features/analysis/analysis_page.dart';
+import 'package:myotrack/features/billing/billing_controller.dart';
 import 'package:myotrack/features/billing/billing_page.dart';
+import 'package:myotrack/features/billing/data/billing_models.dart';
 import 'package:myotrack/features/coach/coach_controller.dart';
 import 'package:myotrack/features/coach/coach_page.dart';
 import 'package:myotrack/features/dashboard/progress_page.dart';
@@ -29,6 +31,8 @@ import 'package:myotrack/features/checkin/day_close_page.dart';
 import 'package:myotrack/features/home/home_page.dart';
 import 'package:myotrack/features/home/today_controller.dart';
 import 'package:myotrack/features/nutrition/nutrition_page.dart';
+import 'package:myotrack/features/privacy/account_page.dart';
+import 'package:myotrack/features/privacy/privacy_controller.dart';
 import 'package:myotrack/features/profile/profile_page.dart';
 import 'package:myotrack/features/logging/data/logging_models.dart';
 import 'package:myotrack/features/logging/data/logging_repository.dart';
@@ -416,6 +420,46 @@ void main() {
         ],
       );
       await shoot(tester, 'assinatura-pro-$mode');
+    });
+
+    // A tela da conta. Vale a captura por causa da ordem das quatro seções: a exclusão é a
+    // única ação irreversível do app e precisa continuar evidente — sem ser a coisa mais
+    // chamativa da tela, que é o erro que ela cometia quando abria por ela.
+    testWidgets('conta ($mode)', (tester) async {
+      await pump(
+        tester,
+        brightness,
+        const AccountPage(),
+        extra: [
+          accountSummaryProvider.overrideWith(
+            (ref) async => AccountSummary(
+              email: 'rafael.souza@myotrack.dev',
+              createdAt: DateTime(2026, 3, 12),
+              hasPassword: true,
+            ),
+          ),
+          consentTrailProvider.overrideWith(
+            (ref) async => [
+              ConsentEntry(
+                type: 'HealthData',
+                termsVersion: '1.0',
+                grantedAt: DateTime(2026, 3, 12),
+              ),
+              ConsentEntry(
+                type: 'TermsOfService',
+                termsVersion: '1.0',
+                grantedAt: DateTime(2026, 3, 12),
+              ),
+            ],
+          ),
+          // Sem assinatura de loja: o aviso de cobrança que aparece nesse caso já é julgado
+          // nas duas capturas da assinatura, e aqui ele só empurraria o resto para baixo.
+          subscriptionStatusProvider.overrideWith(
+            (ref) async => const SubscriptionStatus(),
+          ),
+        ],
+      );
+      await shoot(tester, 'conta-$mode');
     });
 
     // As duas caras do perfil. O cadastro é o que só quem chega vê, e a razão de a galeria

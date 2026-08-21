@@ -215,6 +215,28 @@ class LocalDatabase extends _$LocalDatabase {
       ], mode: InsertMode.insertOrIgnore);
     });
   }
+
+  // --- Fim de sessão ---
+
+  /// Apaga deste aparelho tudo que pertence a quem estava logado.
+  ///
+  /// **Existe porque sair da conta não apagava nada, e isso vazava dado de uma pessoa para
+  /// outra.** A fila de escrita guarda o corpo cru de séries e pesagens, e a sincronização a
+  /// reenvia com *o token que estiver valendo na hora* — o treino de quem saiu subiria para a
+  /// conta de quem entrasse depois no mesmo aparelho, sem erro nenhum no caminho. Na exclusão
+  /// de conta o buraco é ainda mais direto: a tela promete que "não há cópia de segurança"
+  /// enquanto o celular ficava com uma.
+  ///
+  /// **O catálogo de exercícios não entra**, e é a única exceção: ele é público, igual para
+  /// todo mundo, e não diz nada sobre quem o baixou. Apagá-lo só faria a próxima abertura
+  /// gastar rede para trazer de volta a mesma lista.
+  Future<void> wipe() async {
+    await batch((batch) {
+      batch.deleteWhere(pendingWrites, (_) => const Constant(true));
+      batch.deleteWhere(discardedWrites, (_) => const Constant(true));
+      batch.deleteWhere(seenAchievements, (_) => const Constant(true));
+    });
+  }
 }
 
 QueryExecutor _open() {

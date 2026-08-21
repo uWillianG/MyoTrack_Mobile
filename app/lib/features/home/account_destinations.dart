@@ -68,7 +68,10 @@ const List<AccountDestination> accountDestinations = [
   AccountDestination(
     icon: Icons.shield_outlined,
     title: 'Conta e privacidade',
-    subtitle: 'Excluir sua conta e todos os seus dados',
+    // A exclusão continua nomeada na legenda: é por esta palavra que a pessoa — e o revisor
+    // da loja — procura. As outras duas entraram quando a tela deixou de ser só o botão de
+    // apagar, senão "sair da conta" viraria uma função que só encontra quem já sabe onde é.
+    subtitle: 'Sair, baixar seus dados ou excluir sua conta',
     route: Routes.account,
   ),
 ];

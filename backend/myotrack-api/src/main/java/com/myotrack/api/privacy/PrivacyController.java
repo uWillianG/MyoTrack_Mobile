@@ -119,6 +119,31 @@ public class PrivacyController {
         this.emailSender = emailSender;
     }
 
+    /**
+     * Quem é o titular desta sessão, e como ele confirma a exclusão.
+     *
+     * <p>Existe por causa de {@code hasPassword}. A exclusão aceita duas confirmações — a senha,
+     * ou o próprio e-mail para quem entrou com Google ou Apple —, e até aqui <b>o app não tinha
+     * como saber qual das duas pedir</b>: a tela mostrava "Senha ou e-mail" e metade das pessoas
+     * lia uma instrução que não era para ela, num diálogo que não perdoa erro. Com este campo o
+     * app pede exatamente a coisa certa.
+     *
+     * <p>Não devolve o hash, nem nada que se pareça com credencial: só o fato de existir uma. O
+     * e-mail e a data de criação vêm junto porque a tela os mostra ao lado — e porque quem
+     * apaga a conta precisa ver <b>qual</b> conta está apagando, num aparelho que pode ter sido
+     * de outra pessoa.
+     */
+    @GetMapping("/account")
+    @Transactional(readOnly = true)
+    public ResponseEntity<AccountSummary> account() {
+        return users.findById(CurrentUser.id())
+                .map(user -> ResponseEntity.ok(new AccountSummary(
+                        user.getEmail(),
+                        user.getCreatedAt(),
+                        user.getPasswordHash() != null && !user.getPasswordHash().isBlank())))
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     /** Export completo dos dados do titular em JSON (art. 18, LGPD). */
     @GetMapping("/export")
     @Transactional(readOnly = true)
@@ -285,5 +310,16 @@ public class PrivacyController {
     }
 
     public record DeleteAccountRequest(String password) {
+    }
+
+    /**
+     * O que a tela de conta precisa saber sobre o titular.
+     *
+     * <p>{@code hasPassword} é um booleano e não o provedor de login ("google", "apple"): a
+     * pergunta que a tela faz é "o que eu peço para confirmar?", e ela tem duas respostas.
+     * Devolver o provedor obrigaria o app a manter a lista dos que não têm senha — e a errar
+     * quando entrasse um novo.
+     */
+    public record AccountSummary(String email, OffsetDateTime createdAt, boolean hasPassword) {
     }
 }

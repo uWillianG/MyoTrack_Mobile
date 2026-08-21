@@ -116,6 +116,97 @@ void main() {
         ),
       );
     });
+
+    test('o arquivo também vem por download, e é o mesmo conteúdo', () async {
+      // O caminho que não depende de SMTP. Onde o servidor não tem e-mail configurado, este
+      // é o único jeito de o titular receber os próprios dados — e o endpoint já existia.
+      adapter.onGet(
+        '/api/privacy/export',
+        (server) => server.reply(200, {
+          'exportedAt': '2026-08-20T10:00:00Z',
+          'account': {'email': 'ana@exemplo.com'},
+          'workoutSessions': [],
+        }),
+      );
+
+      final data = await repo.export();
+
+      expect(data['account'], {'email': 'ana@exemplo.com'});
+    });
+  });
+
+  group('o resumo da conta', () {
+    test('diz o que o diálogo de exclusão deve pedir', () async {
+      adapter.onGet(
+        '/api/privacy/account',
+        (server) => server.reply(200, {
+          'email': 'ana@exemplo.com',
+          'createdAt': '2026-03-12T09:30:00Z',
+          'hasPassword': true,
+        }),
+      );
+
+      final summary = await repo.account();
+
+      expect(summary.email, 'ana@exemplo.com');
+      expect(summary.createdAt, DateTime.utc(2026, 3, 12, 9, 30));
+      expect(summary.hasPassword, isTrue);
+    });
+
+    test('campo ausente não vira "tem senha"', () async {
+      // Um servidor mais antigo que este endpoint responderia sem o campo. Assumir que há
+      // senha faria a tela pedir uma que talvez não exista, num diálogo irreversível — e o
+      // "não sei" tem texto próprio, que explica as duas formas.
+      adapter.onGet(
+        '/api/privacy/account',
+        (server) => server.reply(200, {'email': 'ana@exemplo.com'}),
+      );
+
+      final summary = await repo.account();
+
+      expect(summary.hasPassword, isFalse);
+      expect(summary.createdAt, isNull);
+    });
+  });
+
+  group('a trilha de consentimento', () {
+    test('traduz o que foi autorizado', () async {
+      adapter.onGet(
+        '/api/profile/consents',
+        (server) => server.reply(200, [
+          {
+            'type': 'HealthData',
+            'termsVersion': '1.0',
+            'grantedAt': '2026-03-12T09:31:00Z',
+            'revokedAt': null,
+          },
+        ]),
+      );
+
+      final trail = await repo.consents();
+
+      expect(trail.single.label, 'Tratamento dos dados de saúde');
+      expect(trail.single.termsVersion, '1.0');
+      expect(trail.single.revokedAt, isNull);
+    });
+
+    test('tipo que o app não conhece aparece cru em vez de sumir', () async {
+      // Um consentimento que a pessoa deu e a tela esconde por não reconhecer o nome é pior
+      // que um rótulo feio — e é o que aconteceria no dia em que o servidor registrasse um
+      // tipo novo.
+      adapter.onGet(
+        '/api/profile/consents',
+        (server) => server.reply(200, [
+          {
+            'type': 'BiometricSharing',
+            'termsVersion': '2.0',
+            'grantedAt': '2026-08-01T12:00:00Z',
+          },
+        ]),
+      );
+
+      expect((await repo.consents()).single.label, 'BiometricSharing');
+    });
   });
 
   test('confirmação errada em conta social explica o que digitar', () async {

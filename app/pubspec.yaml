@@ -111,6 +111,17 @@ dependencies:
   # universal link e não precisa de entrada no Info.plist.
   url_launcher: ^6.3.1
 
+  # --- Portabilidade de dados (LGPD) ---
+  # Entrega o export à folha de compartilhamento do sistema: dali a pessoa salva no Drive,
+  # manda para si mesma ou abre num leitor de JSON — sem o app precisar de permissão de
+  # armazenamento, sem escolher pasta e sem um navegador de arquivos próprio.
+  #
+  # Entrou agora, e não antes, porque até aqui o export só saía por e-mail: onde o SMTP não
+  # está configurado o servidor responde 503, e o direito à portabilidade simplesmente não
+  # chegava ao titular. O endpoint que devolve o arquivo já existia (`GET /api/privacy/export`)
+  # e nunca tinha sido ligado.
+  share_plus: ^12.0.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
