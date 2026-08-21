@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -328,31 +327,5 @@ void main() {
     final row = (await db.pending()).single;
     expect(row.attempts, 2);
     expect(row.lastError, 'falhou de novo');
-  });
-
-  test('replaceExercises troca o catálogo inteiro', () async {
-    await db.replaceExercises([
-      CachedExercisesCompanion.insert(
-        id: const Value(1),
-        name: 'Supino reto com barra',
-        muscleGroup: 'Chest',
-        equipment: 'Barbell',
-      ),
-    ]);
-    expect((await db.exercises()).single.name, 'Supino reto com barra');
-
-    // Exercício removido no servidor não pode continuar selecionável no aparelho.
-    await db.replaceExercises([
-      CachedExercisesCompanion.insert(
-        id: const Value(2),
-        name: 'Agachamento livre com barra',
-        muscleGroup: 'Quadriceps',
-        equipment: 'Barbell',
-      ),
-    ]);
-
-    final rows = await db.exercises();
-    expect(rows, hasLength(1));
-    expect(rows.single.id, 2);
   });
 }

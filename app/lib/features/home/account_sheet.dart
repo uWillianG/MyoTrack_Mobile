@@ -12,16 +12,17 @@ import 'account_destinations.dart';
 
 /// O que fica atrás do avatar da barra superior.
 ///
-/// O protótipo tem quatro abas e um avatar; o app tem nove telas que não são Hoje, Nutrição,
-/// Analisar nem Perfil — progresso, coach, assinatura, exclusão de conta, a fila de revisão.
-/// Elas não cabem na barra inferior e não podem sumir: a exclusão de conta, em particular,
-/// precisa ser fácil de achar ou a revisão das lojas recusa o app. O avatar é o lugar onde se
-/// procura "o resto", e é a única gaveta que o protótipo desenhou.
+/// O protótipo tem quatro abas e um avatar; o app tem uma dezena de telas que não são Hoje,
+/// Nutrição, Analisar nem Perfil — treino, coach, assinatura, conta e privacidade, a fila de
+/// revisão. Elas não cabem na barra inferior e não podem sumir: a exclusão de conta, em
+/// particular, precisa ser fácil de achar ou a revisão das lojas recusa o app. O avatar é o
+/// lugar onde se procura "o resto", e é a única gaveta que o protótipo desenhou.
 Future<void> showAccountSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
-    // Rolável: com a fonte do sistema ampliada, nove itens passam de qualquer teto fixo.
+    // Rolável: com a fonte do sistema ampliada, meia dúzia de itens com legenda passa de
+    // qualquer teto fixo.
     isScrollControlled: true,
     builder: (_) => const AccountSheet(),
   );

@@ -45,7 +45,12 @@ class AccountPage extends ConsumerWidget {
       // e tira da revisão da loja o botão que ela veio conferir. Cada seção resolve a própria
       // espera.
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 32),
+        padding: EdgeInsets.fromLTRB(
+          Space.gutter,
+          4,
+          Space.gutter,
+          screenBottomInset(context),
+        ),
         children: const [
           _AccountSection(),
           SizedBox(height: Space.sm),

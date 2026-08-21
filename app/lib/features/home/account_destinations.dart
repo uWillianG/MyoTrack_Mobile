@@ -48,12 +48,6 @@ const List<AccountDestination> accountDestinations = [
     route: Routes.workoutPlan,
   ),
   AccountDestination(
-    icon: Icons.edit_note_outlined,
-    title: 'Registrar treino',
-    subtitle: 'Séries, cargas e peso corporal — funciona offline',
-    route: Routes.logSession,
-  ),
-  AccountDestination(
     icon: Icons.chat_bubble_outline,
     title: 'Coach',
     subtitle: 'Tire dúvidas com quem conhece seu treino e sua dieta',

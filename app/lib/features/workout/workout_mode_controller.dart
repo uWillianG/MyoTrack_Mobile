@@ -4,7 +4,7 @@ import '../../core/iso_date.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/sync/sync_queue.dart';
 import '../logging/data/logging_models.dart';
-import '../logging/log_session_controller.dart';
+import '../logging/logging_controller.dart';
 import 'data/workout_models.dart';
 
 /// Uma série cumprida durante o treino.

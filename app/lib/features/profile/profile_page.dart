@@ -109,11 +109,11 @@ class _Setup extends ConsumerWidget {
     void change(OnboardingForm updated) => controller.update(updated);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(
+      padding: EdgeInsets.fromLTRB(
         Space.gutter,
         4,
         Space.gutter,
-        32 + Space.fabClearance,
+        screenBottomInset(context),
       ),
       children: [
         HeroBlock(
@@ -235,11 +235,11 @@ class _Summary extends StatelessWidget {
     final form = state.form;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(
+      padding: EdgeInsets.fromLTRB(
         Space.gutter,
         4,
         Space.gutter,
-        32 + Space.fabClearance,
+        screenBottomInset(context),
       ),
       children: [
         HeroBlock(

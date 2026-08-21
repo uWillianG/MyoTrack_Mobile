@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../logging/data/logging_models.dart';
-import '../logging/log_session_controller.dart';
+import '../logging/logging_controller.dart';
 import '../reviews/review_controller.dart';
 import '../workout/data/workout_models.dart';
 import '../workout/workout_plan_controller.dart';

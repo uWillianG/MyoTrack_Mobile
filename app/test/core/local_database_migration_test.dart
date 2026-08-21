@@ -71,7 +71,7 @@ void main() {
     await db.close();
   }
 
-  test('da v1 direto para a atual: as duas tabelas novas existem', () async {
+  test('da v1 direto para a atual: o que entrou entra, e o que saiu sai', () async {
     await seedV1();
 
     final db = LocalDatabase.forTesting(NativeDatabase(file));
@@ -83,6 +83,18 @@ void main() {
 
     // E o que a v3 acrescentou, na mesma passagem.
     expect(await db.discarded(), isEmpty);
+
+    // E o que a v4 tirou: o catálogo de exercícios, que existia só para a tela de registro
+    // manual. A pergunta vai ao sqlite porque o drift não conhece mais essa tabela — se o
+    // `DROP` não tivesse rodado, ela ficaria no disco de todo mundo que já usava o app, sem
+    // ninguém para lê-la nem para apagá-la.
+    final tables = await db
+        .customSelect("SELECT name FROM sqlite_master WHERE type = 'table'")
+        .get();
+    expect(
+      tables.map((row) => row.read<String>('name')),
+      isNot(contains('cached_exercises')),
+    );
 
     // O que nenhuma delas pode ter tocado: a série registrada na academia, sem rede.
     expect(await db.countPending(), 1);

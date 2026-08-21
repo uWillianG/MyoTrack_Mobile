@@ -9,12 +9,13 @@ import 'package:myotrack/core/router.dart';
 import 'package:myotrack/features/analysis/analysis_page.dart';
 import 'package:myotrack/features/coach/coach_fab.dart';
 import 'package:myotrack/features/coach/coach_page.dart';
+import 'package:myotrack/features/home/app_shell.dart';
 import 'package:myotrack/features/home/home_page.dart';
 import 'package:myotrack/features/home/account_destinations.dart';
 import 'package:myotrack/features/home/account_sheet.dart';
 import 'package:myotrack/features/logging/data/logging_models.dart';
 import 'package:myotrack/features/logging/data/logging_repository.dart';
-import 'package:myotrack/features/logging/log_session_controller.dart';
+import 'package:myotrack/features/logging/logging_controller.dart';
 
 import 'home_test_harness.dart';
 
@@ -55,10 +56,23 @@ void main() {
           // `context.push`, que estoura sem GoRouter na árvore.
           routerConfig: GoRouter(
             routes: [
-              GoRoute(path: '/', builder: (_, _) => const HomePage()),
-              // A de verdade, e não uma tela de mentira: o botão do coach só cumpre o que
-              // promete se o destino existir, e é o `CoachPage` que o teste procura depois.
-              GoRoute(path: Routes.coach, builder: (_, _) => const CoachPage()),
+              // Com o shell por fora, como na produção: a barra de abas não mora mais na
+              // home, e um teste que montasse a home sozinha estaria exercitando uma barra
+              // que o app não tem mais.
+              ShellRoute(
+                builder: (_, state, child) =>
+                    AppShell(location: state.uri.path, child: child),
+                routes: [
+                  GoRoute(path: '/', builder: (_, _) => const HomePage()),
+                  // A de verdade, e não uma tela de mentira: o botão do coach só cumpre o
+                  // que promete se o destino existir, e é o `CoachPage` que o teste procura
+                  // depois.
+                  GoRoute(
+                    path: Routes.coach,
+                    builder: (_, _) => const CoachPage(),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -105,6 +119,40 @@ void main() {
     // O segmentado da aba prova que é o conteúdo dela, e não só o título trocado.
     expect(find.text('Diário'), findsOneWidget);
     expect(find.text('Plano'), findsOneWidget);
+  });
+
+  testWidgets('a barra continua na tela que a home empilha', (tester) async {
+    // É o pedido inteiro desta mudança: sair da barra de abas para o coach deixava a pessoa
+    // sem chão nenhum, com a seta do canto como único caminho de volta.
+    final container = await pump(tester);
+
+    container.read(homeTabProvider.notifier).state = HomeTab.nutrition;
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(CoachFab));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CoachPage), findsOne);
+    expect(find.byType(NavigationBar), findsOne);
+  });
+
+  testWidgets('tocar numa aba desde uma tela empilhada volta para a aba', (
+    tester,
+  ) async {
+    // Trocar a aba sem desempilhar acenderia o destino certo atrás de uma tela que continua
+    // por cima — a barra pareceria quebrada justamente onde ela é o caminho de volta.
+    final container = await pump(tester);
+
+    await tester.tap(find.byType(CoachFab));
+    await tester.pumpAndSettle();
+    expect(find.byType(CoachPage), findsOne);
+
+    await tester.tap(find.text('Nutrição').last);
+    await tester.pumpAndSettle();
+
+    expect(container.read(homeTabProvider), HomeTab.nutrition);
+    expect(find.byType(CoachPage), findsNothing);
+    expect(find.text('Diário'), findsOneWidget);
   });
 
   testWidgets('o botão Registrar só existe na Hoje', (tester) async {
@@ -266,7 +314,6 @@ void main() {
       // O Perfil trocou de lugar com o Progresso: saiu da barra de abas e entrou aqui.
       'Meu perfil',
       'Meu treino',
-      'Registrar treino',
       'Coach',
       'Assinatura',
       'Conta e privacidade',

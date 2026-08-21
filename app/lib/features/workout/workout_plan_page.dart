@@ -19,9 +19,9 @@ import 'workout_plan_controller.dart';
 ///
 /// **Pergunta: o que eu faço em cada dia? Ação: treinar agora.**
 ///
-/// É a tela de consulta do treino — a de execução é `/treinar` e a de lançamento é
-/// `/registrar`. As três continuam separadas de propósito: aqui a pessoa está sentada
-/// escolhendo, lá ela está com a mão na barra, e na terceira está lançando o que já fez.
+/// É a tela de consulta do treino — a de execução é `/treinar`. As duas continuam separadas
+/// de propósito: aqui a pessoa está sentada escolhendo o dia, e lá ela está de pé com a mão
+/// na barra.
 ///
 /// **A carga sugerida fica junto do exercício**, e não numa tela de "progressão": o número só é
 /// útil no momento em que se olha o que vai fazer.
@@ -102,7 +102,12 @@ class _Body extends ConsumerWidget {
         : 'Regenerar treino';
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 32),
+      padding: EdgeInsets.fromLTRB(
+        Space.gutter,
+        4,
+        Space.gutter,
+        screenBottomInset(context),
+      ),
       children: [
         if (plan == null)
           _NoPlanHero(

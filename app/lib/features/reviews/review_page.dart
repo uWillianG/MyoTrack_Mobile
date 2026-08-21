@@ -176,7 +176,12 @@ class _QueueBody extends ConsumerWidget {
     final oldest = oldestPending(items);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 32),
+      padding: EdgeInsets.fromLTRB(
+        Space.gutter,
+        4,
+        Space.gutter,
+        screenBottomInset(context),
+      ),
       children: [
         HeroBlock(
           colors: colors,

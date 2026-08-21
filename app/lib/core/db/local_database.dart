@@ -57,22 +57,6 @@ class DiscardedWrites extends Table {
       dateTime().withDefault(currentDateAndTime)();
 }
 
-/// Catálogo de exercícios espelhado localmente.
-///
-/// Sem ele não dá para registrar treino offline: o usuário precisa escolher o exercício, e a
-/// lista vem do servidor. O catálogo é igual para todos e muda raramente, então cabe inteiro
-/// no aparelho.
-class CachedExercises extends Table {
-  IntColumn get id => integer()();
-  TextColumn get name => text()();
-  TextColumn get muscleGroup => text()();
-  TextColumn get equipment => text()();
-  BoolColumn get isCompound => boolean().withDefault(const Constant(false))();
-
-  @override
-  Set<Column> get primaryKey => {id};
-}
-
 /// Conquistas que o usuário já viu comemoradas.
 ///
 /// **Só o "já vi", e não a conquista.** Se alguém ganhou algo é derivado dos agregados do
@@ -90,9 +74,7 @@ class SeenAchievements extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-@DriftDatabase(
-  tables: [PendingWrites, CachedExercises, SeenAchievements, DiscardedWrites],
-)
+@DriftDatabase(tables: [PendingWrites, SeenAchievements, DiscardedWrites])
 class LocalDatabase extends _$LocalDatabase {
   LocalDatabase() : super(_open());
 
@@ -100,16 +82,21 @@ class LocalDatabase extends _$LocalDatabase {
   LocalDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
-  /// Cada versão só acrescenta uma tabela: v2 [SeenAchievements], v3 [DiscardedWrites].
+  /// v2 acrescentou [SeenAchievements], v3 [DiscardedWrites], e v4 **apaga** a tabela do
+  /// catálogo de exercícios, que existia só para a tela de registro manual sair do ar.
   ///
-  /// `onUpgrade` cria a tabela nova e não toca em mais nada: a fila de escrita pode ter
-  /// séries de um treino que ainda não subiu, e uma migração que recriasse o banco perderia
-  /// justamente o dado que ninguém tem de volta.
+  /// Fora essa, `onUpgrade` cria a tabela nova e não toca em mais nada: a fila de escrita pode
+  /// ter séries de um treino que ainda não subiu, e uma migração que recriasse o banco perderia
+  /// justamente o dado que ninguém tem de volta. Derrubar o catálogo é seguro pelo motivo
+  /// oposto — era cache de uma lista que o servidor devolve inteira, e ninguém mais a lê.
   ///
-  /// Os `if` são independentes e não têm `else` de propósito: quem pula da v1 direto para a v3
-  /// — instalou, ficou meses sem atualizar — precisa das duas tabelas na mesma passagem.
+  /// A tabela é nomeada por string porque a classe que a descrevia não existe mais neste
+  /// arquivo; quem migra de uma versão antiga ainda tem a tabela no disco.
+  ///
+  /// Os `if` são independentes e não têm `else` de propósito: quem pula da v1 direto para a v4
+  /// — instalou, ficou meses sem atualizar — precisa das três passagens de uma vez.
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) => m.createAll(),
@@ -119,6 +106,9 @@ class LocalDatabase extends _$LocalDatabase {
       }
       if (from < 3) {
         await m.createTable(discardedWrites);
+      }
+      if (from < 4) {
+        await customStatement('DROP TABLE IF EXISTS cached_exercises');
       }
     },
   );
@@ -179,21 +169,6 @@ class LocalDatabase extends _$LocalDatabase {
   /// o único motivo de ele existir era poder ser mostrado. Lido o aviso, o motivo acabou.
   Future<void> clearDiscarded() => delete(discardedWrites).go();
 
-  // --- Catálogo ---
-
-  Future<void> replaceExercises(List<CachedExercisesCompanion> items) async {
-    await batch((batch) {
-      // O catálogo é substituído inteiro: exercício removido no servidor não pode
-      // continuar selecionável aqui.
-      batch.deleteWhere(cachedExercises, (_) => const Constant(true));
-      batch.insertAll(cachedExercises, items);
-    });
-  }
-
-  Future<List<CachedExercise>> exercises() => (select(
-    cachedExercises,
-  )..orderBy([(t) => OrderingTerm.asc(t.name)])).get();
-
   // --- Conquistas já comemoradas ---
 
   Future<Set<String>> seenAchievementIds() async {
@@ -227,9 +202,8 @@ class LocalDatabase extends _$LocalDatabase {
   /// de conta o buraco é ainda mais direto: a tela promete que "não há cópia de segurança"
   /// enquanto o celular ficava com uma.
   ///
-  /// **O catálogo de exercícios não entra**, e é a única exceção: ele é público, igual para
-  /// todo mundo, e não diz nada sobre quem o baixou. Apagá-lo só faria a próxima abertura
-  /// gastar rede para trazer de volta a mesma lista.
+  /// **Apaga tudo o que há**, sem exceção: desde que o catálogo de exercícios saiu do banco,
+  /// não sobrou aqui nenhuma tabela que não seja do titular da sessão.
   Future<void> wipe() async {
     await batch((batch) {
       batch.deleteWhere(pendingWrites, (_) => const Constant(true));

@@ -3,21 +3,6 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'logging_models.freezed.dart';
 part 'logging_models.g.dart';
 
-/// Exercício do catálogo — `GET /api/exercises`.
-@freezed
-abstract class ExerciseOption with _$ExerciseOption {
-  const factory ExerciseOption({
-    required int id,
-    required String name,
-    @Default('') String muscleGroup,
-    @Default('') String equipment,
-    @Default(false) bool isCompound,
-  }) = _ExerciseOption;
-
-  factory ExerciseOption.fromJson(Map<String, dynamic> json) =>
-      _$ExerciseOptionFromJson(json);
-}
-
 /// Uma série a registrar — corpo de `POST /api/sessions`.
 @freezed
 abstract class SetLogRequest with _$SetLogRequest {

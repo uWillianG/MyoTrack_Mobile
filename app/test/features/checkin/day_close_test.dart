@@ -7,7 +7,7 @@ import 'package:myotrack/core/theme.dart';
 import 'package:myotrack/features/checkin/day_close_page.dart';
 import 'package:myotrack/features/logging/data/logging_models.dart';
 import 'package:myotrack/features/logging/data/logging_repository.dart';
-import 'package:myotrack/features/logging/log_session_controller.dart';
+import 'package:myotrack/features/logging/logging_controller.dart';
 
 import '../home/home_test_harness.dart';
 

@@ -203,7 +203,7 @@ void main() {
     await pump(tester, stats: DashboardStats.empty);
 
     expect(find.text('Ainda não há\no que comparar.'), findsOne);
-    expect(find.text('Registrar treino'), findsOne);
+    expect(find.text('Treinar'), findsOne);
   });
 
   testWidgets('com uma pesagem só, a linha do peso não é desenhada', (

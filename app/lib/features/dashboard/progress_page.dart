@@ -163,7 +163,12 @@ class _Body extends ConsumerWidget {
         : _weightWithin(stats.weightSeries, period.weeks!);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 32),
+      padding: EdgeInsets.fromLTRB(
+        Space.gutter,
+        4,
+        Space.gutter,
+        screenBottomInset(context),
+      ),
       children: [
         const _PeriodPicker(),
         const SizedBox(height: Space.sm),
@@ -684,15 +689,23 @@ class _FirstSteps extends StatelessWidget {
     final colors = Blocks.progress(theme.brightness);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 32),
+      padding: EdgeInsets.fromLTRB(
+        Space.gutter,
+        4,
+        Space.gutter,
+        screenBottomInset(context),
+      ),
       children: [
         HeroBlock(
           colors: colors,
           label: 'Progresso',
           icon: Icons.insights,
+          // O botão leva ao modo treino, e não à antiga tela de lançamento manual: ela saiu
+          // do app, e um "próximo passo" sem passo nenhum é pior que uma tela vazia — o texto
+          // acima pede um primeiro treino e esta é a única tela que o registra hoje.
           action: HeroAction(
-            label: 'Registrar treino',
-            onPressed: () => context.push(Routes.logSession),
+            label: 'Treinar',
+            onPressed: () => context.push(Routes.workoutMode),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -727,7 +740,12 @@ class _Skeleton extends StatelessWidget {
     // O mesmo vidro dos blocos de verdade: a espera é o cartão ainda sem conteúdo, e a chegada
     // do dado não troca a superfície debaixo dele.
     return ListView(
-      padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 32),
+      padding: EdgeInsets.fromLTRB(
+        Space.gutter,
+        4,
+        Space.gutter,
+        screenBottomInset(context),
+      ),
       children: [
         for (final height in [48.0, 260.0, 170.0, 170.0])
           Padding(
@@ -749,7 +767,12 @@ class _Unavailable extends StatelessWidget {
     final theme = Theme.of(context);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 32),
+      padding: EdgeInsets.fromLTRB(
+        Space.gutter,
+        4,
+        Space.gutter,
+        screenBottomInset(context),
+      ),
       children: [
         Container(
           height: 220,

@@ -110,11 +110,11 @@ class _PlanBody extends ConsumerWidget {
     );
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(
+      padding: EdgeInsets.fromLTRB(
         Space.gutter,
         4,
         Space.gutter,
-        24 + Space.fabClearance,
+        listBottomInset(context),
       ),
       children: [
         if (plan == null)

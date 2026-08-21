@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/design/materials.dart';
 import '../../core/design/tokens.dart';
 import '../../core/sync/sync_queue.dart';
 import '../analysis/analysis_page.dart';
@@ -64,10 +63,14 @@ enum HomeTab {
 /// enxerga o estado do widget que a abriu.
 final homeTabProvider = StateProvider<HomeTab>((ref) => HomeTab.today);
 
-/// O shell do app: barra inferior, os dois flutuantes e a aba corrente.
+/// As quatro abas e os dois flutuantes.
+///
+/// **A barra de baixo não está mais aqui**: ela subiu para [AppShell] e agora aparece em todas
+/// as telas de quem tem sessão, esta inclusive. O que sobrou desta tela é o que só ela tem —
+/// a pilha das quatro abas e os dois botões flutuantes.
 ///
 /// Todas as telas continuam tendo rota própria — os deep links do e-mail e das notificações
-/// apontam para elas, e uma aba não tem endereço. O shell é um segundo caminho, o de quem
+/// apontam para elas, e uma aba não tem endereço. As abas são um segundo caminho, o de quem
 /// abriu o app sem link nenhum.
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -79,11 +82,6 @@ class HomePage extends ConsumerWidget {
     final title = tab.title;
 
     return Scaffold(
-      // **O corpo vai até a base da tela, por baixo da barra de abas.** É o que dá sentido ao
-      // vidro dela: o que se vê borrado através da barra é a própria lista continuando, e não
-      // um retângulo cinza. Quem reserva o respiro no fim de cada lista é `listBottomInset`,
-      // que lê a altura da barra do próprio `Scaffold`.
-      extendBody: true,
       // A Hoje abre com o painel do dia, que sangra até o topo da tela e leva o avatar no
       // próprio canto. As outras três continuam com a barra do Material: elas são destinos,
       // e destino precisa dizer o nome.
@@ -132,7 +130,8 @@ class HomePage extends ConsumerWidget {
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: SafeArea(
         // Só as laterais: o recorte da câmera em paisagem comeria o botão da ponta. O respiro
-        // de baixo é do `Scaffold`, que já conta a barra de navegação.
+        // de baixo é do `Scaffold`, que agora recebe a altura da barra do shell como se fosse
+        // recorte do aparelho — ver o `_ChromeInset` em [AppShell].
         top: false,
         bottom: false,
         child: Padding(
@@ -154,30 +153,6 @@ class HomePage extends ConsumerWidget {
               else
                 const SizedBox.shrink(),
               const CoachFab(),
-            ],
-          ),
-        ),
-      ),
-      // A barra é de vidro, e por isso ela mesma não pinta fundo nenhum — quem pinta é o
-      // `GlassChrome`, que borra ao vivo o que passa por baixo. A borda em cima é a única
-      // coisa que separa a barra do conteúdo; sem ela, com a lista rolando atrás, não dá para
-      // dizer onde a moldura começa.
-      bottomNavigationBar: GlassChrome(
-        edge: GlassEdgeSide.top,
-        child: SafeArea(
-          top: false,
-          child: NavigationBar(
-            selectedIndex: tab.index,
-            onDestinationSelected: (index) =>
-                ref.read(homeTabProvider.notifier).state =
-                    HomeTab.values[index],
-            destinations: [
-              for (final destination in HomeTab.values)
-                NavigationDestination(
-                  icon: Icon(destination.icon),
-                  selectedIcon: Icon(destination.selectedIcon),
-                  label: destination.label,
-                ),
             ],
           ),
         ),
@@ -242,10 +217,9 @@ class _LazyIndexedStackState extends State<_LazyIndexedStack> {
 /// na mesa ninguém quer navegar. Duas levam para a aba Analisar já na sub-aba certa; a
 /// terceira resolve ali mesmo.
 ///
-/// **Registrar treino não está aqui, e é de propósito.** As três que ficaram terminam num
-/// toque ou numa foto; lançar séries e cargas é uma sessão inteira de digitação, que nada
-/// tem de rápida. Ela continua a um toque de distância na folha do avatar e no Progresso —
-/// ver `accountDestinations`.
+/// **Treino não está aqui, e é de propósito.** As três que ficaram terminam num toque ou
+/// numa foto; treinar é uma sessão inteira, com cronômetro e série a série, e o modo treino
+/// (`/treinar`) é onde ela acontece — o caminho até ele é o cartão do dia, na própria Hoje.
 Future<void> showQuickCaptureSheet(BuildContext context, WidgetRef ref) {
   return showModalBottomSheet<void>(
     context: context,
@@ -306,8 +280,8 @@ Future<void> showQuickCaptureSheet(BuildContext context, WidgetRef ref) {
 
 /// Pesagem avulsa, sem passar pelo registro de treino.
 ///
-/// Um campo só. A tela de `/registrar` pede peso junto com as séries, e é o caminho de quem
-/// acabou de treinar; quem sobe na balança de manhã não tem série nenhuma para lançar.
+/// Um campo só, e é o único lugar do app que pergunta o peso: o modo treino cuida das séries
+/// e não interrompe quem está com a mão na barra para falar de balança.
 Future<void> showWeighInDialog(BuildContext context) async {
   final weight = await askWeightKg(context, title: 'Anotar peso');
 

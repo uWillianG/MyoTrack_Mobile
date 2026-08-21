@@ -5,7 +5,7 @@ import '../../core/iso_date.dart';
 import '../../core/sync/sync_queue.dart';
 import '../dashboard/dashboard_controller.dart';
 import '../logging/data/logging_models.dart';
-import '../logging/log_session_controller.dart';
+import '../logging/logging_controller.dart';
 
 /// Peso digitado, aceitando vírgula.
 ///

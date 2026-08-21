@@ -38,11 +38,23 @@ abstract final class Space {
 /// própria lista continuando. O preço é que a lista não termina mais onde a tela termina, e
 /// sem este respiro o último cartão fica ilegível atrás do material.
 ///
-/// O `Scaffold` com `extendBody` informa a altura da barra no `padding` do `MediaQuery`, então
-/// esta conta serve igual nas abas e nas telas com rota própria — nestas o número é só o
-/// recorte do sistema, que é o que elas precisam de qualquer jeito.
+/// O `Scaffold` com `extendBody` informa a altura da barra no `padding` do `MediaQuery`, e o
+/// shell do app é quem tem esse `extendBody` — então a conta vale em qualquer tela, empilhada
+/// ou não, desde que a barra passou a aparecer em todas.
+///
+/// **Esta é a versão de quem tem um botão flutuante por cima da barra**: reserva o botão
+/// também. Tela sem botão usa [screenBottomInset], que reserva só a moldura e sobraria menos.
 double listBottomInset(BuildContext context) =>
     Space.fabClearance + MediaQuery.paddingOf(context).bottom;
+
+/// O fim de uma rolagem numa tela sem botão flutuante.
+///
+/// A barra de abas cobre a base de todas as telas de sessão, e o `padding` do `MediaQuery` já
+/// traz a altura dela somada ao recorte do aparelho. O [extra] é o respiro de desenho que a
+/// tela quer depois do último cartão — 32 é o que as telas de conteúdo usavam antes de a barra
+/// chegar, e mantê-lo é o que faz o fim da rolagem continuar parecendo o mesmo.
+double screenBottomInset(BuildContext context, {double extra = 32}) =>
+    extra + MediaQuery.paddingOf(context).bottom;
 
 /// Raios de canto.
 ///

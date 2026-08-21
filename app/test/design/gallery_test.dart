@@ -36,7 +36,7 @@ import 'package:myotrack/features/privacy/privacy_controller.dart';
 import 'package:myotrack/features/profile/profile_page.dart';
 import 'package:myotrack/features/logging/data/logging_models.dart';
 import 'package:myotrack/features/logging/data/logging_repository.dart';
-import 'package:myotrack/features/logging/log_session_controller.dart';
+import 'package:myotrack/features/logging/logging_controller.dart';
 
 import '../features/home/home_test_harness.dart';
 import 'gallery_fonts.dart';

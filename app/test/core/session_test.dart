@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -196,21 +195,4 @@ void main() {
       expect(await db.discarded(), isEmpty);
     },
   );
-
-  test('o catálogo de exercícios fica — não é dado de ninguém', () async {
-    await db.replaceExercises([
-      CachedExercisesCompanion.insert(
-        id: const Value(1),
-        name: 'Supino reto',
-        muscleGroup: 'Peito',
-        equipment: 'Barra',
-      ),
-    ]);
-
-    await container.read(sessionCloserProvider).close();
-
-    // Apagá-lo só faria a próxima abertura gastar rede para trazer de volta a mesma lista
-    // pública.
-    expect(await db.exercises(), hasLength(1));
-  });
 }

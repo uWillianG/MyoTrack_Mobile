@@ -11,8 +11,8 @@ import '../features/coach/coach_page.dart';
 import '../features/dashboard/progress_page.dart';
 import '../features/diary/diary_page.dart';
 import '../features/diet/diet_plan_page.dart';
+import '../features/home/app_shell.dart';
 import '../features/home/home_page.dart';
-import '../features/logging/log_session_page.dart';
 import '../features/meals/meal_analysis_page.dart';
 import '../features/privacy/account_page.dart';
 import '../features/profile/profile_page.dart';
@@ -40,7 +40,6 @@ class Routes {
   static const workoutPlan = '/treino';
   static const workoutMode = '/treinar';
   static const dietPlan = '/dieta';
-  static const logSession = '/registrar';
   static const mealAnalysis = '/refeicoes';
   static const diary = '/diario';
   static const videoAnalysis = '/videos';
@@ -120,40 +119,62 @@ final routerProvider = Provider<GoRouter>((ref) {
           token: state.uri.queryParameters['token'] ?? '',
         ),
       ),
-      GoRoute(path: Routes.profile, builder: (_, _) => const ProfilePage()),
-      GoRoute(
-        path: Routes.workoutPlan,
-        builder: (_, _) => const WorkoutPlanPage(),
+      // Tudo que exige sessão mora dentro do shell, e é isso que põe a barra de abas em
+      // todas essas telas. As quatro rotas públicas — splash, login/cadastro, esqueci a senha
+      // e redefinir senha — ficam de fora, acima daqui: quem ainda não entrou não tem para
+      // onde a barra levar.
+      //
+      // Os caminhos não mudaram, então nenhum deep link de e-mail ou de notificação precisa
+      // saber que este shell existe. O que muda é o `Navigator` em que eles empilham: agora é
+      // o de dentro do shell, e por isso a moldura fica.
+      ShellRoute(
+        builder: (_, state, child) =>
+            AppShell(location: state.uri.path, child: child),
+        routes: [
+          GoRoute(path: Routes.profile, builder: (_, _) => const ProfilePage()),
+          GoRoute(
+            path: Routes.workoutPlan,
+            builder: (_, _) => const WorkoutPlanPage(),
+          ),
+          GoRoute(
+            path: Routes.workoutMode,
+            builder: (_, _) => const WorkoutModePage(),
+          ),
+          GoRoute(
+            path: Routes.dietPlan,
+            builder: (_, _) => const DietPlanPage(),
+          ),
+          GoRoute(path: Routes.diary, builder: (_, _) => const DiaryPage()),
+          GoRoute(
+            path: Routes.mealAnalysis,
+            builder: (_, _) => const MealAnalysisPage(),
+          ),
+          GoRoute(
+            path: Routes.videoAnalysis,
+            builder: (_, _) => const VideoAnalysisPage(),
+          ),
+          GoRoute(path: Routes.coach, builder: (_, _) => const CoachPage()),
+          GoRoute(path: Routes.review, builder: (_, _) => const ReviewPage()),
+          GoRoute(
+            path: Routes.dayClose,
+            builder: (_, _) => const DayClosePage(),
+          ),
+          GoRoute(
+            path: Routes.progress,
+            builder: (_, _) => const ProgressPage(),
+          ),
+          // As conquistas viraram uma seção do Progresso: as duas telas respondiam "estou
+          // evoluindo?" e obrigavam a pessoa a escolher entre conferir o número e ver o que ele
+          // rendeu. A rota fica de pé porque link de e-mail e notificação apontam para ela.
+          GoRoute(
+            path: Routes.achievements,
+            redirect: (_, _) => Routes.progress,
+          ),
+          GoRoute(path: Routes.billing, builder: (_, _) => const BillingPage()),
+          GoRoute(path: Routes.account, builder: (_, _) => const AccountPage()),
+          GoRoute(path: Routes.home, builder: (_, _) => const HomePage()),
+        ],
       ),
-      GoRoute(
-        path: Routes.workoutMode,
-        builder: (_, _) => const WorkoutModePage(),
-      ),
-      GoRoute(path: Routes.dietPlan, builder: (_, _) => const DietPlanPage()),
-      GoRoute(path: Routes.diary, builder: (_, _) => const DiaryPage()),
-      GoRoute(
-        path: Routes.mealAnalysis,
-        builder: (_, _) => const MealAnalysisPage(),
-      ),
-      GoRoute(
-        path: Routes.videoAnalysis,
-        builder: (_, _) => const VideoAnalysisPage(),
-      ),
-      GoRoute(
-        path: Routes.logSession,
-        builder: (_, _) => const LogSessionPage(),
-      ),
-      GoRoute(path: Routes.coach, builder: (_, _) => const CoachPage()),
-      GoRoute(path: Routes.review, builder: (_, _) => const ReviewPage()),
-      GoRoute(path: Routes.dayClose, builder: (_, _) => const DayClosePage()),
-      GoRoute(path: Routes.progress, builder: (_, _) => const ProgressPage()),
-      // As conquistas viraram uma seção do Progresso: as duas telas respondiam "estou
-      // evoluindo?" e obrigavam a pessoa a escolher entre conferir o número e ver o que ele
-      // rendeu. A rota fica de pé porque link de e-mail e notificação apontam para ela.
-      GoRoute(path: Routes.achievements, redirect: (_, _) => Routes.progress),
-      GoRoute(path: Routes.billing, builder: (_, _) => const BillingPage()),
-      GoRoute(path: Routes.account, builder: (_, _) => const AccountPage()),
-      GoRoute(path: Routes.home, builder: (_, _) => const HomePage()),
     ],
     redirect: (context, state) {
       // Link vindo de fora (e-mail, navegador, outro app) chega com esquema, às vezes com

@@ -6,24 +6,6 @@ part of 'logging_models.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-_ExerciseOption _$ExerciseOptionFromJson(Map<String, dynamic> json) =>
-    _ExerciseOption(
-      id: (json['id'] as num).toInt(),
-      name: json['name'] as String,
-      muscleGroup: json['muscleGroup'] as String? ?? '',
-      equipment: json['equipment'] as String? ?? '',
-      isCompound: json['isCompound'] as bool? ?? false,
-    );
-
-Map<String, dynamic> _$ExerciseOptionToJson(_ExerciseOption instance) =>
-    <String, dynamic>{
-      'id': instance.id,
-      'name': instance.name,
-      'muscleGroup': instance.muscleGroup,
-      'equipment': instance.equipment,
-      'isCompound': instance.isCompound,
-    };
-
 _SetLogRequest _$SetLogRequestFromJson(Map<String, dynamic> json) =>
     _SetLogRequest(
       exerciseId: (json['exerciseId'] as num).toInt(),

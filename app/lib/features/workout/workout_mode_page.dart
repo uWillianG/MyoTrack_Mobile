@@ -11,7 +11,7 @@ import '../../core/notifications/rest_alarm.dart';
 import '../../core/router.dart';
 import '../../core/widgets/blocks.dart';
 import '../../core/widgets/empty_state.dart';
-import '../logging/log_session_controller.dart';
+import '../logging/logging_controller.dart';
 import 'data/workout_models.dart';
 import 'rest_timer.dart';
 import 'workout_mode_controller.dart';
@@ -19,9 +19,10 @@ import 'workout_plan_controller.dart';
 
 /// Modo treino: conduz o dia escolhido série a série, com o descanso entre elas.
 ///
-/// Separado da tela de plano (`/treino`, que é consulta) e da de registro (`/registrar`, que é
-/// lançamento depois do fato) porque o uso é outro: aqui o aparelho fica apoiado no banco, a
-/// mão está ocupada e cada toque precisa ser grande e óbvio.
+/// Separado da tela de plano (`/treino`, que é consulta) porque o uso é outro: aqui o
+/// aparelho fica apoiado no banco, a mão está ocupada e cada toque precisa ser grande e
+/// óbvio. Desde que a tela de lançamento manual saiu do app, é também o único lugar que
+/// registra série — o que torna o caminho até aqui parte do caminho de treinar.
 ///
 /// **A manchete troca de assunto quando o descanso começa.** Durante a série ela é a série —
 /// exercício, número e alvo, legíveis de longe. Quando o cronômetro parte, ele toma o bloco em
@@ -87,7 +88,12 @@ class _DayPicker extends ConsumerWidget {
     }
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 32),
+      padding: EdgeInsets.fromLTRB(
+        Space.gutter,
+        4,
+        Space.gutter,
+        screenBottomInset(context),
+      ),
       children: [
         HeroBlock(
           colors: colors,
@@ -177,7 +183,12 @@ class _SessionView extends ConsumerWidget {
           ),
         ),
         body: ListView(
-          padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 32),
+          padding: EdgeInsets.fromLTRB(
+            Space.gutter,
+            4,
+            Space.gutter,
+            screenBottomInset(context),
+          ),
           children: [
             // O herói: o descanso quando ele corre, a série quando não.
             if (timer.isIdle)

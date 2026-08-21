@@ -86,7 +86,12 @@ class _Body extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 32),
+      padding: EdgeInsets.fromLTRB(
+        Space.gutter,
+        4,
+        Space.gutter,
+        screenBottomInset(context),
+      ),
       children: [
         _PlanHero(
           status: status,

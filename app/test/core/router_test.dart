@@ -37,6 +37,28 @@ void main() {
     return router;
   }
 
+  group('a barra de abas', () {
+    testWidgets('não aparece para quem ainda não entrou', (tester) async {
+      // Login e cadastro são a mesma tela, e ela fica fora do shell no roteador — e não
+      // escondida por um `if` dentro dele. A barra ali levaria a quatro destinos que a
+      // guarda devolveria para esta mesma tela.
+      await pumpApp(tester, loggedIn: false);
+
+      expect(find.byType(NavigationBar), findsNothing);
+    });
+
+    testWidgets('acompanha as telas de quem já entrou', (tester) async {
+      // Não é a home: é uma tela de rota própria, que antes ficava sem chão nenhum.
+      final router = await pumpApp(tester, loggedIn: true);
+
+      router.go(Routes.account);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.byType(NavigationBar), findsOne);
+    });
+  });
+
   group('deep link de redefinição de senha', () {
     testWidgets('abre a tela com uid e token da query', (tester) async {
       final router = await pumpApp(tester, loggedIn: false);

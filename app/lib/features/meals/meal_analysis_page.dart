@@ -168,11 +168,11 @@ class _Body extends StatelessWidget {
     final colors = Blocks.nutrition(Theme.of(context).brightness);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(
+      padding: EdgeInsets.fromLTRB(
         Space.gutter,
         4,
         Space.gutter,
-        32 + Space.fabClearance,
+        listBottomInset(context),
       ),
       children: [
         // O herói é o estado do trabalho: o convite enquanto nada corre, o progresso enquanto
