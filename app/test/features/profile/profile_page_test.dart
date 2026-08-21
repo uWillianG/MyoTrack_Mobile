@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:myotrack/core/theme.dart';
 import 'package:myotrack/features/dashboard/dashboard_controller.dart';
@@ -11,7 +10,6 @@ import 'package:myotrack/features/profile/data/profile_repository.dart';
 import 'package:myotrack/features/profile/onboarding_controller.dart';
 import 'package:myotrack/features/profile/profile_page.dart';
 import 'package:myotrack/features/progress/progress_controller.dart';
-import 'package:myotrack/features/reviews/review_controller.dart';
 
 class _MockProfileRepository extends Mock implements ProfileRepository {}
 
@@ -67,8 +65,8 @@ void main() {
       ProviderScope(
         overrides: [
           profileRepositoryProvider.overrideWithValue(repository),
-          // O resumo lê os dois para semear o peso e decidir se mostra a fila de revisão.
-          // Sem override eles tentariam a rede.
+          // O resumo lê a última pesagem para semear o campo de peso — sem override ele
+          // tentaria a rede.
           dashboardStatsProvider.overrideWith(
             (ref) async => DashboardStats.from(
               now: DateTime(2026, 7, 30),
@@ -84,21 +82,12 @@ void main() {
                     ],
             ),
           ),
-          reviewableKindsProvider.overrideWith((ref) async => const []),
         ],
-        // Roteador de verdade: os destinos do "resto do app" chamam `context.push`.
-        child: MaterialApp.router(
+        child: MaterialApp(
           theme: brightness == Brightness.light
               ? AppTheme.light()
               : AppTheme.dark(),
-          routerConfig: GoRouter(
-            routes: [
-              GoRoute(
-                path: '/',
-                builder: (_, _) => const Scaffold(body: ProfileView()),
-              ),
-            ],
-          ),
+          home: const Scaffold(body: ProfileView()),
         ),
       ),
     );
@@ -199,21 +188,6 @@ void main() {
       expect(find.widgetWithText(TextField, '82,5'), findsOne);
     });
 
-    testWidgets('o resto do app fica no perfil, que é onde se procura', (
-      tester,
-    ) async {
-      await pump(tester, profile: saved);
-
-      await tester.scrollUntilVisible(
-        find.text('O resto do app'),
-        240,
-        scrollable: find.byType(Scrollable).first,
-      );
-      for (final title in ['Meu treino', 'Assinatura', 'Conta e privacidade']) {
-        expect(find.text(title), findsOne, reason: title);
-      }
-    });
-
     testWidgets('a caixa de consentimento não volta a cada edição', (
       tester,
     ) async {
@@ -274,14 +248,6 @@ void main() {
 
       verify(() => repository.save(any())).called(1);
       verify(() => repository.recordConsents(any())).called(1);
-    });
-
-    testWidgets('o resto do app não distrai quem está se cadastrando', (
-      tester,
-    ) async {
-      await pump(tester);
-
-      expect(find.text('O resto do app'), findsNothing);
     });
   });
 }

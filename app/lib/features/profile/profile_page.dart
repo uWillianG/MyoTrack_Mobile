@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/design/blocks.dart';
 import '../../core/design/tokens.dart';
-import '../../core/router.dart';
 import '../../core/widgets/blocks.dart';
 import '../dashboard/dashboard_controller.dart';
-import '../home/account_destinations.dart';
-import '../reviews/review_controller.dart';
 import 'data/profile_models.dart';
 import 'onboarding_controller.dart';
 import 'widgets/profile_editors.dart';
@@ -221,10 +217,10 @@ class _Consent extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------------------
-// Resumo: o que está salvo, e a porta para o resto do app
+// Resumo: o que está salvo
 // ---------------------------------------------------------------------------------------
 
-class _Summary extends ConsumerWidget {
+class _Summary extends StatelessWidget {
   const _Summary({required this.state, required this.weightKg});
 
   final OnboardingState state;
@@ -233,12 +229,10 @@ class _Summary extends ConsumerWidget {
   final String weightKg;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final brightness = theme.brightness;
     final form = state.form;
-    final canReview =
-        ref.watch(reviewableKindsProvider).valueOrNull?.isNotEmpty ?? false;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
@@ -274,19 +268,6 @@ class _Summary extends ConsumerWidget {
             ),
           ),
         ],
-        const SizedBox(height: Space.xl),
-        // A gaveta do avatar, aqui também. Perfil é onde a pessoa **procura** conta,
-        // assinatura e configuração; o avatar da Hoje é o atalho de quem já está no meio de
-        // outra coisa. A lista vem de um lugar só para as duas nunca divergirem.
-        _Destinations(
-          destinations: [
-            // Menos o próprio Perfil, que entrou na lista quando saiu da barra de abas: um
-            // item levando à tela em que a pessoa já está é um beco.
-            for (final destination in accountDestinations)
-              if (destination.route != Routes.profile) destination,
-            if (canReview) reviewDestination,
-          ],
-        ),
       ],
     );
   }
@@ -315,45 +296,6 @@ class _SummaryLines extends StatelessWidget {
             ),
           ),
       ],
-    );
-  }
-}
-
-class _Destinations extends StatelessWidget {
-  const _Destinations({required this.destinations});
-
-  final List<AccountDestination> destinations;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-
-    return BlockSection(
-      colors: Blocks.neutral(scheme),
-      label: 'O resto do app',
-      icon: Icons.apps,
-      padding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          for (var i = 0; i < destinations.length; i++) ...[
-            if (i > 0)
-              Divider(
-                height: 1,
-                indent: Space.md,
-                endIndent: Space.md,
-                color: scheme.outlineVariant,
-              ),
-            ListTile(
-              leading: Icon(destinations[i].icon),
-              title: Text(destinations[i].title),
-              subtitle: Text(destinations[i].subtitle),
-              trailing: const Icon(Icons.chevron_right, size: 18),
-              onTap: () => context.push(destinations[i].route),
-            ),
-          ],
-        ],
-      ),
     );
   }
 }

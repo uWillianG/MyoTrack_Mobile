@@ -19,11 +19,11 @@ class AccountDestination {
 
 /// Os destinos que não cabem na barra inferior.
 ///
-/// **Mora em arquivo próprio porque aparece em dois lugares.** A folha do avatar é o atalho de
-/// quem está no meio de outra coisa; a tela de perfil repete a mesma lista para quem chegou lá
-/// *procurando* — e é ali que quase todo app põe conta, assinatura e configuração. Duas listas
-/// escritas à mão divergem na primeira tela nova, e aí o mesmo app passa a ter dois mapas
-/// diferentes de si mesmo.
+/// **Mora em arquivo próprio porque é o mapa do app, e não o desenho de uma folha.** A tela de
+/// perfil já repetiu esta mesma lista, e a repetição custava caro dos dois lados: quem abria o
+/// perfil para mudar o objetivo encontrava um índice do app inteiro embaixo das próprias
+/// medidas, e a lista escrita à mão em dois lugares divergiria na primeira tela nova. Hoje quem
+/// a mostra é só a folha do avatar — o lugar onde se procura "o resto".
 ///
 /// **O Progresso saiu daqui ao virar aba.** Repetido nos dois lugares ele sugeriria que a folha
 /// leva a uma tela diferente da barra. Quem ocupou a vaga foi o próprio Perfil, que fez o

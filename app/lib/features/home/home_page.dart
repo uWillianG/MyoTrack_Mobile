@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/design/materials.dart';
 import '../../core/design/tokens.dart';
-import '../../core/router.dart';
 import '../../core/sync/sync_queue.dart';
 import '../analysis/analysis_page.dart';
 import '../checkin/weigh_in.dart';
@@ -238,18 +236,23 @@ class _LazyIndexedStackState extends State<_LazyIndexedStack> {
   }
 }
 
-/// Captura rápida: as quatro coisas que se registra no meio do dia.
+/// Captura rápida: as três coisas que se registra no meio do dia.
 ///
 /// Existe porque cada uma delas mora numa tela diferente, e no momento em que o prato está
-/// na mesa ninguém quer navegar. Duas levam para a aba Analisar já na sub-aba certa; as
-/// outras duas resolvem ali mesmo.
+/// na mesa ninguém quer navegar. Duas levam para a aba Analisar já na sub-aba certa; a
+/// terceira resolve ali mesmo.
+///
+/// **Registrar treino não está aqui, e é de propósito.** As três que ficaram terminam num
+/// toque ou numa foto; lançar séries e cargas é uma sessão inteira de digitação, que nada
+/// tem de rápida. Ela continua a um toque de distância na folha do avatar e no Progresso —
+/// ver `accountDestinations`.
 Future<void> showQuickCaptureSheet(BuildContext context, WidgetRef ref) {
   return showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
-    // Rolável e sem teto de altura fixo: quatro itens com legenda já encostam no limite de
-    // 9/16 da tela num celular pequeno, e com a fonte do sistema ampliada passariam dele —
-    // aí a última opção ficaria cortada em vez de alcançável.
+    // Rolável e sem teto de altura fixo: com a fonte do sistema ampliada três itens com
+    // legenda ainda passam do limite de 9/16 da tela num celular pequeno — e aí a última
+    // opção ficaria cortada em vez de alcançável.
     isScrollControlled: true,
     builder: (sheetContext) => SafeArea(
       child: SingleChildScrollView(
@@ -282,15 +285,6 @@ Future<void> showQuickCaptureSheet(BuildContext context, WidgetRef ref) {
                 Navigator.of(sheetContext).pop();
                 ref.read(analysisTabProvider.notifier).state = AnalysisTab.form;
                 ref.read(homeTabProvider.notifier).state = HomeTab.analysis;
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.fitness_center_outlined),
-              title: const Text('Registrar treino'),
-              subtitle: const Text('Séries e cargas — funciona offline'),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                context.push(Routes.logSession);
               },
             ),
             ListTile(
