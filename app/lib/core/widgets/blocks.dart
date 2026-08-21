@@ -6,6 +6,7 @@ import '../design/blocks.dart';
 import '../design/materials.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
+import 'pressable.dart';
 
 /// As formas do sistema: um herói, ladrilhos e seções.
 ///
@@ -153,6 +154,86 @@ class HeroAction {
         onPressed: onPressed,
         child: Text(label),
       ),
+    );
+  }
+}
+
+/// A ação do herói com uma segunda porta ao lado.
+///
+/// Existe para as duas metades da Analisar, que têm o mesmo problema: a foto do prato e o vídeo
+/// da série podem vir da câmera **ou** da galeria, e as duas entradas alimentam exatamente o
+/// mesmo trabalho. Nasceu duas vezes igual, e a terceira cópia teria divergido no alfa do
+/// lavado ou na altura do alvo.
+///
+/// **A porta secundária vinha antes da principal, e a ordem estava invertida.** Era um botão de
+/// texto acima da ação, com um vão entre as duas que as fazia parecer assuntos diferentes. Lado
+/// a lado elas leem como o que são — dois caminhos para a mesma sala —, e a diferença de
+/// tamanho e de peso diz qual é a porta da frente sem precisar de rótulo explicando.
+///
+/// **A segunda fica à esquerda e sem escrita**, no lugar em que a câmera do próprio aparelho
+/// põe o rolo de fotos: assim o peso da linha cresce da esquerda para a direita e termina na
+/// ação. O nome não some — ele continua sendo o que o leitor de tela anuncia e o que aparece ao
+/// segurar o alvo.
+class HeroActions extends StatelessWidget {
+  const HeroActions({
+    super.key,
+    required this.colors,
+    required this.action,
+    required this.secondIcon,
+    required this.secondLabel,
+    required this.onSecond,
+  });
+
+  final BlockColors colors;
+
+  /// A ação principal, com a cor e a forma que ela tem em todos os heróis do app.
+  final HeroAction action;
+
+  final IconData secondIcon;
+
+  /// O nome da segunda porta. Não aparece escrito: é o que o leitor de tela anuncia e o que
+  /// surge ao segurar o alvo. Um ícone sozinho não tem nome para anunciar.
+  final String secondLabel;
+
+  final VoidCallback? onSecond;
+
+  /// A altura do botão de qualquer herói — ver [HeroAction]. O alvo secundário é mais largo do
+  /// que alto de propósito: um quadrado ao lado de um botão comprido lê como um terceiro
+  /// componente, e deitado ele lê como o irmão menor da ação.
+  static const double _height = 46;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        // O aperto no toque, nos dois alvos: a resposta nasce no dedo encostando, e não no
+        // botão sendo solto — ver [PressableScale].
+        PressableScale(
+          child: SizedBox(
+            width: 58,
+            height: _height,
+            child: IconButton(
+              onPressed: onSecond,
+              tooltip: secondLabel,
+              icon: Icon(secondIcon, size: 22),
+              style: IconButton.styleFrom(
+                // Um lavado da família, e não mais vidro: sobre o vidro do próprio herói, um
+                // botão translúcido não apareceria — empilhar material sobre material é o que
+                // faz a legibilidade das duas camadas cair junto.
+                backgroundColor: colors.ink.withValues(alpha: 0.14),
+                foregroundColor: colors.ink,
+                shape: const RoundedRectangleBorder(borderRadius: Radii.smAll),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: Space.sm),
+        Expanded(
+          // A ação não vai no `action` do bloco porque precisa dividir a linha com a segunda
+          // porta; o que ela desenha é o mesmo botão de sempre.
+          child: PressableScale(child: action.build(context, colors)),
+        ),
+      ],
     );
   }
 }

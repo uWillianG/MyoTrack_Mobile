@@ -267,6 +267,11 @@ class _DaySection extends StatelessWidget {
 /// partir do que o quadro mostra: não vê dor, não conhece a sua lesão e não substitui um
 /// profissional. Sem essa linha, "nota 62" vira um veredito sobre o corpo da pessoa em vez de
 /// uma leitura de um vídeo de sete segundos.
+///
+/// **O bloco reúne tudo o que manda um vídeo para a IA**, na mesma ordem da metade de
+/// refeição: o que a IA faz, o que ela precisa ver, e só então as duas portas de entrada numa
+/// linha única. O enquadramento fica entre a manchete e a ação porque é a instrução que decide
+/// se o vídeo será avaliável: lido depois do botão, ele chegaria com a câmera já aberta.
 class _CaptureHero extends StatelessWidget {
   const _CaptureHero({
     required this.colors,
@@ -287,24 +292,22 @@ class _CaptureHero extends StatelessWidget {
       colors: colors,
       label: 'Execução',
       icon: Icons.videocam_outlined,
-      action: HeroAction(
-        label: 'Gravar série',
-        onPressed: () => onCapture(ImageSource.camera),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (analyses.isEmpty) ...[
             Text(
               'Grave uma\nsérie.',
-              style: theme.textTheme.displaySmall?.copyWith(
+              // Um degrau acima do resto dos heróis, e só aqui: na primeira vez esta frase é
+              // a tela inteira — não há histórico abaixo dela para dividir a atenção com ela.
+              style: theme.textTheme.displayMedium?.copyWith(
                 color: colors.onGlass,
               ),
             ),
             const SizedBox(height: Space.sm),
             Text(
               'A IA compara seu movimento com o padrão do exercício e aponta onde corrigir. '
-              'Ela lê o que o quadro mostra — não substitui um profissional.',
+              'Ela lê o que o quadro mostra. Não substitui um profissional.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colors.onGlass.withValues(alpha: 0.85),
               ),
@@ -327,25 +330,25 @@ class _CaptureHero extends StatelessWidget {
               colors: colors,
               detail: 'nenhum deu para avaliar ainda',
             ),
-          const SizedBox(height: Space.sm),
+          const SizedBox(height: Space.md),
           // O enquadramento fica no convite e não numa folha depois dele: é a instrução que
           // decide se o vídeo será avaliável, e ela precisa ser lida **antes** de a câmera
           // abrir. Escondida atrás de um toque, ela chegava tarde demais.
+          //
+          // Ele não é um controle, e por isso continua com o filme neutro em vez do lavado da
+          // família que o alvo da galeria usa: sobre o mesmo cartão, o que se opera precisa
+          // pesar mais que o que se lê.
           _Framing(colors: colors),
-          const SizedBox(height: Space.xs),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: () => onCapture(ImageSource.gallery),
-              style: TextButton.styleFrom(
-                foregroundColor: colors.onGlass,
-                padding: EdgeInsets.zero,
-                minimumSize: const Size(0, 44),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              icon: const Icon(Icons.video_library_outlined, size: 18),
-              label: const Text('Escolher da galeria'),
+          const SizedBox(height: Space.sm),
+          HeroActions(
+            colors: colors,
+            action: HeroAction(
+              label: 'Gravar série',
+              onPressed: () => onCapture(ImageSource.camera),
             ),
+            secondIcon: Icons.video_library_outlined,
+            secondLabel: 'Escolher da galeria',
+            onSecond: () => onCapture(ImageSource.gallery),
           ),
         ],
       ),
@@ -474,7 +477,7 @@ class _ProgressHeroState extends State<_ProgressHero> {
           const SizedBox(height: Space.sm),
           Text(
             uploading
-                ? 'Enviando — ${(widget.progress * 100).round()}%.'
+                ? 'Enviando ${(widget.progress * 100).round()}%.'
                 : 'Quadro a quadro leva alguns minutos. Pode sair da tela.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: colors.onGlass.withValues(alpha: 0.85),
@@ -848,7 +851,7 @@ class _ExerciseSheet extends ConsumerWidget {
                     ),
                     const SizedBox(height: Space.xs),
                     Text(
-                      'A avaliação muda com o exercício — o que é erro no agachamento é '
+                      'A avaliação muda com o exercício: o que é erro no agachamento é '
                       'correto no terra.',
                       style: theme.textTheme.bodySmall,
                     ),
@@ -975,7 +978,7 @@ class _OverlayPlayerState extends State<_OverlayPlayer> {
         child: BlockNotice(
           message:
               'O vídeo com o esqueleto não abriu. O link expira depois de '
-              'um tempo — puxe a lista para atualizar e tente de novo.',
+              'um tempo. Puxe a lista para atualizar e tente de novo.',
           colors: widget.colors,
         ),
       );

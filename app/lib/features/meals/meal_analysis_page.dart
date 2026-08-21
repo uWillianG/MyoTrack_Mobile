@@ -12,7 +12,6 @@ import '../../core/design/tokens.dart';
 import '../../core/widgets/blocks.dart';
 import '../../core/widgets/glass_segmented.dart';
 import '../../core/widgets/empty_state.dart';
-import '../../core/widgets/pressable.dart';
 // O relógio do app, injetável: sem ele o bloco "Hoje" do histórico mudaria de valor entre a
 // captura da galeria e a execução do teste.
 import '../home/today_controller.dart' show nowProvider;
@@ -315,7 +314,7 @@ class _CaptureHero extends StatelessWidget {
             ),
             const SizedBox(height: Space.sm),
             Text(
-              'A IA estima as calorias e os macros — e a estimativa fica editável, item por '
+              'A IA estima as calorias e os macros, e a estimativa fica editável, item por '
               'item, antes de contar no seu dia.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colors.onGlass.withValues(alpha: 0.85),
@@ -335,75 +334,18 @@ class _CaptureHero extends StatelessWidget {
             onChanged: onIllustrated,
           ),
           const SizedBox(height: Space.sm),
-          _CaptureActions(colors: colors, onCapture: onCapture),
-        ],
-      ),
-    );
-  }
-}
-
-/// As duas formas de entregar a foto, numa linha só.
-///
-/// **A galeria era um botão de texto acima da ação, e a ordem estava invertida**: a saída
-/// secundária vinha primeiro, a principal fechava o bloco, e o vão entre as duas fazia-as
-/// parecer assuntos diferentes. Lado a lado elas leem como o que são — duas portas para a mesma
-/// sala —, e a diferença de tamanho e de peso diz qual é a porta da frente sem precisar de
-/// rótulo explicando.
-///
-/// **A galeria fica à esquerda**, no lugar em que a câmera do próprio aparelho põe o rolo de
-/// fotos, e sem escrita: a pilha de fotos é dos ícones mais estabelecidos que existem, e assim
-/// o peso da linha cresce da esquerda para a direita até terminar na ação. O nome continua
-/// existindo para quem usa leitor de tela e para quem segura o botão.
-class _CaptureActions extends StatelessWidget {
-  const _CaptureActions({required this.colors, required this.onCapture});
-
-  final BlockColors colors;
-  final ValueChanged<ImageSource> onCapture;
-
-  /// A altura do botão de qualquer outro herói — ver [HeroAction]. O alvo da galeria é mais
-  /// largo do que alto de propósito: um quadrado ao lado de um botão comprido lê como um
-  /// terceiro componente, e deitado ele lê como o irmão menor da ação.
-  static const double _height = 46;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        // O aperto no toque, nos dois: a resposta nasce no dedo encostando, e não no botão
-        // sendo solto — ver [PressableScale].
-        PressableScale(
-          child: SizedBox(
-            width: 58,
-            height: _height,
-            child: IconButton(
-              onPressed: () => onCapture(ImageSource.gallery),
-              // O nome do alvo, e o que aparece ao segurá-lo: um ícone sozinho não tem nome
-              // para o leitor de tela anunciar.
-              tooltip: 'Escolher da galeria',
-              icon: const Icon(Icons.photo_library_outlined, size: 22),
-              style: IconButton.styleFrom(
-                // Um lavado da família, e não mais vidro: sobre o vidro do próprio herói, um
-                // botão translúcido não apareceria — empilhar material sobre material é o que
-                // faz a legibilidade das duas camadas cair junto.
-                backgroundColor: colors.ink.withValues(alpha: 0.14),
-                foregroundColor: colors.ink,
-                shape: const RoundedRectangleBorder(borderRadius: Radii.smAll),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: Space.sm),
-        Expanded(
-          // O botão do herói, com a cor e a forma que ele tem em todas as outras telas. Ele não
-          // vai no `action` do bloco porque precisa dividir a linha com a galeria.
-          child: PressableScale(
-            child: HeroAction(
+          HeroActions(
+            colors: colors,
+            action: HeroAction(
               label: 'Fotografar prato',
               onPressed: () => onCapture(ImageSource.camera),
-            ).build(context, colors),
+            ),
+            secondIcon: Icons.photo_library_outlined,
+            secondLabel: 'Escolher da galeria',
+            onSecond: () => onCapture(ImageSource.gallery),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -1086,7 +1028,7 @@ class _PhotoViewerState extends State<_PhotoViewer> {
                             padding: const EdgeInsets.all(Space.gutter),
                             child: Text(
                               'Não foi possível abrir a foto. O link expira depois de um '
-                              'tempo — volte e puxe a lista para atualizar.',
+                              'tempo. Volte e puxe a lista para atualizar.',
                               textAlign: TextAlign.center,
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: Colors.white70,

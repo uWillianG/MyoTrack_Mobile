@@ -73,10 +73,17 @@ void main() {
     await pump(tester, homeOverrides());
 
     expect(find.text('Gravar série'), findsOne);
-    expect(find.textContaining('não substitui um profissional'), findsOne);
+    expect(find.textContaining('substitui um profissional'), findsOne);
+    // A galeria virou ícone ao lado da ação — sem palavra na tela, e com o nome ainda dito a
+    // quem não a vê.
+    expect(find.byTooltip('Escolher da galeria'), findsOne);
     // O enquadramento é a instrução que decide se o vídeo será avaliável, e por isso vem
-    // antes de a câmera abrir.
+    // antes de a câmera abrir — e antes do botão que a abre.
     expect(find.textContaining('corpo inteiro no quadro'), findsOne);
+    expect(
+      tester.getTopLeft(find.textContaining('corpo inteiro no quadro')).dy,
+      lessThan(tester.getTopLeft(find.text('Gravar série')).dy),
+    );
   });
 
   testWidgets('com histórico, o herói mostra a média das notas', (
@@ -87,7 +94,7 @@ void main() {
     // Três análises no fixture, uma sem nota: a média conta duas, e o texto diz quantas.
     expect(find.text('78'), findsOne);
     expect(find.text('média de 2 execuções'), findsOne);
-    expect(find.textContaining('não substitui um profissional'), findsNothing);
+    expect(find.textContaining('substitui um profissional'), findsNothing);
   });
 
   testWidgets('a lista traz exercício, hora e nota — e nada aberto', (
