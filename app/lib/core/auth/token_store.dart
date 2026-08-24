@@ -94,6 +94,21 @@ class TokenStore {
     return claim is String && claim.isNotEmpty ? claim : null;
   }
 
+  /// Identificador do usuário atual (o `sub` do JWT). Null quando não há sessão.
+  ///
+  /// É o mesmo UUID que o servidor usa como chave, e sai daqui para acompanhar a compra até a
+  /// loja — ver `storeAccountIdProvider`. Vir do token e não de `/api/profile` é o que permite
+  /// tê-lo antes de abrir o diálogo de compra, sem uma chamada de rede no meio do toque.
+  Future<String?> userId() async {
+    final tokens = await read();
+    return tokens == null ? null : userIdFromAccessToken(tokens.accessToken);
+  }
+
+  static String? userIdFromAccessToken(String accessToken) {
+    final claim = _payload(accessToken)?['sub'];
+    return claim is String && claim.isNotEmpty ? claim : null;
+  }
+
   static const _dotNetRoleClaim =
       'http://schemas.microsoft.com/ws/2008/06/identity/claims/role';
 

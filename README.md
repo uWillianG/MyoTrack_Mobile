@@ -343,6 +343,76 @@ de nutrição param aí: não há histórico de proteína nem de dias anteriores
 "Semana de proteína batida" — que é o macro que a pessoa mais erra por falta — depende de o
 `GET /api/diary` trazer os macros da semana, e não só o total calórico.
 
+## Assinatura pelas lojas
+
+O app vende o Pro pela App Store e pelo Google Play, e **o cliente nunca decide se tem Pro**. Ele
+manda o recibo, o servidor pergunta à loja, e é a resposta da loja que vira linha em
+`UserSubscriptions`. Um `purchaseToken` aceito pela palavra do app é acesso pago de graça para
+qualquer um com um proxy HTTP.
+
+As duas lojas provam coisas diferentes, e por isso a verificação é diferente em cada uma:
+
+- **Apple.** O recibo é um JWS que a própria Apple assinou, e a cadeia de certificados vem dentro
+  dele. Verificá-la contra a raiz que veio junto não prova nada — quem forja o JWS forja a cadeia
+  — então a âncora é a nossa cópia, versionada em `resources/apple/AppleRootCA-G3.pem`. Só que a
+  assinatura prova o **passado**: um recibo legítimo de seis meses atrás, de uma assinatura
+  cancelada desde então, continua criptograficamente válido para sempre. Quem responde "isto ainda
+  vale?" é a App Store Server API, e é ela que dá o status.
+- **Google.** Não há nada assinado: o `purchaseToken` é opaco. Toda a prova está na resposta da
+  Play Developer API, e é por isso que a consulta não pode ser pulada nem trocada por cache.
+
+O ambiente da Apple (produção ou sandbox) não é configuração: vem dentro do recibo assinado e
+escolhe o host. A mesma instalação atende TestFlight e App Store — configurá-lo deixaria uma
+delas de fora.
+
+### As notificações são o que mantém a assinatura viva
+
+`POST /api/billing/apple/notifications` e `POST /api/billing/google/notifications`. Sem elas o
+servidor só saberia do primeiro dia: renovação, cancelamento, falha de cobrança e reembolso
+acontecem depois, e nenhum deles passa pelo app.
+
+A ordem dos passos é a regra da qual tudo o mais decorre: **apura, escreve, e só então marca a
+notificação como processada.** Marcar na entrada é mais simples e está errado — a entrega que
+chega antes de a compra ter sido registrada (acontece, e é o caso normal de uma corrida entre
+o recibo e o aviso) consumiria a marca, e a reentrega seguinte, a que funcionaria, seria
+descartada como repetida. Os códigos seguem a mesma lógica: 2xx encerra, 5xx pede para
+reentregar.
+
+O mesmo raciocínio decide o que o app recebe ao comprar: recusa definitiva é 400, loja fora do ar
+é 503. O app finaliza a compra no 4xx e a deixa pendente no 5xx — devolver 400 num incidente
+nosso faria ele descartar uma compra já paga.
+
+Três detalhes que não são óbvios e custaram para descobrir:
+
+- **O `purchaseToken` do Google muda.** Mudar de plano ou reassinar emite um token novo e informa
+  o anterior em `linkedPurchaseToken`. Procurar só pelo novo não acha nada, e a notificação seria
+  descartada como "assinatura desconhecida" — deixando um assinante pagante no plano gratuito.
+- **RTDN não é assinada.** Quem prova a origem é o segredo na URL de push do Pub/Sub. Mesmo que
+  ele vaze, o estado aplicado é o que a API do Google responder: a notificação diz o que olhar,
+  nunca o que gravar.
+- **A compra carrega o id do usuário, e é ele que resgata a assinatura órfã.** O app manda o
+  `sub` do JWT em `applicationUserName` — vira `appAccountToken` no iOS e `obfuscatedAccountId`
+  no Android —, e a loja o devolve dentro da transação assinada e da resposta da API. Quando uma
+  notificação chega para uma assinatura que não está na tabela, é por ele que o servidor
+  encontra o dono: sem isso, a compra cujo recibo nunca chegou a ser validado (o aparelho ficou
+  sem rede na hora, o app foi desinstalado antes de reabrir) apareceria como uma renovação de
+  dono desconhecido para sempre.
+
+  Duas travas em volta. A existência do usuário é conferida antes de adotar, porque a tabela não
+  tem chave estrangeira e um UUID inventado viraria uma assinatura de ninguém, invisível e
+  permanente. E o identificador vai nulo quando não é um UUID: a Apple recusa a compra inteira
+  nesse caso, e perder a venda por causa de um identificador de diagnóstico seria a pior troca
+  possível.
+
+  O que ele **não** faz é decidir quem tem direito. Quem o escolheu foi o app, no aparelho, e no
+  pior caso alguém compra o Pro informando o UUID de outra pessoa — e a presenteia. Por isso, na
+  validação do recibo, um identificador que não bate com a sessão vira log e não recusa: quem
+  trocou de conta e restaurou uma compra antiga é o mesmo caso, e bloquear ali impediria alguém
+  de recuperar o que já pagou.
+
+Falta só credencial — as quatro da Apple e as três do Google estão em `CREDENCIAIS.md`. Sem elas,
+`/verify` responde 503 e ninguém vira Pro por omissão.
+
 ## Falta para produção
 
 - **O fechamento do dia não chega inteiro ao servidor.** A tela "Fechar o dia" faz três

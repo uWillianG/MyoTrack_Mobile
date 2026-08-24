@@ -68,6 +68,12 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         // O Stripe chama sem token; a autenticidade vem da assinatura do webhook.
                         .requestMatchers(HttpMethod.POST, "/api/billing/webhook").permitAll()
+                        // As lojas também: a Apple assina a notificação inteira, e o Google
+                        // prova pelo segredo na URL de push do Pub/Sub. Exigir token de usuário
+                        // aqui seria exigir que a loja fizesse login — ela não tem conta.
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/billing/apple/notifications",
+                                "/api/billing/google/notifications").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2

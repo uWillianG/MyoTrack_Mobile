@@ -26,6 +26,30 @@ final subscriptionStatusProvider = FutureProvider<SubscriptionStatus>(
   (ref) => ref.watch(billingRepositoryProvider).status(),
 );
 
+/// Formato de UUID, que é o que a Apple exige do `appAccountToken`.
+final _uuid = RegExp(
+  r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+);
+
+/// O identificador que viaja junto da compra até a loja.
+///
+/// Vira `appAccountToken` no iOS e `obfuscatedAccountId` no Android, e volta dentro da
+/// transação assinada e das notificações que a loja manda ao servidor. **É o que liga uma
+/// compra a uma conta sem depender de nós:** hoje, uma compra cuja validação nunca chegou ao
+/// backend fica sem dono, porque a notificação de renovação só sabe dizer qual assinatura
+/// mudou — não de quem ela é.
+///
+/// É o `sub` do JWT: um UUID interno, que não diz nada sobre a pessoa fora daqui. Mandar
+/// e-mail seria entregar dado pessoal a um terceiro para resolver um problema de chaveamento.
+///
+/// Fora do formato de UUID, vai nulo. A Apple recusa a compra inteira quando o
+/// `appAccountToken` não é um UUID, e perder a venda por causa de um identificador de
+/// diagnóstico seria a pior troca possível.
+final storeAccountIdProvider = FutureProvider<String?>((ref) async {
+  final userId = await ref.watch(tokenStoreProvider).userId();
+  return userId != null && _uuid.hasMatch(userId) ? userId : null;
+});
+
 /// Estado da tela de assinatura.
 class BillingState {
   const BillingState({
@@ -132,7 +156,12 @@ class BillingController extends Notifier<BillingState> {
       // Assinatura é "non consumable" nesta API: consumível é para item que se compra de
       // novo, e comprar o Pro duas vezes não faz sentido.
       await _store.buyNonConsumable(
-        purchaseParam: PurchaseParam(productDetails: product),
+        purchaseParam: PurchaseParam(
+          productDetails: product,
+          // Quem está comprando, para a loja saber devolver essa informação ao servidor.
+          // Ver `storeAccountIdProvider`.
+          applicationUserName: await ref.read(storeAccountIdProvider.future),
+        ),
       );
     } catch (error) {
       state = state.copyWith(purchasing: false, error: '$error');
@@ -145,7 +174,11 @@ class BillingController extends Notifier<BillingState> {
   Future<void> restore() async {
     state = state.copyWith(purchasing: true, error: null, message: null);
     try {
-      await _store.restorePurchases();
+      // O mesmo identificador da compra: quem restaura num aparelho novo é a mesma conta, e
+      // a loja precisa saber disso para reentregar a assinatura certa.
+      await _store.restorePurchases(
+        applicationUserName: await ref.read(storeAccountIdProvider.future),
+      );
       // O resultado chega pelo purchaseStream como `restored`; se não vier nada, a mensagem
       // abaixo é substituída lá.
       state = state.copyWith(

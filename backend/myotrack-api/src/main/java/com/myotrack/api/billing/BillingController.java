@@ -1,6 +1,7 @@
 package com.myotrack.api.billing;
 
 import com.myotrack.api.billing.EntitlementService.Entitlements;
+import com.myotrack.api.billing.StoreReceiptVerifier.StoreUnavailableException;
 import com.myotrack.api.billing.StoreReceiptVerifier.StoreVerificationException;
 import com.myotrack.api.billing.StoreReceiptVerifier.VerifiedSubscription;
 import com.myotrack.api.security.CurrentUser;
@@ -121,14 +122,34 @@ public class BillingController {
             verified = verifier.verify(
                     request.receipt(),
                     request.productId() == null ? PRO_PRODUCT_ID : request.productId());
+        } catch (StoreUnavailableException e) {
+            // 5xx de propósito: o app só finaliza a compra quando a recusa é definitiva, e uma
+            // loja fora do ar não é recusa. Deixando pendente, a própria loja reentrega o recibo
+            // na próxima abertura — que é como uma compra paga sobrevive a um incidente nosso.
+            log.warn("Loja {} indisponível ao validar recibo: {}", provider, e.getMessage());
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(Map.of("error", "A loja não respondeu. Tente de novo em instantes."));
         } catch (StoreVerificationException e) {
             log.warn("Recibo de {} recusado: {}", provider, e.getMessage());
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "Não foi possível validar a compra."));
         }
 
+        final UUID userId = CurrentUser.id();
+
+        // O identificador que o app mandou na compra deveria ser o desta sessão. Quando não é,
+        // pode ser recibo reaproveitado — mas também é o que acontece com quem trocou de conta e
+        // restaurou uma compra antiga, ou com uma assinatura compartilhada em família. Vira log
+        // e não recusa: bloquear aqui impediria alguém de recuperar o que já pagou, e o dano do
+        // outro lado é dar Pro a quem tem o recibo em mãos de qualquer forma.
+        if (verified.accountId() != null
+                && !verified.accountId().equalsIgnoreCase(userId.toString())) {
+            log.warn("Recibo de {} com identificador de conta {} validado pelo usuário {}.",
+                    provider, verified.accountId(), userId);
+        }
+
         subscriptions.apply(
-                CurrentUser.id(),
+                userId,
                 provider,
                 verified.providerSubscriptionId(),
                 verified.status(),

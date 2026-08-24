@@ -91,6 +91,23 @@ myotrack:
     pro-price-id: ${MYOTRACK_STRIPE_PRO_PRICE_ID:}
     public-base-url: ${MYOTRACK_PUBLIC_BASE_URL:http://localhost:5173}
 
+    # App Store Server API. Faltando qualquer um dos quatro, a compra pelo iOS responde 503 —
+    # nunca libera o Pro sem conferir. A chave é o conteúdo do .p8 do App Store Connect.
+    apple:
+      issuer-id: ${MYOTRACK_APPLE_ISSUER_ID:}
+      key-id: ${MYOTRACK_APPLE_KEY_ID:}
+      private-key: ${MYOTRACK_APPLE_PRIVATE_KEY:}
+      # O mesmo bundle id do app; é conferido em todo recibo e em toda notificação.
+      bundle-id: ${MYOTRACK_APPLE_BUNDLE_ID:}
+
+    # Play Developer API. O credentials-json é o arquivo inteiro da conta de serviço.
+    google:
+      package-name: ${MYOTRACK_ANDROID_PACKAGE_NAME:}
+      credentials-json: ${MYOTRACK_PLAY_CREDENTIALS_JSON:}
+      # Segredo que o Pub/Sub devolve na URL de push (?token=). Vazio, o endpoint aceita sem
+      # conferir — bom para desenvolver, e não para produção.
+      notifications-token: ${MYOTRACK_PLAY_NOTIFICATIONS_TOKEN:}
+
 logging:
   level:
     root: INFO

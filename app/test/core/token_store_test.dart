@@ -52,6 +52,26 @@ void main() {
     );
   });
 
+  test('lê o `sub` — é o id que acompanha a compra até a loja', () {
+    final token = _jwtWithPayload({
+      'sub': '3f2504e0-4f89-41d3-9a0c-0305e82c3301',
+      'email': 'ana@exemplo.com',
+    });
+
+    expect(
+      TokenStore.userIdFromAccessToken(token),
+      '3f2504e0-4f89-41d3-9a0c-0305e82c3301',
+    );
+  });
+
+  test('token sem `sub` devolve null em vez de string vazia', () {
+    expect(
+      TokenStore.userIdFromAccessToken(_jwtWithPayload({'email': 'a@b.c'})),
+      isNull,
+    );
+    expect(TokenStore.userIdFromAccessToken('nao-e-um-jwt'), isNull);
+  });
+
   test(
     'token malformado não lança — a UI só perde os itens de menu por papel',
     () {

@@ -76,8 +76,29 @@ public class SubscriptionService {
             String providerStatus,
             OffsetDateTime currentPeriodEnd) {
 
+        return applyFromStore(
+                provider, providerSubscriptionId, null, providerStatus, currentPeriodEnd);
+    }
+
+    /**
+     * Idem, para quando a loja trocou o identificador da assinatura.
+     *
+     * <p>É o caso do Google: mudar de plano ou reassinar emite um {@code purchaseToken} novo e
+     * informa o anterior. Procurar só pelo novo não acharia nada, e a notificação seria
+     * descartada como "assinatura desconhecida" — deixando um assinante pagante no plano
+     * gratuito até alguém reinstalar o app.
+     */
+    @Transactional
+    public Optional<UserSubscription> applyFromStore(
+            SubscriptionProvider provider,
+            String providerSubscriptionId,
+            String previousProviderSubscriptionId,
+            String providerStatus,
+            OffsetDateTime currentPeriodEnd) {
+
         final Optional<UserSubscription> found =
-                subscriptions.findByProviderAndProviderSubscriptionId(provider, providerSubscriptionId);
+                subscriptions.findByProviderAndProviderSubscriptionId(provider, providerSubscriptionId)
+                        .or(() -> previous(provider, previousProviderSubscriptionId));
 
         if (found.isEmpty()) {
             log.warn("Notificação de {} para assinatura desconhecida {} — ignorando.",
@@ -87,6 +108,20 @@ public class SubscriptionService {
 
         return Optional.of(write(
                 found.get(), provider, providerSubscriptionId, providerStatus, currentPeriodEnd));
+    }
+
+    /** A linha do identificador antigo, quando há um e ele encontra alguém. */
+    private Optional<UserSubscription> previous(SubscriptionProvider provider, String previousId) {
+        if (previousId == null || previousId.isBlank()) {
+            return Optional.empty();
+        }
+
+        final Optional<UserSubscription> found =
+                subscriptions.findByProviderAndProviderSubscriptionId(provider, previousId);
+        found.ifPresent(subscription -> log.info(
+                "Assinatura de {} do usuário {} mudou de identificador — migrando.",
+                provider, subscription.getUserId()));
+        return found;
     }
 
     private UserSubscription write(
@@ -117,6 +152,21 @@ public class SubscriptionService {
         log.info("Assinatura do usuário {} sincronizada: {} status={} ativa={}",
                 saved.getUserId(), provider, providerStatus, entitled);
         return saved;
+    }
+
+    /**
+     * Esta notificação já foi processada?
+     *
+     * <p>Consulta separada de {@link #markProcessed} porque a marca é feita <b>depois</b> de a
+     * notificação ter surtido efeito, e não antes: marcar na entrada faria uma falha transitória
+     * — a loja fora do ar, a assinatura ainda não registrada pela compra — consumir a única
+     * entrega útil, e a reentrega seguinte seria descartada como repetida.
+     */
+    @Transactional(readOnly = true)
+    public boolean alreadyProcessed(String notificationId) {
+        return notificationId != null
+                && !notificationId.isBlank()
+                && notifications.existsById(notificationId);
     }
 
     /**
