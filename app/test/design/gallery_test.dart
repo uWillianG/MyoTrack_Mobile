@@ -34,6 +34,9 @@ import 'package:myotrack/features/checkin/day_close_page.dart';
 import 'package:myotrack/features/home/app_shell.dart';
 import 'package:myotrack/features/home/home_page.dart';
 import 'package:myotrack/features/home/today_controller.dart';
+import 'package:myotrack/features/meals/data/meal_models.dart';
+import 'package:myotrack/features/meals/manual_meal_controller.dart';
+import 'package:myotrack/features/meals/manual_meal_page.dart';
 import 'package:myotrack/features/nutrition/nutrition_page.dart';
 import 'package:myotrack/features/privacy/account_page.dart';
 import 'package:myotrack/features/privacy/privacy_controller.dart';
@@ -247,6 +250,22 @@ void main() {
       container.read(nutritionTabProvider.notifier).state = NutritionTab.plan;
       await tester.pumpAndSettle();
       await shoot(tester, 'nutricao-plano-$mode');
+    });
+
+    // A refeição registrada sem foto, nos dois estados que ela tem. Vazia é um convite, e é
+    // onde se julga se o caminho principal — descrever numa frase — está mesmo em primeiro
+    // plano; montada é onde a lista, a soma e as duas portas do pé dividem a tela, que é o
+    // arranjo que a captura existe para conferir.
+    testWidgets('refeição manual — vazia ($mode)', (tester) async {
+      await pump(tester, brightness, const ManualMealPage());
+      await shoot(tester, 'refeicao-manual-$mode');
+    });
+
+    testWidgets('refeição manual — montada ($mode)', (tester) async {
+      final container = await pump(tester, brightness, const ManualMealPage());
+      container.read(manualMealDraftProvider.notifier).addAll(refeicaoMontada);
+      await tester.pumpAndSettle();
+      await shoot(tester, 'refeicao-manual-itens-$mode');
     });
 
     testWidgets('analisar ($mode)', (tester) async {
@@ -620,3 +639,35 @@ class _Esperando extends CoachController {
   @override
   String? get pending => 'Posso trocar o agachamento por leg press?';
 }
+
+/// Um rascunho de refeição manual com as três origens que a tela sabe montar: o que a IA
+/// estimou de uma frase, o que veio do catálogo (com `foodItemId`) e o que foi digitado à mão.
+/// Sem os três lado a lado a captura não mostraria que a lista é **uma** só — que é justamente
+/// a decisão de desenho que ela existe para julgar.
+const refeicaoMontada = [
+  MealAnalysisItem(
+    description: 'Arroz branco cozido',
+    foodItemId: 1,
+    quantityG: 150,
+    kcal: 192,
+    proteinG: 3.8,
+    carbsG: 42.2,
+    fatG: 0.3,
+  ),
+  MealAnalysisItem(
+    description: 'Filé de frango grelhado',
+    quantityG: 120,
+    kcal: 195,
+    proteinG: 37.2,
+    carbsG: 0,
+    fatG: 4.4,
+  ),
+  MealAnalysisItem(
+    description: 'Feijão carioca cozido',
+    quantityG: 100,
+    kcal: 76,
+    proteinG: 4.8,
+    carbsG: 13.6,
+    fatG: 0.5,
+  ),
+];

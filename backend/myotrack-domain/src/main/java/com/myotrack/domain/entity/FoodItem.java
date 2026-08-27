@@ -43,4 +43,20 @@ public class FoodItem {
     /** "TACO", "TBCA", "Custom". */
     @Column(name = "Source", nullable = false)
     private String source = "TACO";
+
+    /**
+     * O alimento pode entrar num plano alimentar gerado?
+     *
+     * <p>O catálogo serve a dois consumidores que querem subconjuntos <b>opostos</b>. O diário
+     * precisa achar o que a pessoa realmente comeu — açúcar, refrigerante, coxinha, whey — ou o
+     * registro não fecha. O {@code DietRuleEngine} escolhe pelo macro dominante, e para ele esses
+     * mesmos itens são os candidatos ideais: nada tem mais carboidrato por grama que açúcar
+     * refinado, nem mais proteína que whey isolado. Sem esta coluna, ampliar o catálogo para o
+     * diário passaria a montar dietas de açúcar e suplemento em pó — uma regressão silenciosa
+     * numa funcionalidade que ninguém tocou.
+     *
+     * <p>O padrão é {@code true}: alimento novo é comida de verdade até alguém dizer o contrário.
+     */
+    @Column(name = "UsableInDiet", nullable = false)
+    private boolean usableInDiet = true;
 }

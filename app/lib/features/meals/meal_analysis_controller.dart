@@ -90,10 +90,32 @@ class MealAnalysisController extends JobGenerationController {
   double get uploadProgress => _uploadProgress;
 
   /// Tira ou escolhe a foto e dispara a análise. Devolve false se o usuário desistiu.
+  ///
+  /// **Só volta quando a análise inteira acabou** — o [start] espera o job do servidor. É o que
+  /// serve para quem já está na tela que mostra o progresso; quem precisa *chegar* nela usa os
+  /// dois passos separados, ver [pick].
   Future<bool> analyzeFrom(
     ImageSource source, {
     bool illustrated = false,
   }) async {
+    if (!await pick(source, illustrated: illustrated)) {
+      return false;
+    }
+
+    await start();
+    return true;
+  }
+
+  /// Escolhe a foto e deixa tudo pronto para o [start], sem disparar nada. Devolve false se o
+  /// usuário desistiu no seletor.
+  ///
+  /// Existe separado de [analyzeFrom] porque quem dispara a captura **de fora** da tela de
+  /// refeições — o herói do diário — precisa de uma resposta antes de o job existir: esperar a
+  /// análise inteira para só então trocar de tela deixaria a pessoa meio minuto olhando um
+  /// diário que não diz que a foto subiu. Com os dois passos à parte, quem chama escolhe a
+  /// foto, leva a pessoa até onde o progresso aparece e só então manda começar — e desistir no
+  /// seletor não tira ninguém do lugar.
+  Future<bool> pick(ImageSource source, {bool illustrated = false}) async {
     final picked = await ref
         .read(imagePickerProvider)
         .pickImage(
@@ -115,7 +137,6 @@ class MealAnalysisController extends JobGenerationController {
     _result = null;
     _uploadProgress = 0;
 
-    await start();
     return true;
   }
 

@@ -80,8 +80,11 @@ public class MediaRetentionService {
 
     private int expirePhotos() {
         OffsetDateTime cutoff = OffsetDateTime.now().minusDays(retention.mealPhotoDays());
+        // Só quem tem arquivo: a refeição digitada à mão vive na mesma tabela e não tem foto
+        // nenhuma para apagar — marcá-la de expirada consumiria o lote sem liberar um byte.
         List<MealPhotoAnalysis> expired =
-                photos.findByMediaExpiredAtIsNullAndCreatedAtBefore(cutoff, BATCH);
+                photos.findByMediaExpiredAtIsNullAndMediaKeyIsNotNullAndCreatedAtBefore(
+                        cutoff, BATCH);
 
         for (MealPhotoAnalysis photo : expired) {
             deleteQuietly(photo.getMediaKey());

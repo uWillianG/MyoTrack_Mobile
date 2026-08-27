@@ -48,6 +48,21 @@ abstract class JobGenerationController extends Notifier<GenerationState> {
   /// Recarrega o que o job produziu. Só roda depois do estado terminal de sucesso.
   Future<void> reload();
 
+  /// O retrato final do job, entregue logo antes de [reload].
+  ///
+  /// Quase todo job aqui **grava** o que produziu — o plano de treino, a análise da foto, a
+  /// resposta do coach — e o [reload] vai buscar isso no servidor pelo caminho normal; o
+  /// `resultJson` só carrega o id do que foi criado, e ninguém precisa dele.
+  ///
+  /// A estimativa de refeição por texto é a exceção, e é uma exceção de propósito: ela não
+  /// persiste nada, porque o valor dela está em ser conferida e editada antes de virar caloria
+  /// contada. O produto inteiro dela **é** o `resultJson`, e sem este gancho o único jeito de
+  /// alcançá-lo seria escrever um segundo acompanhador de job ao lado deste — que é como as
+  /// seis telas divergiriam de novo.
+  ///
+  /// Vazio por padrão: quem não precisa não fica sabendo que existe.
+  void onResult(JobStatus status) {}
+
   /// Mensagem mostrada em cada etapa. Sobrescreva para adaptar ao domínio.
   String stepLabel(JobState state) => switch (state) {
     JobState.pending => 'Na fila…',
@@ -83,6 +98,7 @@ abstract class JobGenerationController extends Notifier<GenerationState> {
         return;
       }
 
+      onResult(last);
       // Só agora o resultado existe no servidor; recarregar antes traria o anterior.
       await reload();
       state = GenerationState.idle;

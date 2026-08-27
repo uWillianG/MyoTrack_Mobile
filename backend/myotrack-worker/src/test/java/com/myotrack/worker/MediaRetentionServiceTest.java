@@ -54,7 +54,7 @@ class MediaRetentionServiceTest {
         // Nada a expirar por padrão; cada teste povoa o lado que exercita.
         when(videos.findByMediaExpiredAtIsNullAndCreatedAtBefore(any(), any()))
                 .thenReturn(List.of());
-        when(photos.findByMediaExpiredAtIsNullAndCreatedAtBefore(any(), any()))
+        when(photos.findByMediaExpiredAtIsNullAndMediaKeyIsNotNullAndCreatedAtBefore(any(), any()))
                 .thenReturn(List.of());
     }
 
@@ -81,7 +81,7 @@ class MediaRetentionServiceTest {
     }
 
     private void photosToExpire(MealPhotoAnalysis... expired) {
-        when(photos.findByMediaExpiredAtIsNullAndCreatedAtBefore(any(), any()))
+        when(photos.findByMediaExpiredAtIsNullAndMediaKeyIsNotNullAndCreatedAtBefore(any(), any()))
                 .thenReturn(List.of(expired));
     }
 
@@ -96,7 +96,7 @@ class MediaRetentionServiceTest {
     private OffsetDateTime photoCutoff() {
         ArgumentCaptor<OffsetDateTime> captor = ArgumentCaptor.forClass(OffsetDateTime.class);
         verify(photos)
-                .findByMediaExpiredAtIsNullAndCreatedAtBefore(captor.capture(), any(Limit.class));
+                .findByMediaExpiredAtIsNullAndMediaKeyIsNotNullAndCreatedAtBefore(captor.capture(), any(Limit.class));
         return captor.getValue();
     }
 
@@ -247,6 +247,6 @@ class MediaRetentionServiceTest {
         // a falha no de vídeos salta o de fotos inteiro nesta passada. Não se perde nada — a
         // varredura é reentrante e as fotos expiram na próxima, seis horas depois —, mas o atraso
         // é invisível: só se loga quando algo expira, e aqui nada expirou.
-        verify(photos, never()).findByMediaExpiredAtIsNullAndCreatedAtBefore(any(), any());
+        verify(photos, never()).findByMediaExpiredAtIsNullAndMediaKeyIsNotNullAndCreatedAtBefore(any(), any());
     }
 }

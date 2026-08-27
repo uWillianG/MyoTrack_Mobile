@@ -30,8 +30,15 @@ public final class MealPhotoValidator {
 
     private static final MathContext MC = MathContext.DECIMAL128;
 
-    /** Um prato tem alguns itens, não dezenas — acima disso o modelo está fragmentando demais. */
-    private static final int MAX_ITEMS = 20;
+    /**
+     * Um prato tem alguns itens, não dezenas — acima disso o modelo está fragmentando demais.
+     *
+     * <p>Público porque a entrada manual precisa <b>recusar</b> a lista longa com uma mensagem,
+     * em vez de aceitá-la e cortar em silêncio como se faz com a saída do modelo. A diferença é
+     * de quem está do outro lado: o modelo não lê mensagem de erro, o usuário digitou item por
+     * item e merece saber que os últimos não entraram.
+     */
+    public static final int MAX_ITEMS = 20;
 
     private static final int MAX_DESCRIPTION_LENGTH = 120;
 
