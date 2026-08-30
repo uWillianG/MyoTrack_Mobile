@@ -393,6 +393,37 @@ void main() {
     });
   });
 
+  group('a espera pela estimativa', () {
+    testWidgets('tem saída enquanto o job não volta', (tester) async {
+      // Enquanto a estimativa corre, o passo escrito ocupa o lugar do campo e do botão: esta
+      // seção é a única porta para a frase, e sem um "Cancelar" ao lado do rodopio uma fila
+      // que não anda prendia a tela inteira até o acompanhamento desistir sozinho.
+      final estimativa = _PendingEstimate();
+      await pump(
+        tester,
+        extra: [manualMealEstimateProvider.overrideWith(() => estimativa)],
+      );
+
+      await tester.enterText(find.byType(TextField).first, '2 ovos fritos');
+      await tester.tap(find.text('Estimar com IA'));
+      // `pumpAndSettle` não serve aqui: o rodopio do progresso nunca assenta, que é
+      // exatamente o estado sob teste.
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Na fila…'), findsOne);
+      expect(find.text('Cancelar'), findsOne);
+
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
+
+      expect(estimativa.cancelou, isTrue);
+      expect(find.text('Estimar com IA'), findsOne);
+      // A frase continua no campo: quem desistiu de esperar não deve ter que digitar de novo.
+      expect(find.text('2 ovos fritos'), findsOne);
+    });
+  });
+
   group('a estimativa que não deu certo', () {
     test('resposta ilegível vira erro em vez de sucesso vazio', () {
       // Engolir em silêncio faria o job terminar "com sucesso" sem nenhum item ter aparecido
@@ -446,6 +477,33 @@ void main() {
   });
 }
 
+/// Uma estimativa que não volta — o job entrou na fila e nada o pegou.
+///
+/// É o estado em que a tela precisa oferecer saída, e o que se vê quando o Worker está fora
+/// do ar: nada falha, nada chega, e a barra gira.
+class _PendingEstimate extends ManualMealEstimate {
+  var cancelou = false;
+
+  @override
+  GenerationState build() => GenerationState.idle;
+
+  @override
+  Future<bool> estimate(String text) async {
+    state = const GenerationState(
+      running: true,
+      step: 'Na fila…',
+      phase: JobState.pending,
+    );
+    return false;
+  }
+
+  @override
+  void cancel() {
+    cancelou = true;
+    state = GenerationState.idle;
+  }
+}
+
 /// A estimativa por IA sem rede nem fila: guarda a frase e devolve os itens que o teste espera.
 ///
 /// Sobrescreve o [ManualMealEstimate.estimate] inteiro porque o que a tela precisa provar é o
@@ -458,7 +516,7 @@ class _FakeEstimate extends ManualMealEstimate {
   GenerationState build() => GenerationState.idle;
 
   @override
-  Future<void> estimate(String text) async {
+  Future<bool> estimate(String text) async {
     pedido = text;
     ref.read(manualMealDraftProvider.notifier).addAll(const [
       MealAnalysisItem(
@@ -478,5 +536,6 @@ class _FakeEstimate extends ManualMealEstimate {
         fatG: 1.6,
       ),
     ]);
+    return true;
   }
 }

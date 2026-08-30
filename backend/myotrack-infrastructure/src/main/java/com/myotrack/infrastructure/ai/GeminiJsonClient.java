@@ -36,13 +36,13 @@ public class GeminiJsonClient implements LlmJsonClient {
     static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(15);
 
     /**
-     * Teto da chamada inteira. Ver {@link #timedFactory()} para por que ele precisa ser dito.
+     * Teto de uma tentativa. Ver {@link #timedFactory()} para por que ele precisa ser dito, e
+     * {@link TransientRetry#ATTEMPT_CEILING} para por que o número mora lá.
      *
-     * <p>Folgado para uma chamada boa, que volta em segundos mesmo mandando uma foto junto, e
-     * curto para quem está esperando: o job de estimativa e o do coach não são reprocessados, e
-     * este número é o pior caso da barra girando antes de a pessoa ler o que houve.
+     * <p>Ele e a janela de repetição são um par: com o teto acima da janela, a chamada
+     * pendurada — que é a falha mais comum daqui — nascia fora do prazo e nunca era repetida.
      */
-    static final Duration TIMEOUT = Duration.ofSeconds(90);
+    static final Duration TIMEOUT = TransientRetry.ATTEMPT_CEILING;
 
     /**
      * O {@code responseSchema} do Gemini é um subconjunto do OpenAPI 3.0: palavras-chave como

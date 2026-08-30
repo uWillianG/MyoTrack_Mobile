@@ -203,14 +203,27 @@ class MealDraftTotals {
 class ManualMealEstimate extends JobGenerationController {
   String _text = '';
 
+  /// A última estimativa entregou itens?
+  ///
+  /// É a única pergunta que a tela precisa fazer para decidir se limpa o campo, e nenhuma
+  /// outra a responde: `error == null` também é verdade depois de um cancelamento, e apagar
+  /// ali a frase que a pessoa escreveu seria cobrá-la de digitar tudo de novo justamente por
+  /// ter desistido de esperar.
+  bool _delivered = false;
+
   /// O texto que gerou a última estimativa — a tela o mantém no campo para quem quiser
   /// corrigir a frase e pedir de novo.
   String get text => _text;
 
-  /// Pede a estimativa. Devolve assim que o job termina, com os itens já no rascunho.
-  Future<void> estimate(String text) {
+  /// Pede a estimativa. Devolve `true` quando ela chegou e entrou no rascunho.
+  ///
+  /// Falso cobre os três desfechos em que a frase precisa continuar no campo: o job falhou, a
+  /// espera estourou o prazo, ou a pessoa cancelou.
+  Future<bool> estimate(String text) async {
     _text = text.trim();
-    return start();
+    _delivered = false;
+    await start();
+    return _delivered;
   }
 
   @override
@@ -238,6 +251,7 @@ class ManualMealEstimate extends JobGenerationController {
     }
 
     ref.read(manualMealDraftProvider.notifier).addAll(estimate.items);
+    _delivered = true;
   }
 
   /// Não há o que recarregar: a estimativa não criou nada no servidor.

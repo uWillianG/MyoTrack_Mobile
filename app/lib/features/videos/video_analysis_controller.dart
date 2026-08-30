@@ -103,6 +103,16 @@ class VideoAnalysisController extends JobGenerationController {
     _file = null;
   }
 
+  /// A única espera do app que legitimamente dura minutos.
+  ///
+  /// O serviço de visão estima a pose quadro a quadro com teto próprio de 10 minutos, e só
+  /// depois disso vem a chamada de IA que escreve a devolutiva. Os três minutos que servem
+  /// para as outras telas desistiriam no meio de um trabalho que ainda ia entregar. Catorze
+  /// fica logo abaixo dos quinze em que o servidor fecha o stream, para que quem dá a notícia
+  /// seja esta tela e não um stream cortado.
+  @override
+  Duration get deadline => const Duration(minutes: 14);
+
   @override
   String get startingLabel => 'Enviando o vídeo…';
 

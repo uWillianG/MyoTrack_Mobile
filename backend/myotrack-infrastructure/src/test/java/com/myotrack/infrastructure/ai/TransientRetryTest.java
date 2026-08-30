@@ -3,6 +3,7 @@ package com.myotrack.infrastructure.ai;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.net.SocketTimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientException;
 
 /**
  * A repetição que substituiu o reprocessamento do job interativo.
@@ -75,6 +77,40 @@ class TransientRetryTest {
 
         assertThat(resultado).isEqualTo("ok");
         assertThat(chamadas).hasValue(TransientRetry.MAX_ATTEMPTS);
+    }
+
+    @Test
+    @DisplayName("repete a chamada que pendurou, mesmo embrulhada em RestClientException")
+    void retriesReadTimeoutWrappedByRestClient() {
+        // O caso real de 30/08/2026: o modelo aceitou a requisição e não terminou de responder.
+        // O timeout estoura no meio da leitura do corpo e o RestClient o embrulha em
+        // "Error while extracting response for type [java.lang.String]" — que não é
+        // ResourceAccessException. Olhando só a casca, a avaria mais comum deste provedor
+        // passava por definitiva: 104 s de espera, zero repetições no log, e a mesma pergunta
+        // respondida em 6,8 s logo depois.
+        AtomicInteger chamadas = new AtomicInteger();
+
+        String resultado = TransientRetry.call("gemini", LOG, () -> {
+            if (chamadas.incrementAndGet() == 1) {
+                throw new RestClientException(
+                        "Error while extracting response for type [java.lang.String]",
+                        new SocketTimeoutException("Read timed out"));
+            }
+            return "ok";
+        });
+
+        assertThat(resultado).isEqualTo("ok");
+        assertThat(chamadas).hasValue(2);
+    }
+
+    @Test
+    @DisplayName("o teto de uma tentativa cabe dentro da janela de repetição")
+    void attemptCeilingFitsInsideTheWindow() {
+        // Não é preferência, é condição de existência: com o teto acima da janela, a primeira
+        // falha por tempo nasce fora do prazo e a repetição nunca acontece — era o teto de 90 s
+        // contra a janela de 45 s. Os dois números só fazem sentido escolhidos juntos, e esta é
+        // a asserção que impede que voltem a divergir.
+        assertThat(TransientRetry.ATTEMPT_CEILING).isLessThan(TransientRetry.RETRY_WINDOW);
     }
 
     @Test
