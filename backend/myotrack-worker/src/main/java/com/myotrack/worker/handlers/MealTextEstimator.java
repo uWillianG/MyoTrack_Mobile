@@ -70,10 +70,11 @@ public class MealTextEstimator {
                 llm.generateJson(systemPrompt(), text, mealTextSchema());
 
         if (result == null) {
-            // Falha de chamada ou resposta vazia — pode ser passageiro (cota, instabilidade), e
-            // por isso NÃO é IllegalStateException: vale reprocessar.
+            // Falha de chamada ou resposta vazia — passageiro (cota, instabilidade). Mesmo
+            // assim o job não é reprocessado: a estimativa é interativa, e a frase que a
+            // gerou continua no campo, pronta para outra tentativa quando a pessoa quiser.
             throw new IllegalArgumentException(
-                    "A IA não respondeu a estimativa. Tentaremos de novo.");
+                    "A IA não respondeu a estimativa. Tente de novo em instantes.");
         }
 
         aiUsage.record(job.getUserId(), AnalysisJobType.MEAL_PHOTO, llm, result);

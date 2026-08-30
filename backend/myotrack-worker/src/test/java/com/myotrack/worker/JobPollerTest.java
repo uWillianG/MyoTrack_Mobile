@@ -28,16 +28,23 @@ import org.mockito.InOrder;
 /**
  * O laço que consome a fila.
  *
- * <p>O que se testa aqui é <b>a diferença entre falha de negócio e falha transitória</b>. Cada
- * tentativa de um job de geração é uma chamada de LLM paga: tratar "perfil incompleto" como
- * transitório faria o mesmo erro determinístico ser pago três vezes, e tratar um timeout de rede
- * como definitivo perderia o trabalho do usuário por uma oscilação de alguns segundos. Os dois
- * enganos são invertidos entre si e nenhum aparece em log de erro — o job simplesmente termina no
- * estado errado.
+ * <p>O que se testa aqui é <b>quando um job volta para a fila</b>, que depende de duas perguntas.
+ * A primeira é a natureza da falha: cada tentativa de um job de geração é uma chamada de LLM
+ * paga, e tratar "perfil incompleto" como transitório faria o mesmo erro determinístico ser pago
+ * três vezes. A segunda é quem está esperando: num job interativo o app acompanha por SSE sem
+ * prazo, então a segunda tentativa não conserta nada mais depressa do que a pessoa conseguiria
+ * tocando no botão — só a faz olhar a barra girar por mais um teto de chamada de IA antes de ler
+ * o erro. Nenhum dos dois enganos aparece em log: o job simplesmente termina no estado errado, ou
+ * termina tarde demais para servir.
  */
 class JobPollerTest {
 
-    /** Igual ao {@code MAX_ATTEMPTS} do poller: a partir daqui a falha transitória vira definitiva. */
+    /**
+     * Igual ao {@code MAX_ATTEMPTS} do poller: a partir daqui a falha transitória vira definitiva.
+     *
+     * <p>Só o job de fundo chega a contar tentativa. O relatório semanal é o único, e é por isso
+     * que ele aparece nos testes de reprocessamento.
+     */
     private static final int MAX_ATTEMPTS = 3;
 
     /** Igual ao {@code MAX_JOBS_PER_SWEEP} do poller. */
@@ -158,13 +165,14 @@ class JobPollerTest {
     class FalhaTransitoria {
 
         @Test
-        @DisplayName("devolve à fila enquanto há tentativa sobrando")
+        @DisplayName("devolve à fila o job de fundo, enquanto há tentativa sobrando")
         void returnsToQueue() {
-            AnalysisJob job = claimedJob(AnalysisJobType.WORKOUT_GENERATION, MAX_ATTEMPTS - 1);
+            JobHandler relatorio = handlerFor(AnalysisJobType.WEEKLY_REPORT);
+            AnalysisJob job = claimedJob(AnalysisJobType.WEEKLY_REPORT, MAX_ATTEMPTS - 1);
             queueHolds(job);
-            when(handler.handle(job)).thenThrow(new RuntimeException("Connection reset"));
+            when(relatorio.handle(job)).thenThrow(new RuntimeException("Connection reset"));
 
-            pollerWith(handler).sweep();
+            pollerWith(relatorio).sweep();
 
             AnalysisJob result = saved();
             assertThat(result.getStatus()).isEqualTo(JobStatus.PENDING);
@@ -178,13 +186,36 @@ class JobPollerTest {
         void givesUpAtMaxAttempts() {
             // Sem este teto o job voltaria para PENDING indefinidamente e a fila nunca
             // esvaziaria — o worker ficaria preso no mesmo job, sem processar os seguintes.
-            AnalysisJob job = claimedJob(AnalysisJobType.WORKOUT_GENERATION, MAX_ATTEMPTS);
+            JobHandler relatorio = handlerFor(AnalysisJobType.WEEKLY_REPORT);
+            AnalysisJob job = claimedJob(AnalysisJobType.WEEKLY_REPORT, MAX_ATTEMPTS);
             queueHolds(job);
-            when(handler.handle(job)).thenThrow(new RuntimeException("Connection reset"));
+            when(relatorio.handle(job)).thenThrow(new RuntimeException("Connection reset"));
 
-            pollerWith(handler).sweep();
+            pollerWith(relatorio).sweep();
 
             assertThat(saved().getStatus()).isEqualTo(JobStatus.FAILED);
+        }
+
+        @Test
+        @DisplayName("o job interativo falha na primeira, com tentativas de sobra")
+        void interactiveDoesNotRetry() {
+            // O caso que motivou a regra: o modelo de IA fora do ar devolvia erro depois de
+            // minutos pendurado, três vezes seguidas, enquanto a tela dizia "Calculando as
+            // porções...". Reprocessar não conserta um provedor fora do ar — só esconde a
+            // notícia de quem podia tentar de novo, corrigir a frase ou desistir.
+            JobHandler refeicao = handlerFor(AnalysisJobType.MEAL_PHOTO);
+            AnalysisJob job = claimedJob(AnalysisJobType.MEAL_PHOTO, 1);
+            queueHolds(job);
+            when(refeicao.handle(job)).thenThrow(new RuntimeException("503 Service Unavailable"));
+
+            pollerWith(refeicao).sweep();
+
+            AnalysisJob result = saved();
+            assertThat(result.getStatus()).isEqualTo(JobStatus.FAILED);
+            // A mensagem é o que o app mostra em snackbar: sem ela a tela só pararia de girar.
+            assertThat(result.getLastError()).isEqualTo("503 Service Unavailable");
+            // Terminal na primeira: quem esperava precisa saber agora, e não em três tentativas.
+            verify(notifier).jobFinished(job);
         }
     }
 
@@ -258,11 +289,12 @@ class JobPollerTest {
         void staysQuietWhileRetrying() {
             // O job voltou para PENDING: ainda vai ser processado. Avisar aqui mandaria um "não
             // foi possível" para algo que muito provavelmente conclui na tentativa seguinte.
-            AnalysisJob job = claimedJob(AnalysisJobType.WORKOUT_GENERATION, MAX_ATTEMPTS - 1);
+            JobHandler relatorio = handlerFor(AnalysisJobType.WEEKLY_REPORT);
+            AnalysisJob job = claimedJob(AnalysisJobType.WEEKLY_REPORT, MAX_ATTEMPTS - 1);
             queueHolds(job);
-            when(handler.handle(job)).thenThrow(new RuntimeException("Connection reset"));
+            when(relatorio.handle(job)).thenThrow(new RuntimeException("Connection reset"));
 
-            pollerWith(handler).sweep();
+            pollerWith(relatorio).sweep();
 
             assertThat(saved().getStatus()).isEqualTo(JobStatus.PENDING);
             verify(notifier, never()).jobFinished(any());

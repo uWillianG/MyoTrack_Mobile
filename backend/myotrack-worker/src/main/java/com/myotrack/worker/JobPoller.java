@@ -27,6 +27,8 @@ public class JobPoller {
     private static final Logger log = LoggerFactory.getLogger(JobPoller.class);
 
     private static final long POLL_INTERVAL_MS = 2_000;
+
+    /** Teto de tentativas de um job de fundo. O interativo não chega a contar — ver {@link #retryable}. */
     private static final int MAX_ATTEMPTS = 3;
 
     /** Teto de jobs por varredura: devolve o controle ao scheduler mesmo com a fila cheia. */
@@ -88,7 +90,7 @@ public class JobPoller {
         } catch (Exception e) {
             log.error("Falha ao processar job {} ({}).", job.getId(), job.getType(), e);
             job.setLastError(e.getMessage());
-            job.setStatus(job.getAttempts() >= MAX_ATTEMPTS ? JobStatus.FAILED : JobStatus.PENDING);
+            job.setStatus(retryable(job) ? JobStatus.PENDING : JobStatus.FAILED);
         }
 
         jobs.save(job);
@@ -102,6 +104,21 @@ public class JobPoller {
         }
 
         return true;
+    }
+
+    /**
+     * Vale devolver este job à fila?
+     *
+     * <p>Duas condições, e a primeira é sobre quem espera. Reprocessar um job interativo não
+     * conserta a falha mais depressa do que o usuário conseguiria tocando no botão de novo — só
+     * adia a notícia por mais um teto de chamada de IA, com a tela girando. Ver
+     * {@link AnalysisJobType#isInteractive()}.
+     *
+     * <p>A segunda é o teto do job de fundo: sem ele o job voltaria para PENDING para sempre e a
+     * varredura ficaria presa no mesmo, sem alcançar os seguintes.
+     */
+    private static boolean retryable(AnalysisJob job) {
+        return !job.getType().isInteractive() && job.getAttempts() < MAX_ATTEMPTS;
     }
 
     private String dispatch(AnalysisJob job) {

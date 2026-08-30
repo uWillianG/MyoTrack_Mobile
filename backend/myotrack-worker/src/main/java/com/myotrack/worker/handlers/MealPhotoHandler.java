@@ -127,10 +127,11 @@ public class MealPhotoHandler implements JobHandler {
                 systemPrompt(), userPrompt(), image, mediaTypeOf(job), mealPhotoSchema());
 
         if (result == null) {
-            // Null aqui é falha de chamada ou resposta vazia — pode ser passageiro (cota,
-            // instabilidade), então NÃO é IllegalStateException: vale reprocessar.
+            // Null aqui é falha de chamada ou resposta vazia — passageiro (cota,
+            // instabilidade). A foto é job interativo: não volta para a fila, e a mensagem
+            // devolve a decisão a quem está esperando.
             throw new IllegalArgumentException(
-                    "A IA não respondeu a análise da foto. Tentaremos de novo.");
+                    "A IA não respondeu a análise da foto. Tente de novo em instantes.");
         }
 
         recordUsage(userId, result);

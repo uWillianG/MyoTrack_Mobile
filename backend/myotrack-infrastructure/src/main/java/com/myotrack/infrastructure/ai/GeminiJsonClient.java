@@ -13,6 +13,7 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -30,7 +31,18 @@ public class GeminiJsonClient implements LlmJsonClient {
 
     static final String BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
     static final String API_KEY_HEADER = "x-goog-api-key";
-    static final Duration TIMEOUT = Duration.ofMinutes(5);
+
+    /** Conectar é rápido em qualquer rede; o que demora é o modelo responder. */
+    static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(15);
+
+    /**
+     * Teto da chamada inteira. Ver {@link #timedFactory()} para por que ele precisa ser dito.
+     *
+     * <p>Folgado para uma chamada boa, que volta em segundos mesmo mandando uma foto junto, e
+     * curto para quem está esperando: o job de estimativa e o do coach não são reprocessados, e
+     * este número é o pior caso da barra girando antes de a pessoa ler o que houve.
+     */
+    static final Duration TIMEOUT = Duration.ofSeconds(90);
 
     /**
      * O {@code responseSchema} do Gemini é um subconjunto do OpenAPI 3.0: palavras-chave como
@@ -47,7 +59,21 @@ public class GeminiJsonClient implements LlmJsonClient {
 
     public GeminiJsonClient(LlmProperties properties, RestClient.Builder restClientBuilder) {
         this.properties = properties;
-        this.restClient = restClientBuilder.build();
+        this.restClient = restClientBuilder.requestFactory(timedFactory()).build();
+    }
+
+    /**
+     * O prazo precisa ser posto na fábrica de requisições — o builder do Boot não tem nenhum.
+     *
+     * <p>Sem isto a constante acima era decorativa e a chamada não tinha teto: um modelo
+     * sobrecarregado devolve 503 depois de minutos pendurado, e cada um deles é somado de novo
+     * a cada reprocessamento do job, na frente de quem está olhando a barra girar.
+     */
+    private static SimpleClientHttpRequestFactory timedFactory() {
+        final SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(CONNECT_TIMEOUT);
+        factory.setReadTimeout(TIMEOUT);
+        return factory;
     }
 
     @Override
@@ -147,13 +173,15 @@ public class GeminiJsonClient implements LlmJsonClient {
                     "contents", List.of(Map.of("role", "user", "parts", parts)),
                     "generationConfig", generationConfig);
 
-            String payload = restClient.post()
+            // O 503 de modelo sobrecarregado é o erro mais comum daqui e passa em segundos.
+            // Ver TransientRetry para por que a repetição mora neste nível, e não no job.
+            String payload = TransientRetry.call(provider(), log, () -> restClient.post()
                     .uri("%s/%s:generateContent".formatted(BASE_URL, properties.geminiModel()))
                     .header(API_KEY_HEADER, properties.geminiApiKey())
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(body)
                     .retrieve()
-                    .body(String.class);
+                    .body(String.class));
 
             return parseResponse(payload);
         } catch (Exception e) {
