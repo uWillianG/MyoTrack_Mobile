@@ -159,14 +159,24 @@ public class CoachChatHandler implements JobHandler {
      * <p>Vem do {@code inputJson} que a API gravou, e conferida contra o dono do job — o id
      * atravessa a fila, e uma conversa é o registro mais íntimo que o app guarda.
      *
-     * <p>O caminho de baixo, a conversa mais recente do usuário, existe para os jobs que a
-     * versão anterior da API enfileirou sem id e que ainda estivessem na fila na hora do
-     * deploy. Para eles, "a conversa" era o fio único, que é exatamente o mais recente.
+     * <p>Job <b>sem</b> id cai na conversa mais recente do usuário: são os que a versão
+     * anterior da API enfileirou e que ainda estivessem na fila na hora do deploy, e para eles
+     * "a conversa" era o fio único, que é exatamente o mais recente.
+     *
+     * <p><b>Job com id que não existe mais falha, e não cai no mesmo caminho.</b> Ele tem um
+     * dono declarado: a conversa foi apagada com a pergunta em voo. Responder na mais recente
+     * seria escrever a resposta de um assunto dentro de outro — que é o defeito que a divisão
+     * em conversas veio consertar.
      */
     private CoachConversation conversationOf(AnalysisJob job) {
-        return idFrom(job.getInputJson())
-                .flatMap(id -> conversations.findByIdAndUserId(id, job.getUserId()))
-                .or(() -> conversations.findFirstByUserIdOrderByUpdatedAtDesc(job.getUserId()))
+        final Optional<UUID> id = idFrom(job.getInputJson());
+        if (id.isPresent()) {
+            return conversations.findByIdAndUserId(id.get(), job.getUserId())
+                    .orElseThrow(() -> new IllegalStateException(
+                            "A conversa desta pergunta não existe mais."));
+        }
+
+        return conversations.findFirstByUserIdOrderByUpdatedAtDesc(job.getUserId())
                 .orElseThrow(() ->
                         new IllegalStateException("A conversa desta pergunta não existe mais."));
     }
