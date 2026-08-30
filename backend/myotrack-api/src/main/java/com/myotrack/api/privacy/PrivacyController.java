@@ -5,6 +5,7 @@ import com.myotrack.infrastructure.identity.ApplicationUser;
 import com.myotrack.infrastructure.repository.AiUsageLogRepository;
 import com.myotrack.infrastructure.repository.ApplicationUserRepository;
 import com.myotrack.infrastructure.repository.BodyMeasurementRepository;
+import com.myotrack.infrastructure.repository.CoachConversationRepository;
 import com.myotrack.infrastructure.repository.CoachMessageRepository;
 import com.myotrack.infrastructure.repository.ConsentRecordRepository;
 import com.myotrack.infrastructure.repository.DietPlanRepository;
@@ -75,6 +76,7 @@ public class PrivacyController {
     private final ExerciseVideoAnalysisRepository videoAnalyses;
     private final AiUsageLogRepository aiUsage;
     private final CoachMessageRepository coachMessages;
+    private final CoachConversationRepository coachConversations;
     private final WeeklyReportRepository weeklyReports;
     private final UserSubscriptionRepository subscriptions;
     private final AccountPurgeService purgeService;
@@ -94,6 +96,7 @@ public class PrivacyController {
             ExerciseVideoAnalysisRepository videoAnalyses,
             AiUsageLogRepository aiUsage,
             CoachMessageRepository coachMessages,
+            CoachConversationRepository coachConversations,
             WeeklyReportRepository weeklyReports,
             UserSubscriptionRepository subscriptions,
             AccountPurgeService purgeService,
@@ -111,6 +114,7 @@ public class PrivacyController {
         this.videoAnalyses = videoAnalyses;
         this.aiUsage = aiUsage;
         this.coachMessages = coachMessages;
+        this.coachConversations = coachConversations;
         this.weeklyReports = weeklyReports;
         this.subscriptions = subscriptions;
         this.purgeService = purgeService;
@@ -167,6 +171,10 @@ public class PrivacyController {
         body.put("mealPhotoAnalyses", mealAnalyses.findByUserIdOrderByCreatedAtDesc(userId, ALL));
         body.put("exerciseVideoAnalyses", videoAnalyses.findByUserIdOrderByCreatedAtDesc(userId, ALL));
         body.put("aiUsage", aiUsage.findByUserIdOrderByCreatedAtDesc(userId));
+        // As conversas vão junto das mensagens: sem os títulos, o export entrega uma pilha de
+        // falas sem saber quais pertencem ao mesmo assunto.
+        body.put("coachConversations",
+                coachConversations.findByUserIdOrderByUpdatedAtDesc(userId, ALL));
         body.put("coachMessages", coachMessages.findByUserIdOrderByCreatedAtAsc(userId));
         body.put("weeklyReports", weeklyReports.findFirstByUserIdOrderByWeekStartDesc(userId)
                 .map(List::of).orElseGet(List::of));

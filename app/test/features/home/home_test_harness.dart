@@ -460,6 +460,33 @@ const conversaComOCoach = [
   ),
 ];
 
+/// O histórico de conversas, da mais recente para a mais antiga.
+///
+/// A primeira é a de [conversaComOCoach] — as duas listas descrevem o mesmo usuário, e é o que
+/// permite à tela abrir na conversa mais recente e encontrar mensagens nela. As outras duas
+/// existem para a folha ter o que listar: uma lista de um item não mostra nem a ordem nem a
+/// marca de qual delas está aberta.
+const conversasComOCoach = [
+  CoachConversation(
+    id: 'conv-1',
+    title: 'Dor no ombro no supino',
+    updatedAt: '2026-08-04T08:03:30',
+    messages: 4,
+  ),
+  CoachConversation(
+    id: 'conv-2',
+    title: 'Ceia antes de dormir',
+    updatedAt: '2026-08-01T21:40:00',
+    messages: 6,
+  ),
+  CoachConversation(
+    id: 'conv-3',
+    title: 'Vale a pena treinar em jejum?',
+    updatedAt: '2026-07-22T06:15:00',
+    messages: 2,
+  ),
+];
+
 /// Três planos esperando revisão, de três alunos e de idades diferentes.
 ///
 /// **As idades são o ponto.** A manchete promove a ponta da fila, e uma fila em que tudo chegou
@@ -620,6 +647,10 @@ List<Override> homeOverrides({
   /// sugere o que perguntar.
   List<CoachMessage> coachMessages = const [],
 
+  /// O histórico de conversas. Vazio pelo mesmo motivo, e é o que faz a tela abrir numa
+  /// conversa nova em vez de na mais recente.
+  List<CoachConversation> coachConversations = const [],
+
   /// A fila de revisão. Vazia no caso comum: quase ninguém é revisor, e `reviewableKinds`
   /// já vem vazio por padrão.
   List<ReviewQueueItem> reviewQueue = const [],
@@ -631,7 +662,19 @@ List<Override> homeOverrides({
   DiaryDay Function(DateTime date)? dayOf,
 }) => [
   reviewQueueProvider.overrideWith((ref) async => reviewQueue),
-  coachMessagesProvider.overrideWith((ref) async => coachMessages),
+  coachConversationsProvider.overrideWith((ref) async => coachConversations),
+  coachMessagesProvider.overrideWith((ref) async {
+    // Sem histórico, a conversa é [coachMessages] e ponto — é o formato de fio único que a
+    // maioria dos testes desta casa assume.
+    if (coachConversations.isEmpty) {
+      return coachMessages;
+    }
+    // Com histórico, [coachMessages] é a conversa **mais recente**; as outras, e a nova, que
+    // ainda não tem id, abrem vazias. É o que faz trocar de conversa mudar a tela num teste.
+    return ref.watch(openConversationProvider) == coachConversations.first.id
+        ? coachMessages
+        : const [];
+  }),
   // Só a família, e de propósito. Sobrescrever também o `diaryDayProvider` deixava os testes
   // cegos para a cadeia que a tela usa de verdade: com o repassador falso no lugar, a Hoje
   // nunca atravessava a família, e o bug de o totalizador não recarregar passou por ela sem

@@ -15,6 +15,7 @@ import '../../core/widgets/empty_state.dart';
 // de valor entre a captura da galeria e a execução do teste.
 import '../home/today_controller.dart' show nowProvider;
 import 'coach_controller.dart';
+import 'coach_conversations_sheet.dart';
 
 /// O rótulo de dia a mostrar **antes** da mensagem [index], ou null quando ela é do mesmo dia
 /// da anterior.
@@ -57,6 +58,11 @@ DateTime? _at(CoachMessage message) => message.createdAt == null
 /// **Sem família de cor.** O coach fala de treino, de dieta e de constância; pintá-lo de
 /// esmeralda ou de índigo diria que ele pertence a um desses assuntos. Neutro, como manda o §4
 /// para o que não é assunto — e o único bloco saturado da tela passa a ser **o que você disse**.
+///
+/// **Uma conversa por vez, e as outras a um toque.** O que a tela desenha é o assunto aberto;
+/// o histórico mora numa folha ([showCoachConversationsSheet]) e não numa coluna lateral, que
+/// é o desenho de tela larga. Em quatro polegadas, dividir a largura entre a lista e a
+/// conversa estreitaria as duas.
 class CoachPage extends ConsumerStatefulWidget {
   const CoachPage({super.key});
 
@@ -102,6 +108,10 @@ class _CoachPageState extends ConsumerState<CoachPage> {
     final state = ref.watch(coachProvider);
     final messagesAsync = ref.watch(coachMessagesProvider);
     final colors = Blocks.neutral(Theme.of(context).colorScheme);
+    final open = ref.watch(openConversationProvider);
+    final conversations =
+        ref.watch(coachConversationsProvider).valueOrNull ?? const [];
+    final current = conversations.where((c) => c.id == open).firstOrNull;
 
     ref.listen(coachProvider, (previous, next) {
       if (next.error != null && next.error != previous?.error) {
@@ -117,7 +127,33 @@ class _CoachPageState extends ConsumerState<CoachPage> {
     });
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Coach')),
+      appBar: AppBar(
+        // **O assunto no lugar do nome do recurso.** Com uma conversa só, "Coach" bastava —
+        // era a tela inteira. Com várias, o título da barra é a única coisa que responde em
+        // qual delas se está, e a pergunta aparece assim que a segunda existe.
+        title: Text(
+          current?.title ?? 'Coach',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        actions: [
+          // Só quando há de onde sair: numa conversa nova e vazia, "nova conversa" não faria
+          // nada, e um botão inerte na barra ensina a desconfiar dos outros.
+          if (open != null)
+            IconButton(
+              onPressed: () =>
+                  ref.read(openConversationProvider.notifier).open(null),
+              icon: const Icon(Icons.add_comment_outlined),
+              tooltip: 'Nova conversa',
+            ),
+          if (conversations.isNotEmpty)
+            IconButton(
+              onPressed: () => showCoachConversationsSheet(context),
+              icon: const Icon(Icons.history),
+              tooltip: 'Conversas',
+            ),
+        ],
+      ),
       body: Column(
         children: [
           Expanded(
@@ -128,7 +164,12 @@ class _CoachPageState extends ConsumerState<CoachPage> {
                 title: 'Não foi possível carregar a conversa.',
                 detail: '$error',
                 action: FilledButton.tonal(
-                  onPressed: () => ref.invalidate(coachMessagesProvider),
+                  // As duas: a falha tanto pode ser da conversa quanto da lista de conversas,
+                  // e recarregar só uma delas deixaria o erro na tela sem explicação.
+                  onPressed: () {
+                    ref.invalidate(coachConversationsProvider);
+                    ref.invalidate(coachMessagesProvider);
+                  },
                   child: const Text('Tentar de novo'),
                 ),
               ),

@@ -197,6 +197,100 @@ void main() {
     expect(find.text('Na fila…'), findsOne);
     expect(find.text('Lendo seu perfil…'), findsNothing);
   });
+
+  /// O que a divisão em conversas trouxe: qual delas abre, como se troca, e o que acontece
+  /// com o que foi dito quando uma some.
+  group('conversas', () {
+    Future<void> comHistorico(
+      WidgetTester tester, [
+      List<Override> extra = const [],
+    ]) async {
+      await pump(tester, [
+        ...homeOverrides(
+          coachMessages: conversaComOCoach,
+          coachConversations: conversasComOCoach,
+        ),
+        ...extra,
+      ]);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('abre na mais recente, e a barra diz qual é', (tester) async {
+      // Abrir numa tela em branco esconderia a conversa de ontem atrás de um botão — e é
+      // justamente a continuidade que faz o coach parecer alguém que acompanha o treino.
+      await comHistorico(tester);
+
+      expect(find.text('Dor no ombro no supino'), findsOne);
+      // A última resposta dela, e não a pergunta: as perguntas de exemplo do convite usam o
+      // mesmo texto, e o teste passaria com a tela mostrando o convite.
+      expect(find.textContaining('72,5 kg'), findsOne);
+    });
+
+    testWidgets('o histórico lista as conversas e marca a aberta', (
+      tester,
+    ) async {
+      await comHistorico(tester);
+      await tester.tap(find.byIcon(Icons.history));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ceia antes de dormir'), findsOne);
+      // Quando ela parou e o tamanho dela: nenhuma das duas basta sozinha.
+      expect(find.text('Hoje · 4 mensagens'), findsOne);
+      expect(find.text('1 de agosto · 6 mensagens'), findsOne);
+      // O tique diz qual das linhas é a que está por baixo da folha.
+      expect(find.byIcon(Icons.check_circle_outline), findsOne);
+    });
+
+    testWidgets('escolher outra conversa troca a que está na tela', (
+      tester,
+    ) async {
+      await comHistorico(tester);
+      await tester.tap(find.byIcon(Icons.history));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Ceia antes de dormir'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ceia antes de dormir'), findsOne);
+      expect(find.textContaining('72,5 kg'), findsNothing);
+    });
+
+    testWidgets('nova conversa devolve o convite', (tester) async {
+      await comHistorico(tester);
+      await tester.tap(find.byIcon(Icons.add_comment_outlined));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('não substitui avaliação médica'), findsOne);
+      expect(find.text('Dor no ombro no supino'), findsNothing);
+    });
+
+    testWidgets('apagar pergunta antes, porque não há desfazer', (
+      tester,
+    ) async {
+      final repository = _FakeCoachRepository(
+        conversaComOCoach,
+        conversas: conversasComOCoach,
+      );
+      await comHistorico(tester, [
+        coachRepositoryProvider.overrideWith((ref) => repository),
+      ]);
+
+      await tester.tap(find.byIcon(Icons.history));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.delete_outline).last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
+
+      expect(repository.apagadas, isEmpty);
+
+      await tester.tap(find.byIcon(Icons.delete_outline).last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Apagar'));
+      await tester.pumpAndSettle();
+
+      expect(repository.apagadas, ['conv-3']);
+    });
+  });
 }
 
 /// O coach no meio de uma resposta.
@@ -233,11 +327,19 @@ class _Queued extends CoachController {
 class _FakeWatcher implements JobWatcher {
   final _events = StreamController<JobStatus>();
 
+  // O prazo é ignorado de propósito: quem decide quando este job anda é o teste, e um
+  // relógio real aqui faria a espera terminar sozinha no meio da verificação.
   @override
-  Stream<JobStatus> watch(String jobId) => _events.stream;
+  Stream<JobStatus> watch(
+    String jobId, {
+    Duration within = JobWatcher.maxWait,
+  }) => _events.stream;
 
   @override
-  Future<JobStatus> await_(String jobId) => watch(jobId).last;
+  Future<JobStatus> await_(
+    String jobId, {
+    Duration within = JobWatcher.maxWait,
+  }) => watch(jobId).last;
 
   void emit(JobState state) =>
       _events.add(JobStatus(id: 'job-1', type: 'CoachChat', state: state));
@@ -249,15 +351,32 @@ class _FakeWatcher implements JobWatcher {
 }
 
 class _FakeCoachRepository implements CoachRepository {
-  _FakeCoachRepository(this.conversa);
+  _FakeCoachRepository(this.conversa, {this.conversas = const []});
 
   /// A mesma lista que o override de `coachMessagesProvider` devolve: mutá-la é o que
   /// simula o servidor tendo gravado a pergunta e a resposta.
   final List<CoachMessage> conversa;
 
-  @override
-  Future<List<CoachMessage>> messages() async => conversa;
+  final List<CoachConversation> conversas;
+
+  /// O que foi apagado, na ordem em que foi.
+  final apagadas = <String>[];
 
   @override
-  Future<String> send(String content) async => 'job-1';
+  Future<List<CoachConversation>> conversations() async => conversas;
+
+  @override
+  Future<List<CoachMessage>> messages(String conversationId) async => conversa;
+
+  @override
+  Future<SentQuestion> send(String content, {String? conversationId}) async => (
+    jobId: 'job-1',
+    // Sem conversa, o servidor abre uma e devolve o id dela — é assim que a tela descobre
+    // em qual conversa a pergunta caiu.
+    conversationId: conversationId ?? 'conv-nova',
+  );
+
+  @override
+  Future<void> remove(String conversationId) async =>
+      apagadas.add(conversationId);
 }

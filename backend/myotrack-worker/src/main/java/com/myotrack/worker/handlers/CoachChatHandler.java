@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myotrack.domain.AnalysisJobType;
 import com.myotrack.domain.PlanStatus;
 import com.myotrack.domain.entity.AnalysisJob;
+import com.myotrack.domain.entity.CoachConversation;
 import com.myotrack.domain.entity.CoachMessage;
 import com.myotrack.domain.entity.DietPlan;
 import com.myotrack.domain.entity.UserProfile;
@@ -12,17 +13,20 @@ import com.myotrack.domain.entity.WorkoutSession;
 import com.myotrack.infrastructure.ai.AiUsageRecorder;
 import com.myotrack.infrastructure.ai.LlmJsonClient;
 import com.myotrack.infrastructure.ai.LlmJsonClient.LlmJsonResult;
+import com.myotrack.infrastructure.repository.CoachConversationRepository;
 import com.myotrack.infrastructure.repository.CoachMessageRepository;
 import com.myotrack.infrastructure.repository.DietPlanRepository;
 import com.myotrack.infrastructure.repository.UserProfileRepository;
 import com.myotrack.infrastructure.repository.WorkoutPlanRepository;
 import com.myotrack.infrastructure.repository.WorkoutSessionRepository;
 import com.myotrack.worker.JobHandler;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Component;
@@ -37,6 +41,12 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>O que faz a resposta valer alguma coisa é o contexto — perfil, planos ativos e as
  * últimas sessões. Sem ele o coach responderia como um chat genérico, e o usuário perceberia
  * na primeira pergunta que ele não sabe nada sobre o treino dele.
+ *
+ * <p><b>A transcrição é a da conversa, e não a do usuário.</b> Perfil, plano e sessões ele lê
+ * do banco a cada resposta; o que só existe no que já foi dito é o assunto em curso. Numa
+ * linha do tempo única, as últimas vinte mensagens podiam ser inteiramente sobre outra coisa —
+ * e a resposta saía respondendo a pergunta anterior de outra pessoa que a mesma pessoa era
+ * ontem.
  */
 @Component
 public class CoachChatHandler implements JobHandler {
@@ -46,10 +56,14 @@ public class CoachChatHandler implements JobHandler {
     /** Mensagens recentes mandadas como transcrição. Além disso é token gasto à toa. */
     private static final Limit HISTORY = Limit.of(20);
 
+    /** Quanto do título cabe numa linha da lista de conversas sem virar parágrafo. */
+    private static final int TITLE_LENGTH = 60;
+
     /** Sessões recentes no contexto: o suficiente para ver a tendência da semana. */
     private static final int RECENT_SESSIONS = 5;
 
     private final CoachMessageRepository messages;
+    private final CoachConversationRepository conversations;
     private final UserProfileRepository profiles;
     private final WorkoutPlanRepository workoutPlans;
     private final DietPlanRepository dietPlans;
@@ -59,6 +73,7 @@ public class CoachChatHandler implements JobHandler {
 
     public CoachChatHandler(
             CoachMessageRepository messages,
+            CoachConversationRepository conversations,
             UserProfileRepository profiles,
             WorkoutPlanRepository workoutPlans,
             DietPlanRepository dietPlans,
@@ -66,6 +81,7 @@ public class CoachChatHandler implements JobHandler {
             AiUsageRecorder aiUsage,
             LlmJsonClient llm) {
         this.messages = messages;
+        this.conversations = conversations;
         this.profiles = profiles;
         this.workoutPlans = workoutPlans;
         this.dietPlans = dietPlans;
@@ -88,8 +104,10 @@ public class CoachChatHandler implements JobHandler {
             throw new IllegalStateException("O coach está indisponível no momento.");
         }
 
-        final List<CoachMessage> history =
-                new ArrayList<>(messages.findByUserIdOrderByCreatedAtDesc(userId, HISTORY));
+        final CoachConversation conversation = conversationOf(job);
+
+        final List<CoachMessage> history = new ArrayList<>(
+                messages.findByConversationIdOrderByCreatedAtDesc(conversation.getId(), HISTORY));
         history.sort(Comparator.comparing(CoachMessage::getCreatedAt));
 
         // O job é criado logo depois de a pergunta ser gravada. Se a última mensagem não for
@@ -117,10 +135,76 @@ public class CoachChatHandler implements JobHandler {
 
         final CoachMessage answer = new CoachMessage();
         answer.setUserId(userId);
+        answer.setConversationId(conversation.getId());
         answer.setFromUser(false);
         answer.setContent(reply.trim());
+        final CoachMessage saved = messages.save(answer);
 
-        return "{\"coachMessageId\":\"%s\"}".formatted(messages.save(answer).getId());
+        conversation.setUpdatedAt(OffsetDateTime.now());
+        // Primeira troca da conversa: o título provisório — a pergunta recortada, que a API
+        // gravou para a lista não nascer anônima — dá lugar ao assunto que o modelo leu nela.
+        // Só aqui, e nunca de novo: um título que muda a cada resposta faria a mesma conversa
+        // aparecer com nomes diferentes a cada visita à lista.
+        if (history.size() == 1) {
+            titleFrom(result.json()).ifPresent(conversation::setTitle);
+        }
+        conversations.save(conversation);
+
+        return "{\"coachMessageId\":\"%s\"}".formatted(saved.getId());
+    }
+
+    /**
+     * A conversa em que responder.
+     *
+     * <p>Vem do {@code inputJson} que a API gravou, e conferida contra o dono do job — o id
+     * atravessa a fila, e uma conversa é o registro mais íntimo que o app guarda.
+     *
+     * <p>O caminho de baixo, a conversa mais recente do usuário, existe para os jobs que a
+     * versão anterior da API enfileirou sem id e que ainda estivessem na fila na hora do
+     * deploy. Para eles, "a conversa" era o fio único, que é exatamente o mais recente.
+     */
+    private CoachConversation conversationOf(AnalysisJob job) {
+        return idFrom(job.getInputJson())
+                .flatMap(id -> conversations.findByIdAndUserId(id, job.getUserId()))
+                .or(() -> conversations.findFirstByUserIdOrderByUpdatedAtDesc(job.getUserId()))
+                .orElseThrow(() ->
+                        new IllegalStateException("A conversa desta pergunta não existe mais."));
+    }
+
+    private static Optional<UUID> idFrom(String input) {
+        if (input == null || input.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            final String value = MAPPER.readTree(input).path("conversationId").asText(null);
+            return value == null || value.isBlank()
+                    ? Optional.empty()
+                    : Optional.of(UUID.fromString(value));
+        } catch (Exception e) {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * O nome que o modelo deu ao assunto, quando veio utilizável.
+     *
+     * <p>{@link Optional#empty()} e não uma exceção: título é acabamento de lista, e a
+     * resposta — que é o que a pessoa está esperando há trinta segundos — não pode ser perdida
+     * porque o modelo devolveu o campo em branco.
+     */
+    private static Optional<String> titleFrom(String json) {
+        try {
+            final String value = MAPPER.readTree(json).path("titulo").asText(null);
+            if (value == null || value.isBlank()) {
+                return Optional.empty();
+            }
+            final String line = value.replaceAll("\\s+", " ").trim();
+            return Optional.of(line.length() <= TITLE_LENGTH
+                    ? line
+                    : line.substring(0, TITLE_LENGTH).trim() + "…");
+        } catch (Exception e) {
+            return Optional.empty();
+        }
     }
 
     private static String replyFrom(String json) {
@@ -239,6 +323,9 @@ public class CoachChatHandler implements JobHandler {
                   profissional de saúde.
                 - Não invente dados que não estejam no contexto; se não souber, diga que não sabe.
                 - Seja conciso: no máximo ~150 palavras, texto corrido ou listas curtas, sem markdown.
+                Devolva também um "titulo" para esta conversa: o assunto dela em até 5 palavras,
+                sem aspas e sem ponto final. Ele nomeia a conversa na lista do app, então
+                descreve o assunto ("Dor no ombro no supino") e nunca a resposta.
                 """;
     }
 
@@ -246,8 +333,11 @@ public class CoachChatHandler implements JobHandler {
         final String schema = """
                 {
                   "type": "object",
-                  "properties": { "reply": { "type": "string" } },
-                  "required": ["reply"]
+                  "properties": {
+                    "reply": { "type": "string" },
+                    "titulo": { "type": "string" }
+                  },
+                  "required": ["reply", "titulo"]
                 }
                 """;
         try {
