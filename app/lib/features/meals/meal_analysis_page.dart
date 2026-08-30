@@ -801,7 +801,16 @@ class _MealRowState extends ConsumerState<_MealRow> {
       else if (_dirty)
         'ajuste não salvo'
       else if (meal.userAdjusted)
-        'você ajustou',
+        'você ajustou'
+      // Por último na cadeia porque é o menos urgente dos quatro, e porque uma refeição
+      // digitada que depois foi corrigida tem mais a dizer com "você ajustou".
+      //
+      // **Existe porque aqui a origem se nota pela ausência.** Esta linha abre mostrando a
+      // foto, e uma refeição sem foto é indistinguível de uma cuja foto a retenção apagou —
+      // as duas abrem sem imagem, e a segunda parece um erro de carregamento. Uma palavra
+      // resolve o que um espaço vazio não explica.
+      else if (meal.isManual)
+        'digitado',
     ].join(' · ');
   }
 

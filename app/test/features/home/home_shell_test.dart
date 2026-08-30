@@ -6,6 +6,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:myotrack/core/sync/sync_queue.dart';
 import 'package:myotrack/core/theme.dart';
 import 'package:myotrack/core/router.dart';
+import 'package:myotrack/core/widgets/glass_segmented.dart';
 import 'package:myotrack/features/analysis/analysis_page.dart';
 import 'package:myotrack/features/coach/coach_fab.dart';
 import 'package:myotrack/features/coach/coach_page.dart';
@@ -16,6 +17,7 @@ import 'package:myotrack/features/home/account_sheet.dart';
 import 'package:myotrack/features/logging/data/logging_models.dart';
 import 'package:myotrack/features/logging/data/logging_repository.dart';
 import 'package:myotrack/features/logging/logging_controller.dart';
+import 'package:myotrack/features/nutrition/nutrition_page.dart';
 
 import 'home_test_harness.dart';
 
@@ -116,9 +118,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(container.read(homeTabProvider), HomeTab.nutrition);
-    // O segmentado da aba prova que é o conteúdo dela, e não só o título trocado.
-    expect(find.text('Diário'), findsOneWidget);
-    expect(find.text('Plano'), findsOneWidget);
+    // O segmentado da aba prova que é o conteúdo dela, e não só o título trocado. Pelo tipo e
+    // não pelos rótulos: ele é só de ícone, e "Diário" e "Plano" não estão escritos em lugar
+    // nenhum da tela — quem os carrega agora é o balão do toque longo e o leitor de tela.
+    expect(find.byType(GlassSegmented<NutritionTab>), findsOne);
   });
 
   testWidgets('a barra continua na tela que a home empilha', (tester) async {
@@ -152,7 +155,7 @@ void main() {
 
     expect(container.read(homeTabProvider), HomeTab.nutrition);
     expect(find.byType(CoachPage), findsNothing);
-    expect(find.text('Diário'), findsOneWidget);
+    expect(find.byType(GlassSegmented<NutritionTab>), findsOne);
   });
 
   testWidgets('o botão Registrar só existe na Hoje', (tester) async {

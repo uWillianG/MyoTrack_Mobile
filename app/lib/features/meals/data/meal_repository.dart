@@ -43,6 +43,48 @@ class MealRepository {
     return json['jobId'] as String;
   }
 
+  /// Pede a estimativa a partir do texto livre e devolve o `jobId`.
+  ///
+  /// **Nada é gravado por esta chamada.** O job devolve os itens no `resultJson` para o
+  /// usuário conferir; quem grava é o [createManual]. É assíncrona pelo mesmo motivo da foto —
+  /// a chave da IA vive só no Worker —, e gasta a mesma cota diária: o job é do tipo
+  /// `MealPhoto`, que é o que o servidor conta.
+  Future<String> estimateFromText(String text) async {
+    final json = await _api.post<Map<String, dynamic>>(
+      '/api/meal-analyses/estimate',
+      body: {'text': text},
+    );
+    return json['jobId'] as String;
+  }
+
+  /// Grava uma refeição montada pelo usuário e devolve a que o servidor gravou.
+  ///
+  /// Devolve a análise já com os totais somados **lá**: mostrar de volta o que o cliente
+  /// calculou esconderia justamente as correções que o servidor aplica — a caloria
+  /// reconciliada com os macros, a porção presa à faixa, o item do catálogo recalculado.
+  Future<MealAnalysis> createManual(MealManualRequest request) async {
+    final json = await _api.post<Map<String, dynamic>>(
+      '/api/meal-analyses/manual',
+      body: request.toJson(),
+    );
+    return MealAnalysis.fromJson(json);
+  }
+
+  /// Busca no catálogo nutricional. [query] em branco devolve o começo da lista.
+  ///
+  /// O branco não é um caso degenerado: é o que a folha de busca mostra **antes** de a pessoa
+  /// digitar qualquer coisa. Uma lista vazia ali pareceria catálogo vazio, e o caminho do
+  /// catálogo morreria antes da primeira tecla.
+  Future<List<FoodItem>> foods({String query = '', int limit = 30}) async {
+    final json = await _api.get<List<dynamic>>(
+      '/api/foods',
+      query: {'q': query, 'limit': limit},
+    );
+    return json
+        .map((e) => FoodItem.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<List<MealAnalysis>> recent({int limit = 30}) async {
     final json = await _api.get<List<dynamic>>(
       '/api/meal-analyses',

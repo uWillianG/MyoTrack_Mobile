@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/design/blocks.dart';
@@ -14,6 +16,7 @@ import '../../core/widgets/blocks.dart';
 import '../../core/widgets/empty_state.dart';
 import '../analysis/analysis_page.dart';
 import '../home/home_page.dart';
+import '../meals/meal_analysis_controller.dart';
 import 'data/diary_models.dart';
 import 'diary_controller.dart';
 
@@ -361,7 +364,18 @@ class _Body extends StatelessWidget {
   }
 }
 
-/// O herói do diário: o total do dia, a barra de refeições e o caminho da próxima.
+/// O herói do diário: o total do dia, a barra de refeições e as portas da próxima.
+///
+/// **As portas são ícones, e nenhuma delas é um botão escrito.** O diário é onde a falta
+/// aparece — "faltam 62 g de proteína" — e é aqui que dá vontade de registrar o que faltou;
+/// mas o assunto do bloco continua sendo o número do dia, não a câmera. Um botão comprido de
+/// texto no rodapé fazia o apêndice parecer a manchete e empurrava para fora da primeira tela
+/// justamente a barra de refeições que se veio ver. Ver [HeroDoors] para a forma, e para por
+/// que a cheia é a da frente.
+///
+/// **A galeria entrou como a segunda porta**, com o mesmo ícone e o mesmo nome que ela tem na
+/// aba Analisar: metade das fotos de prato já está no rolo quando a pessoa lembra de registrar
+/// o almoço, e até aqui o único caminho até elas era mudar de aba e usar a *outra* captura.
 class _DayHero extends ConsumerWidget {
   const _DayHero({
     required this.day,
@@ -388,22 +402,6 @@ class _DayHero extends ConsumerWidget {
       colors: colors,
       label: _dayLabel(date),
       icon: Icons.event_note,
-      // O diário é onde a falta aparece — "faltam 62 g de proteína" — e é aqui que dá vontade
-      // de registrar o que faltou. Sem este botão o caminho era voltar à barra de navegação e
-      // achar a aba Analisar.
-      action: HeroAction(
-        label: 'Fotografar refeição',
-        onPressed: () {
-          ref.read(analysisTabProvider.notifier).state = AnalysisTab.meal;
-          // Dentro do hub troca de aba; numa `/diario` empilhada não há hub, e aí o jeito de
-          // chegar à câmera é a rota.
-          if (ref.read(homeTabProvider) == HomeTab.nutrition) {
-            ref.read(homeTabProvider.notifier).state = HomeTab.analysis;
-          } else {
-            context.push(Routes.mealAnalysis);
-          }
-        },
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -441,9 +439,110 @@ class _DayHero extends ConsumerWidget {
               ),
             ),
           ],
+          // O mesmo vão que o [HeroBlock] reserva sozinho antes da ação do rodapé: a fileira
+          // não vai no `action` do bloco porque não é um botão, e o respiro precisa ser escrito
+          // aqui para que ela fique na mesma linha de base dos heróis que têm um.
+          const SizedBox(height: Space.md),
+          HeroDoors(
+            colors: colors,
+            others: [
+              // A terceira porta entra **à esquerda** das que já existem, que é onde
+              // [HeroDoors] a espera: a fileira cresce para dentro do vazio e o peso continua
+              // subindo até a porta da frente, sem que câmera e galeria mudem de lugar.
+              HeroDoor(
+                icon: Icons.edit_note,
+                label: 'Registrar sem foto',
+                onTap: () => _manual(context),
+              ),
+              HeroDoor(
+                icon: Icons.photo_library_outlined,
+                label: 'Escolher da galeria',
+                onTap: () => _capture(context, ref, ImageSource.gallery),
+              ),
+            ],
+            action: HeroDoor(
+              icon: Icons.photo_camera_outlined,
+              // O mesmo nome da folha de captura rápida e do herói da Analisar, de propósito:
+              // vocabulário que muda entre dois caminhos para o mesmo recurso é o que faz o
+              // usuário achar que são coisas diferentes.
+              label: 'Fotografar refeição',
+              onTap: () => _capture(context, ref, ImageSource.camera),
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  /// Abre a montagem da refeição sem foto, no dia que está na tela.
+  ///
+  /// **Empilha a rota mesmo dentro do hub**, ao contrário do [_capture]. Lá a troca de aba
+  /// existe porque a análise por foto já tem uma tela onde o progresso aparece, e mandar para
+  /// ela é chegar onde o trabalho está acontecendo; aqui o trabalho é montar a refeição, e ele
+  /// só existe na tela que está sendo aberta — não há aba para onde ir.
+  ///
+  /// **A data vai junto**, e não é lida do `diaryDateProvider` lá dentro: é o dia **desta
+  /// página** do carrossel, e no meio de um arrasto entre dois dias há duas páginas vivas —
+  /// "o dia aberto" pode já ser o vizinho quando o toque chegar.
+  void _manual(BuildContext context) =>
+      unawaited(context.push(Routes.manualMeal, extra: date));
+
+  /// Manda a foto e leva a pessoa até onde a análise aparece.
+  ///
+  /// **A foto vem primeiro, a mudança de tela depois.** A ordem inversa — trocar de aba e só
+  /// então abrir o seletor — é mais simples de escrever e cobra caro em quem desiste: a folha
+  /// do sistema cobre o app inteiro, então a troca acontece invisível por trás dela, e cancelar
+  /// deixaria a pessoa numa aba que ela não pediu, com o dia do carrossel para trás. Escolhendo
+  /// antes, desistir não tira ninguém do lugar e a mudança de tela só acontece quando há mesmo
+  /// o que ver lá.
+  ///
+  /// **E ela acontece antes de o envio começar**, e não depois: a análise é assíncrona e leva
+  /// dezenas de segundos, com barra de progresso e passos que só existem na tela de refeições —
+  /// [MealAnalysisController.analyzeFrom] inteiro só voltaria quando o job tivesse acabado, e
+  /// até lá a foto estaria subindo para uma tela que não mostra nada. Por isso o [pick] e o
+  /// `start` vêm separados, com a navegação entre os dois.
+  ///
+  /// **O modo ilustrado não vale para uma captura daqui.** Ele é um estado local da tela de
+  /// refeições, não uma preferência guardada — não há o que herdar —, e o interruptor que o
+  /// liga carrega a ressalva de que custa uma chamada a mais e nem sempre está disponível.
+  /// Ligá-lo em silêncio a partir de um bloco que não o mostra gastaria a chamada por conta
+  /// própria; repeti-lo aqui poria um controle sobre a IA dentro do bloco cujo assunto é
+  /// quantas calorias o dia já tem. Quem quer as marcações vai à Analisar, onde a ressalva
+  /// está escrita ao lado do interruptor.
+  Future<void> _capture(
+    BuildContext context,
+    WidgetRef ref,
+    ImageSource source,
+  ) async {
+    // Tudo o que vai ser usado depois do `await` é lido antes dele: a folha do seletor demora o
+    // que a pessoa levar procurando a foto, e um `ref` de widget não sobrevive à página do
+    // carrossel sendo descartada no meio disso.
+    final meals = ref.read(mealAnalysisProvider.notifier);
+    final analysisTab = ref.read(analysisTabProvider.notifier);
+    final homeTab = ref.read(homeTabProvider.notifier);
+    final inHub = ref.read(homeTabProvider) == HomeTab.nutrition;
+
+    // Com uma análise já em curso o seletor nem abre. O controller é um só, e uma segunda foto
+    // preparada por cima da primeira seria descartada em silêncio — o `start` devolve na hora
+    // quando já está rodando. Aqui a porta vira o caminho até o progresso, que é a resposta
+    // honesta à pergunta que o toque fez.
+    final busy = ref.read(mealAnalysisProvider).running;
+    if (!busy && !await meals.pick(source)) {
+      return;
+    }
+
+    analysisTab.state = AnalysisTab.meal;
+    // Dentro do hub troca de aba; numa `/diario` empilhada não há hub, e aí o jeito de chegar
+    // ao progresso é a rota.
+    if (inHub) {
+      homeTab.state = HomeTab.analysis;
+    } else if (context.mounted) {
+      unawaited(context.push(Routes.mealAnalysis));
+    }
+
+    if (!busy) {
+      await meals.start();
+    }
   }
 }
 
@@ -620,7 +719,11 @@ class _NoMeals extends StatelessWidget {
         Text('Nenhuma refeição neste dia.', style: theme.textTheme.titleSmall),
         const SizedBox(height: 2),
         Text(
-          'Fotografe o prato e a IA estima calorias e macros.',
+          // As três portas do herói, na ordem em que valem a pena: a foto continua sendo a da
+          // frente, e "sem foto" é o que a pessoa precisa saber que existe — até aqui ela não
+          // tinha como registrar o que já tinha comido.
+          'Fotografe o prato e a IA estima calorias e macros — '
+          'ou registre sem foto, descrevendo o que você comeu.',
           style: theme.textTheme.bodySmall,
         ),
       ],

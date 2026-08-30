@@ -125,7 +125,11 @@ public class DietGenerationHandler implements JobHandler {
                 profile.getTrainingDaysPerWeek(),
                 calorieGoal);
 
-        final List<FoodItem> catalog = foods.findAll();
+        // Não é o catálogo inteiro: o do diário inclui açúcar, refrigerante, coxinha e whey em
+        // pó, porque é o que a pessoa come. O motor escolhe pelo macro dominante, e para ele
+        // esses são os melhores candidatos que existem — nada tem mais carboidrato por grama que
+        // açúcar refinado. Ver FoodItem.usableInDiet.
+        final List<FoodItem> catalog = foods.findByUsableInDietTrue();
         final List<String> restrictions = List.of(profile.getDietaryRestrictions());
 
         GeneratedDiet diet = DietRuleEngine.generate(targets, catalog, restrictions);

@@ -34,7 +34,18 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Estima os macros de uma refeição a partir da foto.
+ * Estima os macros de uma refeição — a partir da foto, ou da descrição que o usuário escreveu.
+ *
+ * <p><b>Os dois caminhos são o mesmo tipo de job</b>, {@code MEAL_PHOTO}, e isso é o que faz a
+ * cota diária valer para ambos sem uma segunda contabilidade: quem conta é
+ * {@code countByUserIdAndType(..., MEAL_PHOTO, hoje)}, e um tipo novo simplesmente não seria
+ * visto por ela. O {@code inputJson} traz {@code "mode"} para separar; a ausência dele é o
+ * caminho da foto, que é como se parecem todos os jobs gravados antes de a entrada manual
+ * existir.
+ *
+ * <p>O que os dois <b>não</b> compartilham é o desfecho: a foto grava uma linha do diário, a
+ * descrição devolve itens para o usuário conferir e não persiste nada. Por isso a estimativa por
+ * texto vive no {@link MealTextEstimator}, e aqui só entra o desvio.
  *
  * <p>Diferente das gerações de treino e dieta em um ponto que muda o desenho: <b>não há motor de
  * regras para cair quando a IA falha</b>. Treino e dieta são derivados do perfil, que o backend
@@ -54,12 +65,16 @@ public class MealPhotoHandler implements JobHandler {
 
     private static final String DEFAULT_MEDIA_TYPE = "image/jpeg";
 
+    /** Valor de {@code inputJson.mode} que desvia para a estimativa por descrição. */
+    private static final String TEXT_MODE = "text";
+
     private final MealPhotoAnalysisRepository analyses;
     private final FoodItemRepository foods;
     private final AiUsageRecorder aiUsage;
     private final MediaStorage storage;
     private final LlmJsonClient llm;
     private final GeminiImageClient imageClient;
+    private final MealTextEstimator textEstimator;
 
     public MealPhotoHandler(
             MealPhotoAnalysisRepository analyses,
@@ -67,13 +82,15 @@ public class MealPhotoHandler implements JobHandler {
             AiUsageRecorder aiUsage,
             MediaStorage storage,
             LlmJsonClient llm,
-            GeminiImageClient imageClient) {
+            GeminiImageClient imageClient,
+            MealTextEstimator textEstimator) {
         this.analyses = analyses;
         this.foods = foods;
         this.aiUsage = aiUsage;
         this.storage = storage;
         this.llm = llm;
         this.imageClient = imageClient;
+        this.textEstimator = textEstimator;
     }
 
     @Override
@@ -84,6 +101,13 @@ public class MealPhotoHandler implements JobHandler {
     @Override
     @Transactional
     public String handle(AnalysisJob job) {
+        // O desvio vem antes de qualquer coisa que pressuponha imagem. Sem "mode", é foto: os
+        // jobs gravados antes da entrada manual não têm o campo, e tratá-los como texto os faria
+        // falhar em massa numa fila que já existe.
+        if (TEXT_MODE.equals(modeOf(job))) {
+            return textEstimator.estimate(job);
+        }
+
         final UUID userId = job.getUserId();
 
         final String mediaKey = job.getMediaKey();
@@ -137,6 +161,22 @@ public class MealPhotoHandler implements JobHandler {
             throw new IllegalStateException("A foto da refeição não está mais disponível.");
         }
         return image;
+    }
+
+    /** Qual dos dois caminhos este job pede. Null/ausente = foto. */
+    private static String modeOf(AnalysisJob job) {
+        final String input = job.getInputJson();
+        if (input == null || input.isBlank()) {
+            return null;
+        }
+        try {
+            return MAPPER.readTree(input).path("mode").asText(null);
+        } catch (Exception e) {
+            // JSON ilegível cai no caminho da foto, que falha adiante com mensagem sobre a foto
+            // ausente — dizer "descrição inválida" para um job que talvez seja de foto seria
+            // mandar o usuário procurar o problema no lugar errado.
+            return null;
+        }
     }
 
     /** O usuário pediu a versão anotada? Vem no {@code inputJson} montado pelo controller. */

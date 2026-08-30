@@ -13,6 +13,7 @@ import '../features/diary/diary_page.dart';
 import '../features/diet/diet_plan_page.dart';
 import '../features/home/app_shell.dart';
 import '../features/home/home_page.dart';
+import '../features/meals/manual_meal_page.dart';
 import '../features/meals/meal_analysis_page.dart';
 import '../features/privacy/account_page.dart';
 import '../features/profile/profile_page.dart';
@@ -41,6 +42,14 @@ class Routes {
   static const workoutMode = '/treinar';
   static const dietPlan = '/dieta';
   static const mealAnalysis = '/refeicoes';
+
+  /// Registrar uma refeição sem foto. Não existe na SPA: nasce do app, onde o diário é
+  /// navegável por dia e a pessoa lembra do almoço à noite, sem foto nenhuma para mandar.
+  ///
+  /// Recebe por `extra` o dia do diário em que a refeição entra — nunca vem de link externo,
+  /// e por isso pode contar com `extra`, que não sobreviveria a um.
+  static const manualMeal = '/refeicao-manual';
+
   static const diary = '/diario';
   static const videoAnalysis = '/videos';
   static const review = '/revisao';
@@ -148,6 +157,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.mealAnalysis,
             builder: (_, _) => const MealAnalysisPage(),
+          ),
+          GoRoute(
+            path: Routes.manualMeal,
+            builder: (_, state) =>
+                ManualMealPage(day: state.extra as DateTime?),
           ),
           GoRoute(
             path: Routes.videoAnalysis,

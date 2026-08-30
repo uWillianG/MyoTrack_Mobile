@@ -133,4 +133,11 @@ public final class EnumConverters {
             super(DevicePlatform.class);
         }
     }
+
+    @Converter(autoApply = true)
+    public static class MealSourceConverter extends Base<MealSource> {
+        public MealSourceConverter() {
+            super(MealSource.class);
+        }
+    }
 }

@@ -149,7 +149,7 @@ class HeroAction {
           // ação ele sairia como uma mancha de outra paleta.
           disabledBackgroundColor: colors.ink.withValues(alpha: 0.35),
           disabledForegroundColor: colors.wash.withValues(alpha: 0.75),
-          minimumSize: const Size.fromHeight(46),
+          minimumSize: const Size.fromHeight(_targetHeight),
         ),
         onPressed: onPressed,
         child: Text(label),
@@ -157,6 +157,21 @@ class HeroAction {
     );
   }
 }
+
+/// A altura de todo alvo do rodapé de um herói — o botão escrito de [HeroAction] e as portas de
+/// ícone ao lado dele.
+///
+/// Escrita uma vez porque é ela que faz os alvos de uma mesma linha casarem: dois botões de
+/// alturas diferentes encostados é o detalhe que denuncia uma linha montada às pressas.
+const double _targetHeight = 46;
+
+/// A largura de uma porta de ícone.
+///
+/// Mais larga do que alta de propósito: ao lado de um botão comprido, um quadrado lê como um
+/// terceiro componente, e deitado ele lê como o irmão menor da ação. Numa fileira só de portas
+/// ([HeroDoors]) a proporção continua valendo por outro motivo — é a mesma peça, e ela não pode
+/// mudar de forma ao mudar de tela.
+const double _doorWidth = 58;
 
 /// A ação do herói com uma segunda porta ao lado.
 ///
@@ -174,6 +189,11 @@ class HeroAction {
 /// põe o rolo de fotos: assim o peso da linha cresce da esquerda para a direita e termina na
 /// ação. O nome não some — ele continua sendo o que o leitor de tela anuncia e o que aparece ao
 /// segurar o alvo.
+///
+/// **Use esta forma quando o herói *for* o trabalho** — o bloco da Analisar não tem número nem
+/// frase depois da primeira foto, e o verbo escrito no botão é a única coisa que ainda diz o
+/// que aquela tela faz. Quando o herói fala de outra coisa e a captura é o que se faz *depois*
+/// de ler o número, a forma é [HeroDoors].
 class HeroActions extends StatelessWidget {
   const HeroActions({
     super.key,
@@ -197,43 +217,161 @@ class HeroActions extends StatelessWidget {
 
   final VoidCallback? onSecond;
 
-  /// A altura do botão de qualquer herói — ver [HeroAction]. O alvo secundário é mais largo do
-  /// que alto de propósito: um quadrado ao lado de um botão comprido lê como um terceiro
-  /// componente, e deitado ele lê como o irmão menor da ação.
-  static const double _height = 46;
-
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        // O aperto no toque, nos dois alvos: a resposta nasce no dedo encostando, e não no
-        // botão sendo solto — ver [PressableScale].
-        PressableScale(
-          child: SizedBox(
-            width: 58,
-            height: _height,
-            child: IconButton(
-              onPressed: onSecond,
-              tooltip: secondLabel,
-              icon: Icon(secondIcon, size: 22),
-              style: IconButton.styleFrom(
-                // Um lavado da família, e não mais vidro: sobre o vidro do próprio herói, um
-                // botão translúcido não apareceria — empilhar material sobre material é o que
-                // faz a legibilidade das duas camadas cair junto.
-                backgroundColor: colors.ink.withValues(alpha: 0.14),
-                foregroundColor: colors.ink,
-                shape: const RoundedRectangleBorder(borderRadius: Radii.smAll),
-              ),
-            ),
-          ),
+        _Door(
+          icon: secondIcon,
+          label: secondLabel,
+          onTap: onSecond,
+          colors: colors,
         ),
         const SizedBox(width: Space.sm),
         Expanded(
           // A ação não vai no `action` do bloco porque precisa dividir a linha com a segunda
           // porta; o que ela desenha é o mesmo botão de sempre.
+          //
+          // O aperto no toque também aqui: a resposta nasce no dedo encostando, e não no botão
+          // sendo solto — ver [PressableScale].
           child: PressableScale(child: action.build(context, colors)),
         ),
       ],
+    );
+  }
+}
+
+/// Uma porta do herói: um caminho para o trabalho, com o nome dito e não escrito.
+@immutable
+class HeroDoor {
+  const HeroDoor({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+
+  /// O nome da porta. Não aparece na tela: é o que o leitor de tela anuncia e o que surge ao
+  /// segurar o alvo. Um ícone sozinho não tem nome para anunciar.
+  final String label;
+
+  /// Não é anulável, ao contrário de [HeroAction.onPressed]. Lá o nulo é um estado com quadro
+  /// próprio — o rótulo vira "Gerando…" enquanto o trabalho corre, e o botão apagado é o que
+  /// impede o segundo disparo. Uma porta não tem rótulo em que contar isso: apagada, ela seria
+  /// um ícone morto que não explica por que não abre. Porta que não leva a lugar nenhum não é
+  /// desenhada.
+  final VoidCallback onTap;
+}
+
+/// A fileira de portas do herói: vários caminhos para o mesmo trabalho, todos em ícone.
+///
+/// **É a outra metade de [HeroActions], e a escolha entre as duas não é de gosto.** Lá o herói
+/// é o próprio trabalho, e o verbo escrito é o que diz o que a tela faz. Aqui o herói já disse
+/// tudo — no diário ele é a data, o total do dia e a barra de refeições — e a captura é o que
+/// se faz *depois* de ler o número. Um botão comprido de texto no rodapé promoveria o apêndice
+/// a manchete, e é ele que empurra para fora da primeira tela a barra que se veio ver.
+///
+/// **Com todas as portas do mesmo tamanho, quem diz qual é a da frente é o preenchimento.** Em
+/// [HeroActions] essa função é da escala; sem ela, o par que a substitui já existe no sistema e
+/// não precisou ser inventado — a cor cheia da família é a ação, o lavado dela é o caminho
+/// alternativo. São as duas superfícies dos dois alvos de lá, agora sem a diferença de largura
+/// entre elas.
+///
+/// **A fileira encolhe ao próprio tamanho e encosta na direita.** Esticada, ela seria a tira de
+/// nada com dois pontinhos que o `GlassSegmented` compacto já recusou pelo mesmo motivo; à
+/// direita, o peso da linha continua crescendo até a porta da frente, que é a ordem que a
+/// Analisar estabeleceu — a mesma captura com a câmera em pontas opostas conforme a tela seria
+/// vocabulário divergindo. É também o que faz caber uma **terceira** porta sem redesenhar nada:
+/// ela entra à esquerda das que já existem, e a fileira cresce para dentro do vazio em vez de
+/// espremer as vizinhas.
+class HeroDoors extends StatelessWidget {
+  const HeroDoors({
+    super.key,
+    required this.colors,
+    required this.action,
+    this.others = const [],
+  });
+
+  final BlockColors colors;
+
+  /// A porta da frente: a única cheia, e sempre a última da fileira.
+  final HeroDoor action;
+
+  /// Os outros caminhos para o mesmo trabalho, à esquerda dela e na ordem em que aparecem.
+  final List<HeroDoor> others;
+
+  @override
+  Widget build(BuildContext context) {
+    final doors = [...others, action];
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        for (var i = 0; i < doors.length; i++) ...[
+          if (i > 0) const SizedBox(width: Space.sm),
+          _Door(
+            icon: doors[i].icon,
+            label: doors[i].label,
+            onTap: doors[i].onTap,
+            colors: colors,
+            filled: i == doors.length - 1,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// O alvo de uma porta de ícone.
+///
+/// Uma peça só para a segunda porta de [HeroActions] e para a fileira de [HeroDoors]: são o
+/// mesmo alvo com a mesma finalidade em telas vizinhas, e duas cópias divergiriam no alfa do
+/// lavado ou na altura — que é exatamente o que [HeroActions] nasceu para evitar.
+class _Door extends StatelessWidget {
+  const _Door({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    required this.colors,
+    this.filled = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+  final BlockColors colors;
+
+  /// A porta da frente veste a cor cheia da família, como o botão de [HeroAction].
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    // O aperto no toque: a resposta nasce no dedo encostando, e não no botão sendo solto —
+    // ver [PressableScale].
+    return PressableScale(
+      child: SizedBox(
+        width: _doorWidth,
+        height: _targetHeight,
+        child: IconButton(
+          onPressed: onTap,
+          tooltip: label,
+          icon: Icon(icon, size: 22),
+          style: IconButton.styleFrom(
+            // Um lavado da família, e não mais vidro: sobre o vidro do próprio herói, um botão
+            // translúcido não apareceria — empilhar material sobre material é o que faz a
+            // legibilidade das duas camadas cair junto.
+            backgroundColor: filled
+                ? colors.ink
+                : colors.ink.withValues(alpha: 0.14),
+            // O lavado da família como tinta da porta cheia, pelo mesmo par de luminâncias já
+            // conferido em [HeroAction]: escuro sob a tinta clara do tema escuro, claro sob a
+            // tinta escura do claro.
+            foregroundColor: filled ? colors.wash : colors.ink,
+            shape: const RoundedRectangleBorder(borderRadius: Radii.smAll),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -5,8 +5,17 @@ import java.math.BigDecimal;
 import java.util.List;
 
 /**
- * Alimentos básicos da dieta brasileira, valores por 100 g (base TACO 4ª ed., arredondados).
- * Porte de MyoTrack.Infrastructure/Seed/FoodSeed.cs.
+ * Catálogo de alimentos <b>para testes</b>, valores por 100 g (base TACO 4ª ed., arredondados).
+ *
+ * <p>Já foi o seed de produção — o {@code DbSeeder} o gravava no primeiro boot com banco vazio.
+ * Não é mais: o catálogo passou a ser semeado por migração Flyway ({@code V8__food_catalog_seed}),
+ * que é o único jeito de um alimento novo entrar num banco que já tem alimentos. Esta lista
+ * sobreviveu porque os testes do motor de dieta precisam de um catálogo pequeno, fixo e legível
+ * no próprio arquivo; parear um teste com duas centenas de linhas de SQL tornaria ilegível o que
+ * eles verificam.
+ *
+ * <p><b>Não é uma cópia reduzida do catálogo real</b>, e não deve ser mantida em sincronia com
+ * ele: é uma amostra, e o que os testes afirmam vale para qualquer catálogo com estes macros.
  */
 public final class FoodSeed {
 

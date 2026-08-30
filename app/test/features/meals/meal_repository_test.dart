@@ -272,4 +272,170 @@ void main() {
       expect(updated.userAdjusted, isTrue);
     });
   });
+
+  group('refeição sem foto', () {
+    test('a estimativa por texto devolve um jobId, e não itens', () async {
+      // É o ponto do endpoint: ele **não grava nada**. O que volta é um job, e os itens
+      // chegam no `resultJson` dele para o usuário conferir antes de salvar.
+      adapter.onPost(
+        '/api/meal-analyses/estimate',
+        (server) => server.reply(202, {'jobId': 'job-texto'}),
+        data: {'text': '2 ovos fritos e um pão francês'},
+      );
+
+      expect(
+        await repo.estimateFromText('2 ovos fritos e um pão francês'),
+        'job-texto',
+      );
+    });
+
+    test('a estimativa gasta a mesma cota da foto e devolve 429', () async {
+      // Mesmo balde, por decisão de produto: uma chamada de IA é uma chamada de IA. O app
+      // reconhece o 429 para oferecer o Pro, venha ele da foto ou do texto.
+      adapter.onPost(
+        '/api/meal-analyses/estimate',
+        (server) => server.reply(429, {
+          'error':
+              'Limite diário de 10 análises de refeição atingido. Assine o Pro para ampliar.',
+        }),
+        data: Matchers.any,
+      );
+
+      await expectLater(
+        repo.estimateFromText('2 ovos fritos'),
+        throwsA(
+          isA<ApiException>().having(
+            (e) => e.isRateLimited,
+            'isRateLimited',
+            isTrue,
+          ),
+        ),
+      );
+    });
+
+    test('o corpo da refeição manual não carrega total nenhum', () {
+      // Sem adaptador: o que se prova aqui é o **contrato**, não a rota. É o total que o
+      // diário soma, e o servidor recusa recebê-lo pronto justamente para que a soma não
+      // possa divergir dos itens — um `totalKcal` que vazasse para o corpo passaria
+      // despercebido até alguém comparar dois números na tela.
+      final body = const MealManualRequest(
+        items: [
+          MealManualItem(
+            description: 'Arroz branco cozido',
+            foodItemId: 12,
+            quantityG: 150,
+          ),
+        ],
+      ).toJson();
+
+      expect(body.keys, unorderedEquals(['items', 'createdAt']));
+      expect(
+        const MealManualItem(
+          description: 'Arroz branco cozido',
+          foodItemId: 12,
+          quantityG: 150,
+        ).toJson(),
+        {
+          'description': 'Arroz branco cozido',
+          'foodItemId': 12,
+          'quantityG': 150,
+          // Zerados de propósito: com vínculo de catálogo o servidor os recalcula da tabela,
+          // e sem vínculo o zero em kcal é o que o faz derivá-la dos macros.
+          'kcal': 0,
+          'proteinG': 0,
+          'carbsG': 0,
+          'fatG': 0,
+        },
+      );
+    });
+
+    test('a refeição manual devolve o que o servidor gravou', () async {
+      adapter.onPost(
+        '/api/meal-analyses/manual',
+        (server) => server.reply(201, {
+          ...analysisJson(photoUrl: null),
+          'source': 'Manual',
+          'analysisJobId': null,
+        }),
+        // `Matchers.any` como no ajuste com itens: o `toJson` do freezed deixa a lista com os
+        // objetos Dart dentro (é o `jsonEncode` do Dio que os converte), e comparar isso com
+        // um mapa literal falha por tipo, não por conteúdo. O corpo é conferido no teste acima.
+        data: Matchers.any,
+      );
+
+      final saved = await repo.createManual(
+        const MealManualRequest(
+          items: [
+            MealManualItem(
+              description: 'Arroz branco cozido',
+              foodItemId: 12,
+              quantityG: 150,
+            ),
+          ],
+        ),
+      );
+
+      // O que volta é o que o **servidor** gravou, com os totais somados lá — e não o
+      // rascunho que subiu. Mostrar de volta o que o cliente calculou esconderia justamente
+      // as correções que ele aplica.
+      expect(saved.totalKcal, 393);
+      expect(saved.isManual, isTrue);
+      expect(saved.analysisJobId, isNull);
+    });
+
+    test('a busca no catálogo aceita o texto em branco', () async {
+      // Em branco é o começo do catálogo, e é o que a folha mostra antes da primeira tecla:
+      // uma lista vazia ali pareceria catálogo vazio.
+      adapter.onGet(
+        '/api/foods',
+        (server) => server.reply(200, [
+          {
+            'id': 1,
+            'name': 'Arroz branco cozido',
+            'kcalPer100g': 128,
+            'proteinPer100g': 2.5,
+            'carbsPer100g': 28.1,
+            'fatPer100g': 0.2,
+            'fiberPer100g': 1.6,
+            'source': 'TACO',
+          },
+        ]),
+        queryParameters: {'q': '', 'limit': 30},
+      );
+
+      final foods = await repo.foods();
+
+      expect(foods.single.name, 'Arroz branco cozido');
+      // Por 100 g, e o nome do campo diz isso: é a regra de três que separa 128 de 192.
+      expect(foods.single.kcalPer100g, 128);
+      expect(foods.single.fiberPer100g, 1.6);
+    });
+
+    test('a origem vem do servidor, e não da ausência de foto', () async {
+      // `photoUrl` nula não responde a pergunta: a retenção (LGPD) apaga a foto de análises
+      // antigas e deixa o resultado para trás, então "nunca teve foto" e "a foto expirou"
+      // chegam idênticas ao app.
+      adapter.onGet(
+        '/api/meal-analyses/a1',
+        (server) => server.reply(200, {
+          ...analysisJson(photoUrl: null),
+          'source': 'Manual',
+        }),
+      );
+
+      final meal = await repo.byId('a1');
+
+      expect(meal.isManual, isTrue);
+    });
+
+    test('sem o campo source, a refeição não passa por manual', () async {
+      // É o que uma versão anterior da API responde, e nela toda refeição era de foto.
+      adapter.onGet(
+        '/api/meal-analyses/a1',
+        (server) => server.reply(200, analysisJson()),
+      );
+
+      expect((await repo.byId('a1')).isManual, isFalse);
+    });
+  });
 }

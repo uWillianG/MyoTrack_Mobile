@@ -1,5 +1,6 @@
 package com.myotrack.domain.entity;
 
+import com.myotrack.domain.MealSource;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -14,8 +15,19 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * Resultado da análise de refeição por foto. Os itens ficam em JSONB
+ * Uma refeição do diário alimentar. Os itens ficam em JSONB
  * para permitir edição manual sem migração de schema.
+ *
+ * <p><b>O nome envelheceu de propósito.</b> A tabela nasceu servindo só à análise por foto e hoje
+ * guarda também a refeição digitada à mão, sem foto e sem job. A alternativa era uma segunda
+ * tabela, e ela custaria caro no lugar errado: diário, relatório semanal, exportação e exclusão
+ * de conta (LGPD) leem <b>esta</b> entidade, e cada um deles precisaria aprender a ler duas
+ * fontes e a somá-las na ordem certa. Renomear a tabela, por sua vez, seria uma migração que
+ * trava a maior tabela do usuário para ganhar apenas um nome melhor.
+ *
+ * <p>O que muda com isso é o que pode ser nulo: {@code MediaKey} e {@code AnalysisJobId} valem
+ * para a foto e não existem na entrada manual. Quem precisa distinguir olha {@link #source}, e
+ * não a nulidade — ver {@link MealSource}.
  */
 @Entity
 @Table(name = "MealPhotoAnalyses")
@@ -31,11 +43,17 @@ public class MealPhotoAnalysis {
     @Column(name = "UserId", nullable = false)
     private UUID userId;
 
-    @Column(name = "AnalysisJobId", nullable = false)
+    /** Null na refeição manual: ela não passa pela fila de IA para ser gravada. */
+    @Column(name = "AnalysisJobId")
     private UUID analysisJobId;
 
-    @Column(name = "MediaKey", nullable = false)
+    /** Null na refeição manual: não há foto nenhuma no storage. */
+    @Column(name = "MediaKey")
     private String mediaKey;
+
+    /** Foto ou entrada manual. Ver {@link MealSource} para por que o campo existe. */
+    @Column(name = "Source", nullable = false)
+    private MealSource source = MealSource.PHOTO;
 
     /** Itens detectados: [{description, foodItemId?, quantityG, kcal, proteinG, carbsG, fatG}]. */
     @JdbcTypeCode(SqlTypes.JSON)

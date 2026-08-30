@@ -5,7 +5,6 @@ import com.myotrack.infrastructure.identity.AppRoles;
 import com.myotrack.infrastructure.identity.ApplicationRole;
 import com.myotrack.infrastructure.repository.ApplicationRoleRepository;
 import com.myotrack.infrastructure.repository.ExerciseRepository;
-import com.myotrack.infrastructure.repository.FoodItemRepository;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -16,10 +15,18 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Semeia papéis e catálogos no startup. Porte de MyoTrack.Infrastructure/Seed/DbSeeder.cs.
+ * Semeia papéis e o catálogo de exercícios no startup. Porte de
+ * MyoTrack.Infrastructure/Seed/DbSeeder.cs.
  *
  * <p>É idempotente e roda a cada boot: itens novos do catálogo entram também em bancos já
  * populados, sem passo manual de banco.
+ *
+ * <p><b>O catálogo de alimentos saiu daqui</b> e passou a ser semeado por migração Flyway
+ * ({@code V8__food_catalog_seed.sql}). Ele nunca teve a sincronização que os exercícios têm: a
+ * guarda era {@code if (count() == 0)}, o que faz o seed valer uma vez e depois congelar — um
+ * alimento acrescentado à lista nunca chegava a um banco que já tivesse alimentos, e a lista Java
+ * passava a descrever um catálogo que só existia em máquina nova. Migração resolve exatamente
+ * isso: roda uma vez por banco, na ordem, e o que ela afirma é o que está lá.
  */
 @Component
 public class DbSeeder {
@@ -28,19 +35,16 @@ public class DbSeeder {
 
     private final ApplicationRoleRepository roles;
     private final ExerciseRepository exercises;
-    private final FoodItemRepository foods;
 
-    public DbSeeder(ApplicationRoleRepository roles, ExerciseRepository exercises, FoodItemRepository foods) {
+    public DbSeeder(ApplicationRoleRepository roles, ExerciseRepository exercises) {
         this.roles = roles;
         this.exercises = exercises;
-        this.foods = foods;
     }
 
     @Transactional
     public void seed() {
         seedRoles();
         seedExercises();
-        seedFoods();
     }
 
     private void seedRoles() {
@@ -84,14 +88,6 @@ public class DbSeeder {
         if (!toSave.isEmpty()) {
             exercises.saveAll(toSave);
             log.info("Catálogo de exercícios sincronizado ({} registros).", toSave.size());
-        }
-    }
-
-    /** Diferente dos exercícios, os alimentos só entram uma vez: o usuário pode ter editado. */
-    private void seedFoods() {
-        if (foods.count() == 0) {
-            foods.saveAll(FoodSeed.items());
-            log.info("Catálogo de alimentos semeado.");
         }
     }
 }
