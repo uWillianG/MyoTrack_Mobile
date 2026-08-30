@@ -13,6 +13,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -30,7 +31,8 @@ public class OpenAiJsonClient implements LlmJsonClient {
     private static final Logger log = LoggerFactory.getLogger(OpenAiJsonClient.class);
 
     static final String URL = "https://api.openai.com/v1/chat/completions";
-    static final Duration TIMEOUT = Duration.ofMinutes(5);
+    static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(15);
+    static final Duration TIMEOUT = Duration.ofSeconds(90);
 
     /** O nome é obrigatório no {@code json_schema} e não influencia a saída. */
     static final String SCHEMA_NAME = "resposta";
@@ -42,7 +44,15 @@ public class OpenAiJsonClient implements LlmJsonClient {
 
     public OpenAiJsonClient(LlmProperties properties, RestClient.Builder restClientBuilder) {
         this.properties = properties;
-        this.restClient = restClientBuilder.build();
+        this.restClient = restClientBuilder.requestFactory(timedFactory()).build();
+    }
+
+    /** Mesmo motivo do cliente do Gemini: o builder do Boot não impõe prazo de leitura. */
+    private static SimpleClientHttpRequestFactory timedFactory() {
+        final SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(CONNECT_TIMEOUT);
+        factory.setReadTimeout(TIMEOUT);
+        return factory;
     }
 
     @Override
@@ -169,13 +179,15 @@ public class OpenAiJsonClient implements LlmJsonClient {
                     Map.of("role", "system", "content", systemPrompt),
                     Map.of("role", "user", "content", content)));
 
-            String payload = restClient.post()
+            // Mesma política do Gemini: 429 e 5xx passam em segundos, e quem espera não
+            // tem outra tentativa vindo de cima. Ver TransientRetry.
+            String payload = TransientRetry.call(provider(), log, () -> restClient.post()
                     .uri(URL)
                     .header("Authorization", "Bearer " + properties.openaiApiKey())
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(body)
                     .retrieve()
-                    .body(String.class);
+                    .body(String.class));
 
             return parseResponse(payload);
         } catch (Exception e) {

@@ -63,10 +63,12 @@ public class ExerciseVideoHandler implements JobHandler {
         final VisionAnalysis result = vision.analyze(mediaKey, exercise);
 
         if (result == null) {
-            // Falha de chamada pode ser passageira (serviço reiniciando, fila cheia): não é
-            // IllegalStateException, então o poller tenta de novo.
+            // Passageira (serviço reiniciando, fila cheia), mas a análise de vídeo é
+            // interativa e cada tentativa custa minutos de tela parada. Falhar na primeira
+            // cobra do usuário mandar o vídeo de novo; três tentativas cobram o mesmo, só que
+            // depois de ele ter esperado o triplo para saber.
             throw new IllegalArgumentException(
-                    "O serviço de análise não respondeu. Tentaremos de novo.");
+                    "O serviço de análise não respondeu. Tente analisar de novo.");
         }
 
         final ExerciseVideoAnalysis entity = new ExerciseVideoAnalysis();

@@ -101,10 +101,10 @@ public class CoachChatHandler implements JobHandler {
         final LlmJsonResult result =
                 llm.generateJson(systemPrompt(), userPrompt(userId, history), replySchema());
         if (result == null) {
-            // Pode ser instabilidade ou cota momentânea: não é IllegalStateException, então
-            // o poller tenta de novo em vez de dar a pergunta por perdida.
+            // Instabilidade ou cota momentânea. Continua sendo transitória, mas o coach é
+            // interativo: quem tenta de novo é quem perguntou, e a mensagem tem de dizer isso.
             throw new IllegalArgumentException(
-                    "O coach não conseguiu responder agora. Tentaremos de novo.");
+                    "O coach não conseguiu responder agora. Tente perguntar de novo.");
         }
 
         recordUsage(userId, result);
@@ -112,7 +112,7 @@ public class CoachChatHandler implements JobHandler {
         final String reply = replyFrom(result.json());
         if (reply == null || reply.isBlank()) {
             throw new IllegalArgumentException(
-                    "O coach não conseguiu responder agora. Tentaremos de novo.");
+                    "O coach não conseguiu responder agora. Tente perguntar de novo.");
         }
 
         final CoachMessage answer = new CoachMessage();

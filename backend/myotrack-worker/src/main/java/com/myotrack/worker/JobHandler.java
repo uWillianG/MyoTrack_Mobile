@@ -18,8 +18,12 @@ public interface JobHandler {
      * cliente lê ao final do SSE/polling (ex.: {@code {"workoutPlanId":"..."}}).
      *
      * <p>Lançar {@link IllegalStateException} sinaliza erro de negócio (perfil incompleto, catálogo
-     * insuficiente): o poller marca como falho sem reprocessar. Qualquer outra exceção conta como
-     * transitória e o job volta para a fila até esgotar as tentativas.
+     * insuficiente); qualquer outra exceção conta como transitória. A distinção decide o
+     * reprocessamento <b>do job de fundo</b> — o interativo falha na primeira, porque quem o
+     * repetiria é a pessoa que está olhando a tela. Ver {@link AnalysisJobType#isInteractive()}.
+     *
+     * <p>Consequência para a mensagem: ela é o que o usuário lê, e num job interativo não pode
+     * prometer uma segunda tentativa que ninguém vai fazer.
      */
     String handle(AnalysisJob job);
 }
