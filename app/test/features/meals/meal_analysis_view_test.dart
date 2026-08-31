@@ -89,6 +89,28 @@ void main() {
     expect(find.text('Marcar os alimentos na foto'), findsNothing);
   });
 
+  testWidgets('o progresso oferece saída, e ela devolve o convite', (
+    tester,
+  ) async {
+    // O convite sai da tela enquanto o trabalho corre — o que é certo, e cobrava um preço:
+    // sem "Cancelar" no herói do progresso não sobrava nada em que tocar, e quem esperava por
+    // uma fila parada ficava olhando o contador subir.
+    final analise = _RunningAnalysis();
+    await pump(tester, [
+      ...homeOverrides(),
+      mealAnalysisProvider.overrideWith(() => analise),
+    ]);
+
+    expect(find.text('Cancelar'), findsOne);
+
+    await tester.tap(find.text('Cancelar'));
+    await tester.pump();
+
+    expect(analise.cancelou, isTrue);
+    // Parado o trabalho, o herói volta a ser o convite: é de lá que sai a próxima tentativa.
+    expect(find.text('Fotografar prato'), findsOne);
+  });
+
   testWidgets('a lista traz nome, hora e total — e nenhuma análise aberta', (
     tester,
   ) async {
@@ -256,9 +278,17 @@ final _soOriginal = refeicoesAnalisadas.first.copyWith(
 
 /// A mesma tela com uma análise em curso.
 class _RunningAnalysis extends MealAnalysisController {
+  var cancelou = false;
+
   @override
   GenerationState build() =>
       const GenerationState(running: true, step: 'Identificando os alimentos…');
+
+  @override
+  void cancel() {
+    cancelou = true;
+    state = GenerationState.idle;
+  }
 }
 
 /// A tela logo depois de uma análise terminar: o trabalho parou e o resultado é o da lista.

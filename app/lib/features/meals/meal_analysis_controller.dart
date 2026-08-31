@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -89,6 +90,9 @@ class MealAnalysisController extends JobGenerationController {
   double _uploadProgress = 0;
   double get uploadProgress => _uploadProgress;
 
+  /// A alça do upload em curso, para [cancel] poder interrompê-lo.
+  CancelToken? _upload;
+
   /// Tira ou escolhe a foto e dispara a análise. Devolve false se o usuário desistiu.
   ///
   /// **Só volta quando a análise inteira acabou** — o [start] espera o job do servidor. É o que
@@ -147,19 +151,50 @@ class MealAnalysisController extends JobGenerationController {
       throw StateError('Nenhuma foto preparada para envio.');
     }
 
-    return ref
-        .read(mealRepositoryProvider)
-        .analyze(
-          photo: photo,
-          fileName: _fileName,
-          contentType: _contentType,
-          illustrated: _illustrated,
-          onProgress: (sent, total) {
-            if (total > 0) {
-              _uploadProgress = sent / total;
-            }
-          },
-        );
+    final upload = CancelToken();
+    _upload = upload;
+
+    try {
+      return await ref
+          .read(mealRepositoryProvider)
+          .analyze(
+            photo: photo,
+            fileName: _fileName,
+            contentType: _contentType,
+            illustrated: _illustrated,
+            onProgress: (sent, total) {
+              if (total > 0) {
+                _uploadProgress = sent / total;
+              }
+            },
+            cancelToken: upload,
+          );
+    } finally {
+      // A alça só vale enquanto os bytes sobem. Guardá-la depois faria um cancelamento tardio
+      // tentar abortar uma requisição que já terminou.
+      if (identical(_upload, upload)) {
+        _upload = null;
+      }
+    }
+  }
+
+  /// Desiste — e aqui isso inclui **parar o upload**.
+  ///
+  /// Esta tela é a única em que a desistência alcança trabalho de verdade: enquanto a barra
+  /// determinada anda, quem está mandando na espera é a rede do usuário, e são as fotos de
+  /// prato num Wi-Fi de praça de alimentação que fazem essa fase durar. Cancelar sem abortar
+  /// deixaria centenas de KB subindo por dados móveis de quem acabou de dizer que não quer
+  /// mais — e ainda criaria a análise no servidor, gastando a cota do dia por um resultado que
+  /// ninguém pediu mais.
+  ///
+  /// Passado o upload, vale o que vale para todo mundo: o job segue no servidor e o que se
+  /// larga é a espera. Ver [JobGenerationController.cancel].
+  @override
+  void cancel() {
+    _upload?.cancel('Análise cancelada na tela.');
+    _upload = null;
+    _uploadProgress = 0;
+    super.cancel();
   }
 
   @override

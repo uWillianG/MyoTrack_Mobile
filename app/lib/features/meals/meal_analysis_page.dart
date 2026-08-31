@@ -124,6 +124,7 @@ class _MealAnalysisViewState extends ConsumerState<MealAnalysisView> {
           onIllustrated: (v) => setState(() => _illustrated = v),
           onCapture: (source) =>
               controller.analyzeFrom(source, illustrated: _illustrated),
+          onCancel: controller.cancel,
         ),
       ),
     );
@@ -141,6 +142,7 @@ class _Body extends StatelessWidget {
     required this.illustrated,
     required this.onIllustrated,
     required this.onCapture,
+    required this.onCancel,
   });
 
   final List<MealAnalysis> meals;
@@ -162,6 +164,9 @@ class _Body extends StatelessWidget {
 
   final ValueChanged<ImageSource> onCapture;
 
+  /// Desistir da análise em curso. Só alcança a tela enquanto [running].
+  final VoidCallback onCancel;
+
   @override
   Widget build(BuildContext context) {
     final colors = Blocks.nutrition(Theme.of(context).brightness);
@@ -178,7 +183,12 @@ class _Body extends StatelessWidget {
         // a análise acontece. Mesma mecânica do modo treino — o que muda sozinho ocupa o bloco
         // durante o tempo em que está mudando, e devolve o lugar quando termina.
         if (running)
-          _ProgressHero(step: step, progress: progress, colors: colors)
+          _ProgressHero(
+            step: step,
+            progress: progress,
+            colors: colors,
+            onCancel: onCancel,
+          )
         else
           _CaptureHero(
             colors: colors,
@@ -406,16 +416,23 @@ class _IllustratedToggle extends StatelessWidget {
 }
 
 /// Enquanto a análise corre, o herói é o trabalho em curso.
+///
+/// **E com ele vem a saída.** O convite sai da tela enquanto o trabalho acontece — é o que
+/// impede uma segunda análise por cima da primeira —, e sem um "Cancelar" aqui esse acerto
+/// cobrava um preço: não sobrava nada em que tocar. Quem esperava por uma fila parada ficava
+/// olhando o contador subir até o acompanhamento desistir sozinho.
 class _ProgressHero extends StatefulWidget {
   const _ProgressHero({
     required this.step,
     required this.progress,
     required this.colors,
+    required this.onCancel,
   });
 
   final String? step;
   final double progress;
   final BlockColors colors;
+  final VoidCallback onCancel;
 
   @override
   State<_ProgressHero> createState() => _ProgressHeroState();
@@ -482,11 +499,28 @@ class _ProgressHeroState extends State<_ProgressHero> {
             ),
           ),
           const SizedBox(height: Space.sm),
-          Text(
-            'A estimativa fica editável no fim.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colors.onGlass.withValues(alpha: 0.85),
-            ),
+          // As duas coisas que cabe dizer a quem espera, e nesta ordem: por que vale a pena
+          // esperar, e que dá para não esperar. O "Cancelar" é botão de texto e não a ação
+          // cheia do herói — a cor cheia é do que se quer que a pessoa faça, e o que se quer
+          // aqui é que ela espere. Desistir é a saída de emergência, e saída de emergência se
+          // vê quando se procura.
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'A estimativa fica editável no fim.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.onGlass.withValues(alpha: 0.85),
+                  ),
+                ),
+              ),
+              const SizedBox(width: Space.xs),
+              TextButton(
+                onPressed: widget.onCancel,
+                style: TextButton.styleFrom(foregroundColor: colors.onGlass),
+                child: const Text('Cancelar'),
+              ),
+            ],
           ),
         ],
       ),
