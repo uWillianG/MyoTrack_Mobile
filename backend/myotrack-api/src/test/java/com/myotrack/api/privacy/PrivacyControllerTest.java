@@ -12,6 +12,7 @@ import com.myotrack.infrastructure.identity.ApplicationUser;
 import com.myotrack.infrastructure.repository.AiUsageLogRepository;
 import com.myotrack.infrastructure.repository.ApplicationUserRepository;
 import com.myotrack.infrastructure.repository.BodyMeasurementRepository;
+import com.myotrack.infrastructure.repository.CoachConversationRepository;
 import com.myotrack.infrastructure.repository.CoachMessageRepository;
 import com.myotrack.infrastructure.repository.ConsentRecordRepository;
 import com.myotrack.infrastructure.repository.DietPlanRepository;
@@ -84,6 +85,7 @@ class PrivacyControllerTest {
                 videoAnalyses,
                 mock(AiUsageLogRepository.class),
                 mock(CoachMessageRepository.class),
+                mock(CoachConversationRepository.class),
                 mock(WeeklyReportRepository.class),
                 mock(UserSubscriptionRepository.class),
                 purgeService,

@@ -25,8 +25,19 @@ public class CoachMessage {
     @Column(name = "Id")
     private UUID id;
 
+    /**
+     * O dono da mensagem, repetido aqui e não lido pela conversa.
+     *
+     * <p>Denormalizado de propósito: o limite diário conta as perguntas do usuário no dia
+     * <b>somando todas as conversas</b>, e a exclusão de conta apaga por usuário. As duas
+     * teriam que passar por um join para responder o que esta coluna responde direto.
+     */
     @Column(name = "UserId", nullable = false)
     private UUID userId;
+
+    /** A qual assunto ela pertence — ver {@link CoachConversation}. */
+    @Column(name = "ConversationId", nullable = false)
+    private UUID conversationId;
 
     /** True = mensagem do usuário; false = resposta do coach. */
     @Column(name = "FromUser", nullable = false)

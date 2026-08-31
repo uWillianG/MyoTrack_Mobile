@@ -97,6 +97,30 @@ void main() {
       expect(jobId, 'job-1');
     });
 
+    test('cancelar durante o envio interrompe o upload', () async {
+      // O "Cancelar" da tela de análise precisa alcançar os bytes, e não só a barra: enquanto
+      // a foto sobe, quem manda no tempo é a rede do usuário. Sem a alça, desistir deixaria
+      // centenas de KB subindo por dados móveis — e ainda criaria a análise no servidor,
+      // gastando a cota do dia por um resultado que ninguém pediu mais.
+      adapter.onPost(
+        '/api/meal-analyses',
+        (server) => server.reply(202, {'jobId': 'job-1'}),
+        data: Matchers.any,
+      );
+
+      final upload = CancelToken()..cancel('desistiu na tela');
+
+      await expectLater(
+        repo.analyze(
+          photo: Uint8List.fromList([1, 2, 3]),
+          fileName: 'refeicao.jpg',
+          contentType: 'image/jpeg',
+          cancelToken: upload,
+        ),
+        throwsA(isA<ApiException>()),
+      );
+    });
+
     test('limite diário vira ApiException com a mensagem do servidor', () async {
       // O backend responde 429 para o app poder oferecer o Pro em vez de só mostrar erro.
       adapter.onPost(

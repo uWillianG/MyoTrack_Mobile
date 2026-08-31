@@ -373,11 +373,35 @@ void main() {
         brightness,
         const CoachPage(),
         extra: [
-          ...homeOverrides(coachMessages: conversaComOCoach),
+          ...homeOverrides(
+            coachMessages: conversaComOCoach,
+            coachConversations: conversasComOCoach,
+          ),
           nowProvider.overrideWithValue(() => DateTime(2026, 8, 4, 15)),
         ],
       );
       await shoot(tester, 'coach-conversa-$mode');
+    });
+
+    // O histórico. **É a folha, e não a conversa, que a captura julga**: a lista é o único
+    // lugar do app onde o título que o modelo escreveu aparece, e um título ruim ali some
+    // dentro de uma linha de 16 dp — que é exatamente onde ninguém ia olhar.
+    testWidgets('coach — conversas ($mode)', (tester) async {
+      await pump(
+        tester,
+        brightness,
+        const CoachPage(),
+        extra: [
+          ...homeOverrides(
+            coachMessages: conversaComOCoach,
+            coachConversations: conversasComOCoach,
+          ),
+          nowProvider.overrideWithValue(() => DateTime(2026, 8, 4, 15)),
+        ],
+      );
+      await tester.tap(find.byIcon(Icons.history));
+      await tester.pumpAndSettle();
+      await shoot(tester, 'coach-conversas-$mode');
     });
 
     // **A espera é um estado de tela por direito próprio.** São dez a quarenta segundos — mais
@@ -390,7 +414,10 @@ void main() {
         const CoachPage(),
         settle: false,
         extra: [
-          ...homeOverrides(coachMessages: conversaComOCoach),
+          ...homeOverrides(
+            coachMessages: conversaComOCoach,
+            coachConversations: conversasComOCoach,
+          ),
           nowProvider.overrideWithValue(() => DateTime(2026, 8, 4, 15)),
           coachProvider.overrideWith(_Esperando.new),
         ],

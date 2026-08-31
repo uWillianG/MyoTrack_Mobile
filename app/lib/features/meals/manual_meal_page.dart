@@ -99,6 +99,7 @@ class _ManualMealPageState extends ConsumerState<ManualMealPage> {
             full: items.length >= ManualMealDraft.maxItems,
             started: items.isNotEmpty,
             onEstimate: _estimate,
+            onCancel: _cancelEstimate,
           ),
           const SizedBox(height: Space.sm),
           _ItemsSection(
@@ -146,14 +147,25 @@ class _ManualMealPageState extends ConsumerState<ManualMealPage> {
     // O teclado sai de cena: o que vem a seguir é uma espera de dezenas de segundos, e a
     // resposta aparece na lista abaixo — que o teclado estaria cobrindo.
     FocusScope.of(context).unfocus();
-    await ref.read(manualMealEstimateProvider.notifier).estimate(text);
+    final chegou = await ref
+        .read(manualMealEstimateProvider.notifier)
+        .estimate(text);
 
-    // O campo esvazia só quando deu certo: com erro, a frase que a pessoa escreveu é
-    // exatamente o que ela precisa para tentar de novo.
-    if (mounted && ref.read(manualMealEstimateProvider).error == null) {
+    // O campo esvazia só quando os itens chegaram: em qualquer outro desfecho — erro, prazo
+    // estourado, desistência — a frase que a pessoa escreveu é exatamente o que ela precisa
+    // para tentar de novo.
+    if (chegou && mounted) {
       _description.clear();
     }
   }
+
+  /// Desistir da espera.
+  ///
+  /// O job continua no servidor; o que acaba é a tela parada. Sem esta saída, uma fila que
+  /// não anda prendia a seção inteira — o campo de descrever some enquanto a estimativa
+  /// corre, e com ele o único jeito de mexer na frase ou de pedir de novo.
+  void _cancelEstimate() =>
+      ref.read(manualMealEstimateProvider.notifier).cancel();
 
   Future<void> _addTyped() async {
     final item = await _showItemSheet();
@@ -297,6 +309,12 @@ class _DraftHero extends StatelessWidget {
 ///
 /// Enquanto o job corre, o campo e o botão saem e entram os passos escritos — os mesmos da
 /// análise por foto, pelo mesmo [JobGenerationController].
+///
+/// **Com os passos escritos vem a saída.** Esta seção é a única porta para a frase enquanto a
+/// estimativa corre: o campo sumiu, e com ele o jeito de corrigir o texto ou de pedir de novo.
+/// Sem um "Cancelar" ao lado do rodopio, uma fila que não anda deixava a pessoa olhando —
+/// primeiro por dezenas de segundos, que é o normal, depois pelo prazo inteiro do
+/// acompanhamento, que não é.
 class _DescribeSection extends StatelessWidget {
   const _DescribeSection({
     required this.colors,
@@ -305,6 +323,7 @@ class _DescribeSection extends StatelessWidget {
     required this.full,
     required this.started,
     required this.onEstimate,
+    required this.onCancel,
   });
 
   final BlockColors colors;
@@ -318,6 +337,7 @@ class _DescribeSection extends StatelessWidget {
   final bool started;
 
   final VoidCallback onEstimate;
+  final VoidCallback onCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -344,6 +364,13 @@ class _DescribeSection extends StatelessWidget {
                     state.step ?? 'Estimando…',
                     style: theme.textTheme.bodyMedium,
                   ),
+                ),
+                // Botão de texto, e não cheio: desistir é a saída de emergência, não o que se
+                // espera que a pessoa faça enquanto a estimativa está a caminho.
+                TextButton(
+                  onPressed: onCancel,
+                  style: TextButton.styleFrom(foregroundColor: colors.ink),
+                  child: const Text('Cancelar'),
                 ),
               ],
             )

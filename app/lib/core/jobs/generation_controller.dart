@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../network/api_exception.dart';
 import '../providers.dart';
 import 'job_status.dart';
+import 'job_watcher.dart';
 
 /// Estado de uma operação assíncrona de IA vista pela tela.
 class GenerationState {
@@ -39,6 +42,24 @@ class GenerationState {
 /// relatório semanal. Escrever seis vezes seria seis oportunidades de esquecer o
 /// `invalidate` ou de tratar a falha de um jeito diferente em cada tela.
 abstract class JobGenerationController extends Notifier<GenerationState> {
+  /// A execução em curso, identificada por objeto.
+  ///
+  /// Trocá-la de identidade é como [cancel] avisa um [start] que ainda está esperando que o
+  /// resultado a caminho não interessa mais. Um `bool` não serviria: entre cancelar e tentar
+  /// de novo há duas execuções vivas por um instante, e a que voltar por último não pode
+  /// escrever por cima da tela da outra.
+  Object? _run;
+
+  StreamSubscription<JobStatus>? _watching;
+  Completer<JobStatus?>? _finished;
+
+  /// Quanto **esta** tela aceita esperar pelo job.
+  ///
+  /// O padrão do [JobWatcher] serve para todo mundo aqui. A análise de vídeo é a exceção e
+  /// diz o seu próprio prazo: ela processa o vídeo quadro a quadro antes de chegar à IA, e
+  /// desistir no prazo dos outros mataria um trabalho que ainda ia entregar.
+  Duration get deadline => JobWatcher.maxWait;
+
   @override
   GenerationState build() => GenerationState.idle;
 
@@ -78,19 +99,22 @@ abstract class JobGenerationController extends Notifier<GenerationState> {
     if (state.running) {
       return;
     }
+
+    final run = Object();
+    _run = run;
     state = GenerationState(running: true, step: startingLabel);
 
     try {
       final jobId = await enqueue();
+      final last = await _follow(
+        run,
+        ref.read(jobWatcherProvider).watch(jobId, within: deadline),
+      );
 
-      JobStatus? last;
-      await for (final status in ref.read(jobWatcherProvider).watch(jobId)) {
-        last = status;
-        state = GenerationState(
-          running: true,
-          step: stepLabel(status.state),
-          phase: status.state,
-        );
+      // Cancelado enquanto se esperava. Quem cancelou já disse o que a tela mostra, e o que
+      // chegou depois não é mais assunto dela.
+      if (!identical(_run, run)) {
+        return;
       }
 
       if (last == null || !last.succeeded) {
@@ -103,10 +127,93 @@ abstract class JobGenerationController extends Notifier<GenerationState> {
       await reload();
       state = GenerationState.idle;
     } on ApiException catch (e) {
-      state = GenerationState(error: e.message);
+      if (identical(_run, run)) {
+        state = GenerationState(error: e.message);
+      }
     } catch (_) {
-      state = GenerationState(error: genericFailure);
+      if (identical(_run, run)) {
+        state = GenerationState(error: genericFailure);
+      }
+    } finally {
+      if (identical(_run, run)) {
+        _run = null;
+        _release();
+      }
     }
+  }
+
+  /// Acompanha o job até o fim e devolve o último retrato — null quando não veio nenhum ou
+  /// quando [cancel] interrompeu.
+  ///
+  /// Inscrição explícita em vez do `await for` que estava aqui: **cancelar exige a mão na
+  /// inscrição**, e o `await for` não a entrega. Sem ela, "cancelar" seria só deixar de
+  /// olhar — a conexão do SSE continuaria aberta por trás da tela até o servidor fechá-la, e
+  /// a próxima tentativa começaria com a anterior ainda pendurada na rede.
+  Future<JobStatus?> _follow(Object run, Stream<JobStatus> statuses) {
+    if (!identical(_run, run)) {
+      return Future<JobStatus?>.value();
+    }
+
+    final finished = Completer<JobStatus?>();
+    JobStatus? last;
+
+    _finished = finished;
+    _watching = statuses.listen(
+      (status) {
+        last = status;
+        state = GenerationState(
+          running: true,
+          step: stepLabel(status.state),
+          phase: status.state,
+        );
+      },
+      onError: (Object error, StackTrace stack) {
+        _release();
+        if (!finished.isCompleted) {
+          finished.completeError(error, stack);
+        }
+      },
+      onDone: () {
+        _release();
+        if (!finished.isCompleted) {
+          finished.complete(last);
+        }
+      },
+      cancelOnError: true,
+    );
+
+    return finished.future;
+  }
+
+  void _release() {
+    _watching = null;
+    _finished = null;
+  }
+
+  /// Desiste da espera e devolve a tela a quem está nela.
+  ///
+  /// **O job não é interrompido no servidor** — não há como, e nem seria certo: ele pode
+  /// estar a um segundo de terminar. O que se larga é a espera. Quem cancelar e pedir de novo
+  /// enfileira um segundo job, e é por isso que cancelar é um gesto do usuário e não um
+  /// automatismo: a cota do dia conta pedido, não resposta.
+  void cancel() {
+    if (!state.running) {
+      return;
+    }
+
+    _run = null;
+    final watching = _watching;
+    final finished = _finished;
+    _release();
+
+    watching?.cancel();
+    // Cancelar a inscrição não dispara `onDone`: sem completar isto à mão, o `start` que
+    // espera por ela ficaria pendurado para sempre.
+    if (finished != null && !finished.isCompleted) {
+      finished.complete();
+    }
+
+    state = GenerationState.idle;
   }
 
   /// Some com o erro depois de ele virar snackbar, para não reaparecer no próximo rebuild.

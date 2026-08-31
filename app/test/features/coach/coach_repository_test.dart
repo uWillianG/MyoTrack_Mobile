@@ -38,11 +38,39 @@ void main() {
     );
   });
 
+  test('as conversas vêm da mais recente para a mais antiga', () async {
+    // A ordem é do servidor, e a tela desenha na ordem em que recebe: a folha de histórico
+    // abre com a conversa retomada hoje na primeira linha.
+    adapter.onGet(
+      '/api/coach/conversations',
+      (server) => server.reply(200, [
+        {
+          'id': 'conv-1',
+          'title': 'Dor no ombro no supino',
+          'updatedAt': '2026-08-04T08:03:30Z',
+          'messages': 4,
+        },
+        {
+          'id': 'conv-2',
+          'title': 'O que comer depois do treino',
+          'updatedAt': '2026-08-01T21:40:00Z',
+          'messages': 6,
+        },
+      ]),
+    );
+
+    final conversations = await repo.conversations();
+
+    expect(conversations.first.title, 'Dor no ombro no supino');
+    expect(conversations.first.messages, 4);
+    expect(conversations.last.id, 'conv-2');
+  });
+
   test('a conversa vem em ordem cronológica, pronta para desenhar', () async {
-    // O servidor busca as 50 mais recentes e inverte. Se viessem ao contrário, a tela
+    // O servidor busca as mais recentes e inverte. Se viessem ao contrário, a tela
     // mostraria a resposta antes da pergunta.
     adapter.onGet(
-      '/api/coach/messages',
+      '/api/coach/conversations/conv-1/messages',
       (server) => server.reply(200, [
         {
           'id': 'm1',
@@ -59,21 +87,44 @@ void main() {
       ]),
     );
 
-    final messages = await repo.messages();
+    final messages = await repo.messages('conv-1');
 
     expect(messages.first.fromUser, isTrue);
     expect(messages.last.fromUser, isFalse);
     expect(messages.last.content, contains('profissional'));
   });
 
-  test('enviar devolve o jobId que a tela acompanha', () async {
+  test('pergunta sem conversa abre uma, e o servidor diz qual', () async {
+    // Sem o `conversationId` no corpo — é a ausência dele que pede uma conversa nova. O id
+    // que volta é o que a tela passa a ter aberto.
     adapter.onPost(
       '/api/coach/messages',
-      (server) => server.reply(202, {'jobId': 'job-coach-1'}),
+      (server) => server.reply(202, {
+        'jobId': 'job-coach-1',
+        'conversationId': 'conv-9',
+      }),
       data: {'content': 'O que comer depois do treino?'},
     );
 
-    expect(await repo.send('O que comer depois do treino?'), 'job-coach-1');
+    final sent = await repo.send('O que comer depois do treino?');
+
+    expect(sent.jobId, 'job-coach-1');
+    expect(sent.conversationId, 'conv-9');
+  });
+
+  test('pergunta com conversa continua a mesma', () async {
+    adapter.onPost(
+      '/api/coach/messages',
+      (server) => server.reply(202, {
+        'jobId': 'job-coach-2',
+        'conversationId': 'conv-1',
+      }),
+      data: {'content': 'E amanhã?', 'conversationId': 'conv-1'},
+    );
+
+    final sent = await repo.send('E amanhã?', conversationId: 'conv-1');
+
+    expect(sent.conversationId, 'conv-1');
   });
 
   test('uma pergunta por vez: a segunda é recusada com 409', () async {
@@ -114,5 +165,14 @@ void main() {
             .having((e) => e.message, 'message', contains('Pro')),
       ),
     );
+  });
+
+  test('apagar a conversa é um DELETE sem corpo', () async {
+    adapter.onDelete(
+      '/api/coach/conversations/conv-1',
+      (server) => server.reply(204, null),
+    );
+
+    await expectLater(repo.remove('conv-1'), completes);
   });
 }

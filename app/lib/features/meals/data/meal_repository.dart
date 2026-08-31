@@ -16,12 +16,16 @@ class MealRepository {
   final ApiClient _api;
 
   /// Sobe a foto e devolve o `jobId` da análise, que o [JobWatcher] acompanha.
+  ///
+  /// [cancelToken] é o que dá sentido ao "Cancelar" da tela enquanto a barra ainda anda: sem
+  /// ele a desistência só apagaria o progresso, e a foto continuaria subindo.
   Future<String> analyze({
     required Uint8List photo,
     required String fileName,
     required String contentType,
     bool illustrated = false,
     void Function(int sent, int total)? onProgress,
+    CancelToken? cancelToken,
   }) async {
     final form = FormData.fromMap({
       // Vai como texto: é multipart, não JSON.
@@ -39,6 +43,7 @@ class MealRepository {
       '/api/meal-analyses',
       form,
       onProgress: onProgress,
+      cancelToken: cancelToken,
     );
     return json['jobId'] as String;
   }

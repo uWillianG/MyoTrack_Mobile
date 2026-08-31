@@ -32,7 +32,9 @@ public class OpenAiJsonClient implements LlmJsonClient {
 
     static final String URL = "https://api.openai.com/v1/chat/completions";
     static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(15);
-    static final Duration TIMEOUT = Duration.ofSeconds(90);
+
+    /** O mesmo par teto/janela do outro provedor — ver {@link TransientRetry#ATTEMPT_CEILING}. */
+    static final Duration TIMEOUT = TransientRetry.ATTEMPT_CEILING;
 
     /** O nome é obrigatório no {@code json_schema} e não influencia a saída. */
     static final String SCHEMA_NAME = "resposta";

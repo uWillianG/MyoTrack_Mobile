@@ -66,10 +66,16 @@ class ApiClient {
       _run(() => _dio.delete<T>(path, data: body));
 
   /// Upload multipart (foto de refeição). Timeout maior que o das chamadas comuns.
+  ///
+  /// [cancelToken] existe porque desistir durante um upload precisa parar o upload. É a única
+  /// fase de um trabalho de IA em que o app ainda manda no que está acontecendo — depois que
+  /// os bytes chegam, o job é do servidor —, e um "Cancelar" que só apaga a barra deixaria
+  /// centenas de KB subindo por dados móveis de quem acabou de dizer que não quer mais.
   Future<T> upload<T>(
     String path,
     FormData form, {
     void Function(int sent, int total)? onProgress,
+    CancelToken? cancelToken,
   }) => _run(
     () => _dio.post<T>(
       path,
@@ -80,6 +86,7 @@ class ApiClient {
         receiveTimeout: Env.uploadTimeout,
       ),
       onSendProgress: onProgress,
+      cancelToken: cancelToken,
     ),
   );
 

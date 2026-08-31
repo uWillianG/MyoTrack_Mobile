@@ -4,6 +4,7 @@ import com.myotrack.infrastructure.repository.AiUsageLogRepository;
 import com.myotrack.infrastructure.repository.AnalysisJobRepository;
 import com.myotrack.infrastructure.repository.ApplicationUserRepository;
 import com.myotrack.infrastructure.repository.BodyMeasurementRepository;
+import com.myotrack.infrastructure.repository.CoachConversationRepository;
 import com.myotrack.infrastructure.repository.CoachMessageRepository;
 import com.myotrack.infrastructure.repository.ConsentRecordRepository;
 import com.myotrack.infrastructure.repository.DeviceTokenRepository;
@@ -46,6 +47,7 @@ public class AccountPurgeService {
     private final AnalysisJobRepository jobs;
     private final AiUsageLogRepository aiUsage;
     private final CoachMessageRepository coachMessages;
+    private final CoachConversationRepository coachConversations;
     private final WeeklyReportRepository weeklyReports;
     private final UserSubscriptionRepository subscriptions;
     private final ProGrantRepository proGrants;
@@ -67,6 +69,7 @@ public class AccountPurgeService {
             AnalysisJobRepository jobs,
             AiUsageLogRepository aiUsage,
             CoachMessageRepository coachMessages,
+            CoachConversationRepository coachConversations,
             WeeklyReportRepository weeklyReports,
             UserSubscriptionRepository subscriptions,
             ProGrantRepository proGrants,
@@ -86,6 +89,7 @@ public class AccountPurgeService {
         this.jobs = jobs;
         this.aiUsage = aiUsage;
         this.coachMessages = coachMessages;
+        this.coachConversations = coachConversations;
         this.weeklyReports = weeklyReports;
         this.subscriptions = subscriptions;
         this.proGrants = proGrants;
@@ -113,6 +117,9 @@ public class AccountPurgeService {
         jobs.deleteByUserId(userId);
         aiUsage.deleteByUserId(userId);
         coachMessages.deleteByUserId(userId);
+        // Depois das mensagens, que apontam para ela: a cascata do banco cobriria o contrário,
+        // mas a ordem aqui é a das chaves e não a do que o banco sabe consertar sozinho.
+        coachConversations.deleteByUserId(userId);
         weeklyReports.deleteByUserId(userId);
         subscriptions.deleteByUserId(userId);
         // O Pro concedido por constância mora fora de "UserSubscriptions" e não cai junto com
