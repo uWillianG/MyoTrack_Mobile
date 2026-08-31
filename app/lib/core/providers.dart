@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import 'auth/token_store.dart';
 import 'db/local_database.dart';
@@ -19,6 +20,16 @@ final tokenStoreProvider = Provider<TokenStore>((ref) => TokenStore());
 /// Câmera e galeria do sistema. Serve foto de refeição (B7) e vídeo de execução (B9), por isso
 /// mora aqui e não dentro de uma das duas features.
 final imagePickerProvider = Provider<ImagePicker>((ref) => ImagePicker());
+
+/// Versão, build e nome do pacote, lidos do próprio binário.
+///
+/// **Assíncrono porque a leitura é do lado nativo**, e por isso é um `FutureProvider` e não uma
+/// constante: no Android e no iOS o valor vem do manifesto, não do Dart. O rodapé da aba Conta
+/// espera por ele sem mostrar nada — uma versão errada por um instante é pior que nenhuma numa
+/// linha cuja única função é ser copiada para um relato de problema.
+final packageInfoProvider = FutureProvider<PackageInfo>(
+  (ref) => PackageInfo.fromPlatform(),
+);
 
 final apiClientProvider = Provider<ApiClient>((ref) {
   final client = ApiClient(tokenStore: ref.watch(tokenStoreProvider));

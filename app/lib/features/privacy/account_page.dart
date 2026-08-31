@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/auth/session.dart';
 import '../../core/design/blocks.dart';
 import '../../core/design/format.dart';
 import '../../core/design/tokens.dart';
 import '../../core/providers.dart';
 import '../../core/router.dart';
 import '../../core/widgets/blocks.dart';
+import '../../core/widgets/button_spinner.dart';
 import '../billing/billing_controller.dart';
 import 'privacy_controller.dart';
+import 'sign_out_button.dart';
 
 /// Conta e privacidade.
 ///
@@ -104,121 +105,9 @@ class _AccountSection extends ConsumerWidget {
             ),
           ],
           const SizedBox(height: Space.md),
-          const _SignOutButton(),
+          const SignOutButton(),
         ],
       ),
-    );
-  }
-}
-
-/// Sair da conta.
-///
-/// **Não existia em tela nenhuma até aqui** — só dava para sair desinstalando o app ou
-/// esperando a sessão vencer. O caminho todo já estava escrito e testado (desregistrar o push,
-/// descartar os tokens); faltava um botão que o chamasse.
-class _SignOutButton extends ConsumerStatefulWidget {
-  const _SignOutButton();
-
-  @override
-  ConsumerState<_SignOutButton> createState() => _SignOutButtonState();
-}
-
-class _SignOutButtonState extends ConsumerState<_SignOutButton> {
-  bool _leaving = false;
-
-  Future<void> _signOut(int pending) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (_) => _SignOutDialog(pending: pending),
-    );
-    if (confirmed != true || !mounted) {
-      return;
-    }
-
-    setState(() => _leaving = true);
-    try {
-      await ref.read(sessionCloserProvider).close();
-    } finally {
-      if (mounted) {
-        setState(() => _leaving = false);
-      }
-    }
-
-    if (mounted) {
-      // Como na exclusão: a guarda do router já levaria ao login com a sessão limpa, mas ir
-      // explicitamente evita depender da ordem em que o estado se propaga.
-      context.go(Routes.login);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // A contagem é observada aqui, e não lida dentro do `_signOut`: ela chega por stream, e um
-    // `read` no instante do toque pegaria a fila ainda sem valor — o aviso de "isto vai ser
-    // descartado" sumiria justamente quando há algo a perder.
-    final pending = ref.watch(pendingWritesProvider).valueOrNull ?? 0;
-
-    return OutlinedButton.icon(
-      onPressed: _leaving ? null : () => _signOut(pending),
-      icon: _leaving
-          ? const _ButtonSpinner(label: 'Saindo')
-          : const Icon(Icons.logout),
-      label: const Text('Sair da conta'),
-      style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-    );
-  }
-}
-
-class _SignOutDialog extends StatelessWidget {
-  const _SignOutDialog({required this.pending});
-
-  /// Quantas escritas ainda não subiram. Sair apaga o que é da pessoa neste aparelho, e a fila
-  /// vai junto — avisar antes é a diferença entre descartar e perder.
-  final int pending;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return AlertDialog(
-      title: const Text('Sair da conta?'),
-      // Rolável: com a fonte do sistema ampliada, o aviso de fila pendente passa da altura do
-      // diálogo e o botão "Sair" fica fora de alcance.
-      scrollable: true,
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Você vai precisar entrar de novo neste aparelho. Seus dados continuam no '
-            'servidor.',
-            style: theme.textTheme.bodyMedium,
-          ),
-          if (pending > 0) ...[
-            const SizedBox(height: Space.sm),
-            Text(
-              pending == 1
-                  ? '1 registro ainda não subiu e só existe neste aparelho. Sair agora '
-                        'descarta esse registro.'
-                  : '$pending registros ainda não subiram e só existem neste aparelho. '
-                        'Sair agora descarta esses registros.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.error,
-              ),
-            ),
-          ],
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          child: const Text('Sair'),
-        ),
-      ],
     );
   }
 }
@@ -261,7 +150,7 @@ class _DataSection extends ConsumerWidget {
                 : () =>
                       _run(context, ref.read(exportProvider.notifier).download),
             icon: export.downloading
-                ? const _ButtonSpinner(label: 'Preparando seus dados')
+                ? const ButtonSpinner(label: 'Preparando seus dados')
                 : const Icon(Icons.download_outlined),
             label: const Text('Baixar meus dados'),
             style: FilledButton.styleFrom(
@@ -277,7 +166,7 @@ class _DataSection extends ConsumerWidget {
                     ref.read(exportProvider.notifier).emailToAccount,
                   ),
             icon: export.emailing
-                ? const _ButtonSpinner(label: 'Enviando')
+                ? const ButtonSpinner(label: 'Enviando')
                 : const Icon(Icons.mail_outline),
             label: const Text('Enviar para o e-mail da conta'),
             style: TextButton.styleFrom(minimumSize: const Size.fromHeight(48)),
@@ -329,7 +218,7 @@ class _ConsentSection extends ConsumerWidget {
           .when(
             loading: () => const Align(
               alignment: Alignment.centerLeft,
-              child: _ButtonSpinner(label: 'Carregando'),
+              child: ButtonSpinner(label: 'Carregando'),
             ),
             error: (error, _) => BlockNotice(
               colors: colors,
@@ -630,34 +519,10 @@ class _ConfirmDialogState extends ConsumerState<_ConfirmDialog> {
             foregroundColor: theme.colorScheme.onError,
           ),
           child: state.deleting
-              ? const _ButtonSpinner(label: 'Excluindo')
+              ? const ButtonSpinner(label: 'Excluindo')
               : const Text('Excluir'),
         ),
       ],
-    );
-  }
-}
-
-/// O rodinho que substitui o ícone de um botão enquanto ele trabalha.
-///
-/// Existe como peça por causa do [label]: um `CircularProgressIndicator` sozinho é invisível
-/// para quem ouve a tela — o botão continua anunciando "Excluir" e nada diz que ele já foi
-/// tocado. Nasceu igual em quatro botões desta tela.
-class _ButtonSpinner extends StatelessWidget {
-  const _ButtonSpinner({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      liveRegion: true,
-      label: label,
-      child: const SizedBox(
-        height: 18,
-        width: 18,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      ),
     );
   }
 }

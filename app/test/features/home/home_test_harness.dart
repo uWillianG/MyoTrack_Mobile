@@ -7,8 +7,10 @@ import 'package:myotrack/features/achievements/achievements_controller.dart'
     as achievements;
 import 'package:myotrack/features/achievements/data/rewards_repository.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:myotrack/features/billing/billing_controller.dart';
 import 'package:myotrack/features/billing/data/billing_models.dart';
+import 'package:myotrack/features/account/url_opener.dart';
 import 'package:myotrack/features/coach/coach_controller.dart';
 import 'package:myotrack/features/dashboard/dashboard_controller.dart';
 import 'package:myotrack/features/dashboard/dashboard_stats.dart';
@@ -19,6 +21,7 @@ import 'package:myotrack/features/diet/diet_plan_controller.dart';
 import 'package:myotrack/features/home/today_controller.dart';
 import 'package:myotrack/features/meals/data/meal_models.dart';
 import 'package:myotrack/features/meals/meal_analysis_controller.dart';
+import 'package:myotrack/features/privacy/privacy_controller.dart';
 import 'package:myotrack/features/profile/data/profile_models.dart';
 import 'package:myotrack/features/profile/data/profile_repository.dart';
 import 'package:myotrack/features/profile/onboarding_controller.dart';
@@ -32,7 +35,7 @@ import 'package:myotrack/features/workout/data/workout_models.dart';
 
 /// Dados de mentira para as telas do hub, e os overrides que as desligam da rede.
 ///
-/// Um arquivo só porque o shell monta as quatro abas de uma vez: testar qualquer uma delas
+/// Um arquivo só porque o shell monta as cinco abas de uma vez: testar qualquer uma delas
 /// exige silenciar as chamadas de todas as outras, e repetir essa lista em cada teste faria
 /// um provider novo quebrar arquivos que não têm nada a ver com ele.
 
@@ -577,6 +580,51 @@ const assinaturaPro = SubscriptionStatus(
   managedByStore: true,
 );
 
+/// De quem é a conta, do lado do servidor.
+///
+/// O e-mail é o mesmo de `homeOverrides(email:)` de propósito: no app um vem do resumo e o
+/// outro do JWT, e um fixture em que os dois divergem esconderia justamente o bug de a tela
+/// mostrar a conta errada quando o servidor não responde.
+final contaDoRafael = AccountSummary(
+  email: 'rafael.souza@myotrack.dev',
+  createdAt: DateTime(2026, 3, 12),
+  hasPassword: true,
+);
+
+/// A versão que o rodapé da aba Conta escreve, e o pacote que monta o link da Play Store.
+final pacoteDoApp = PackageInfo(
+  appName: 'MyoTrack',
+  packageName: 'com.myotrack.app',
+  version: '1.0.0',
+  buildNumber: '1',
+);
+
+/// Engole o toque nas linhas de suporte.
+///
+/// Devolve `true` — "abriu" —, e não `false`: com falso, todo teste que passasse perto de uma
+/// linha de suporte ganharia uma snackbar de erro no meio da tela.
+class SilentUrlOpener implements UrlOpener {
+  const SilentUrlOpener();
+
+  @override
+  Future<bool> open(Uri url) async => true;
+}
+
+/// Guarda o que foi pedido, para o teste conferir o endereço.
+class RecordingUrlOpener implements UrlOpener {
+  final List<Uri> opened = [];
+
+  /// Falso simula aparelho sem cliente de e-mail nem navegador — é o caso em que a tela
+  /// precisa avisar em vez de não fazer nada.
+  bool succeeds = true;
+
+  @override
+  Future<bool> open(Uri url) async {
+    opened.add(url);
+    return succeeds;
+  }
+}
+
 class _FakeBilling extends BillingController {
   _FakeBilling(this._state);
 
@@ -599,7 +647,7 @@ ProfileRepository _profileRepository(UserProfile? profile) {
   return repository;
 }
 
-/// Tudo que as quatro abas consultam, desligado da rede.
+/// Tudo que as cinco abas consultam, desligado da rede.
 ///
 /// Os parâmetros cobrem só o que os testes precisam variar; o resto é o caso comum — usuário
 /// com dieta, com plano e sem papel de revisor.
@@ -616,6 +664,22 @@ List<Override> homeOverrides({
   DateTime? oldestReview,
   UserProfile? profile = userProfile,
   String? email = 'rafael.souza@myotrack.dev',
+
+  /// De quem é a conta, para o cabeçalho da aba Conta. Vem do servidor; o e-mail acima é o
+  /// plano B que sai do JWT, e os dois combinam de propósito.
+  AccountSummary? accountSummary,
+
+  /// O plano da aba Conta. Gratuito por padrão, com os mesmos limites de [billingOverrides] —
+  /// é o estado da maioria, e é nele que a aba mostra o convite ao Pro.
+  SubscriptionStatus subscription = const SubscriptionStatus(
+    maxMealAnalysesPerDay: 3,
+    maxVideoAnalysesPerDay: 1,
+    maxCoachMessagesPerDay: 5,
+  ),
+
+  /// Quem abre endereço fora do app, nas linhas de suporte. O padrão engole o toque: nenhum
+  /// teste que não é sobre suporte deveria falhar por causa de um `mailto:`.
+  UrlOpener? urlOpener,
   List<ReviewKind> reviewableKinds = const [],
   DietPlan? diet = dietPlan,
 
@@ -703,6 +767,16 @@ List<Override> homeOverrides({
   userProfileProvider.overrideWith((ref) async => profile),
   profileRepositoryProvider.overrideWithValue(_profileRepository(profile)),
   userEmailProvider.overrideWith((ref) async => email),
+  // A aba Conta. Sem estes três o shell bate na rede assim que alguém a visita — e o Dio
+  // deixa um timer pendente que o `flutter_test` reprova como "A Timer is still pending",
+  // num teste que não é sobre conta nenhuma.
+  accountSummaryProvider.overrideWith(
+    (ref) async => accountSummary ?? contaDoRafael,
+  ),
+  subscriptionStatusProvider.overrideWith((ref) async => subscription),
+  // `PackageInfo.fromPlatform` fala com o lado nativo, que não existe no teste.
+  packageInfoProvider.overrideWith((ref) async => pacoteDoApp),
+  urlOpenerProvider.overrideWithValue(urlOpener ?? const SilentUrlOpener()),
   rewardStatusProvider.overrideWith((ref) async => rewards ?? rewardStatus()),
   // O relatório semanal do Progresso. Sem override ele bate na rede, e o Dio deixa um timer
   // pendente que o `flutter_test` reprova como "A Timer is still pending" — num teste que não

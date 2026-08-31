@@ -122,6 +122,15 @@ dependencies:
   # e nunca tinha sido ligado.
   share_plus: ^12.0.2
 
+  # --- Aba Conta ---
+  # Versão e build do app, e o nome do pacote. Aparecem em dois lugares da aba: no rodapé, que
+  # é o que se pede a quem relata um problema, e dentro do e-mail de suporte, já preenchido —
+  # ninguém sabe de cabeça em que build está. O nome do pacote é o que monta o `market://` do
+  # link de avaliação, e lê-lo do próprio app evita uma constante que silenciosamente diverge
+  # do `applicationId` no dia em que ele mudar. A faixa é a que o wakelock_plus já resolve por
+  # baixo do pano: declará-la aqui não traz código nativo novo, só o torna importável.
+  package_info_plus: ^9.0.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -143,9 +152,6 @@ dev_dependencies:
   # Testes de rede sem tocar a rede.
   http_mock_adapter: ^0.6.1
   mocktail: ^1.0.4
-
-# A ENTRAR, por funcionalidade:
-#   diversos ................. package_info_plus
 
 flutter:
   uses-material-design: true

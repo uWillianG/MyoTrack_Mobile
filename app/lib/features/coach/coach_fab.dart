@@ -10,7 +10,7 @@ import '../../core/router.dart';
 /// **Por que ele flutua.** Até aqui só se chegava na conversa abrindo a folha do avatar e
 /// achando um item no meio de seis — dois toques para o recurso que mais distingue o produto.
 /// E a dúvida que ele responde ("posso trocar esse exercício?", "isso cabe na minha meta de
-/// hoje?") nasce olhando qualquer uma das quatro abas, não uma delas em particular.
+/// hoje?") nasce olhando qualquer uma das abas em que ele aparece, não uma delas em particular.
 ///
 /// **O mesmo balão da folha da conta**, e não um segundo desenho para a mesma coisa: dois
 /// caminhos até um recurso com vocabulários diferentes é o que faz o usuário achar que são

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/design/tokens.dart';
 import '../../core/sync/sync_queue.dart';
+import '../account/account_hub_page.dart';
 import '../analysis/analysis_page.dart';
 import '../checkin/weigh_in.dart';
 import '../coach/coach_fab.dart';
@@ -11,19 +12,26 @@ import '../nutrition/nutrition_page.dart';
 import 'account_avatar.dart';
 import 'today_page.dart';
 
-/// As quatro abas do app.
+/// As cinco abas do app.
 ///
-/// Quatro e não seis: a barra do Material cabe cinco, mas o quinto item só teria assunto
-/// para quem revisa planos — e revisor é minoria. A fila dele entra como cartão na aba Hoje,
-/// que é onde ele já vai olhar.
+/// Cinco é o teto da barra do Material, e a quinta chegou por último. A fila de revisão
+/// continua fora dela: só teria assunto para quem revisa planos, e revisor é minoria — ela
+/// entra como cartão na aba Hoje, que é onde ele já vai olhar.
 ///
-/// **O Perfil saiu da barra e o Progresso entrou no lugar dele.** A troca é de natureza: as
-/// outras três abas são coisas que se *consulta* — quanto ainda cabe hoje, o que a câmera
-/// achou, quanto ainda falta —, e o Progresso é a quarta pergunta da mesma família ("estou
-/// evoluindo?"), a única que ninguém responde de cabeça e que estava enterrada dentro da folha
-/// do avatar. O Perfil é o contrário: assinatura, conta, objetivo, exclusão de dados — coisas
-/// que se mexe uma vez e não se olha de novo, e que qualquer app põe atrás do avatar. Ele
-/// continua com rota própria (`/perfil`) e agora é o primeiro item dessa folha.
+/// **As quatro primeiras respondem perguntas sobre o corpo**, e são coisas que se *consulta*:
+/// quanto ainda cabe hoje, o que a câmera achou, quanto ainda falta, estou evoluindo. O
+/// Progresso é a quarta dessa família, e foi ele que empurrou o Perfil para fora da barra.
+///
+/// **A Conta é de outra natureza, e voltou à barra assim mesmo.** O argumento contra ela era
+/// bom e continua valendo pela metade: objetivo, medidas e exclusão de dados são coisas que se
+/// mexe uma vez, e por isso a barra as ignorou por um tempo. O que o argumento não pesava é que
+/// este app **cobra assinatura** — e um plano que só se vê depois de tocar no avatar, abrir uma
+/// folha e escolher o quarto item é um plano que ninguém vê. A quinta aba existe para o estado
+/// da conta ser visível sem procurar, e para a exclusão ficar a uma rolagem do primeiro quadro,
+/// que é onde a revisão das lojas procura.
+///
+/// A folha do avatar não foi embora com isso: ela virou o atalho, ver [showAccountSheet]. As
+/// duas leem a mesma lista, e nenhuma escreve destino à mão.
 enum HomeTab {
   /// Sem título: a Hoje desenha o próprio cabeçalho — ele materializa com a rolagem e leva o
   /// anel em miniatura quando o grande sai de cena. Uma barra escrevendo "MyoTrack" acima
@@ -41,7 +49,16 @@ enum HomeTab {
     Icons.center_focus_strong,
     'Analisar',
   ),
-  progress('Progresso', Icons.insights_outlined, Icons.insights, 'Progresso');
+  progress('Progresso', Icons.insights_outlined, Icons.insights, 'Progresso'),
+
+  /// `account_circle` e não `person`: o ícone de pessoa já é o da linha "Meu perfil" lá
+  /// dentro, e a aba não pode parecer o mesmo destino que um dos itens dela.
+  account(
+    'Conta',
+    Icons.account_circle_outlined,
+    Icons.account_circle,
+    'Conta',
+  );
 
   const HomeTab(this.label, this.icon, this.selectedIcon, this.title);
 
@@ -63,11 +80,11 @@ enum HomeTab {
 /// enxerga o estado do widget que a abriu.
 final homeTabProvider = StateProvider<HomeTab>((ref) => HomeTab.today);
 
-/// As quatro abas e os dois flutuantes.
+/// As cinco abas e os dois flutuantes.
 ///
 /// **A barra de baixo não está mais aqui**: ela subiu para [AppShell] e agora aparece em todas
 /// as telas de quem tem sessão, esta inclusive. O que sobrou desta tela é o que só ela tem —
-/// a pilha das quatro abas e os dois botões flutuantes.
+/// a pilha das cinco abas e os dois botões flutuantes.
 ///
 /// Todas as telas continuam tendo rota própria — os deep links do e-mail e das notificações
 /// apontam para elas, e uma aba não tem endereço. As abas são um segundo caminho, o de quem
@@ -83,19 +100,26 @@ class HomePage extends ConsumerWidget {
 
     return Scaffold(
       // A Hoje abre com o painel do dia, que sangra até o topo da tela e leva o avatar no
-      // próprio canto. As outras três continuam com a barra do Material: elas são destinos,
+      // próprio canto. As outras quatro continuam com a barra do Material: elas são destinos,
       // e destino precisa dizer o nome.
       appBar: title == null
           ? null
           : AppBar(
               title: Text(title),
+              // **O avatar não aparece na própria aba Conta.** Ele é a porta para a folha, e
+              // a folha oferece exatamente a lista que já está aberta logo abaixo dele — um
+              // atalho para onde a pessoa já chegou. As iniciais continuam na tela: quem as
+              // mostra ali é o cabeçalho do hub.
+              //
               // A margem da direita é a mesma do conteúdo (`Space.gutter`) menos o respiro
               // que o próprio `IconButton` já reserva: sem ela o avatar encosta na borda da
               // tela e some pela metade no recorte da câmera.
-              actions: const [
-                AccountAvatar(),
-                SizedBox(width: Space.gutter - Space.sm),
-              ],
+              actions: tab == HomeTab.account
+                  ? null
+                  : const [
+                      AccountAvatar(),
+                      SizedBox(width: Space.gutter - Space.sm),
+                    ],
             ),
       // `IndexedStack` e não uma troca de filho: o diário rolado, a foto em análise e a
       // conversa pela metade sobrevivem à ida e volta entre abas. Refazer esse estado a cada
@@ -109,17 +133,23 @@ class HomePage extends ConsumerWidget {
           NutritionView(),
           AnalysisView(),
           ProgressView(),
+          AccountHubView(),
         ],
       ),
       // Os dois flutuantes ocupam a tira de baixo inteira, um em cada ponta, e cada um tem
       // uma regra de presença diferente.
       //
-      // **O coach fica nas quatro abas, sempre à direita.** A pergunta que ele responde
-      // ("posso trocar esse exercício?", "isso cabe na minha meta de hoje?") nasce olhando
-      // qualquer uma delas, e até aqui o único caminho até a conversa era a folha do avatar —
-      // dois toques e um item no meio de seis. À direita porque é o canto onde o polegar
-      // chega sem a mão sair do lugar, e porque é o mesmo canto nas quatro: botão que muda de
-      // lado conforme a aba obriga a procurá-lo toda vez.
+      // **O coach fica nas quatro primeiras abas, sempre à direita.** A pergunta que ele
+      // responde ("posso trocar esse exercício?", "isso cabe na minha meta de hoje?") nasce
+      // olhando qualquer uma delas, e até aqui o único caminho até a conversa era a folha do
+      // avatar — dois toques e um item no meio de seis. À direita porque é o canto onde o
+      // polegar chega sem a mão sair do lugar, e porque é o mesmo canto nas quatro: botão que
+      // muda de lado conforme a aba obriga a procurá-lo toda vez.
+      //
+      // **Na Conta ele não aparece.** Ali a dúvida não é sobre treino nem sobre comida — é
+      // sobre cobrança, dados e sair —, e um balão de conversa flutuando sobre a linha de
+      // excluir a conta é um convite fora de hora. A conversa continua alcançável dali: ela é
+      // uma das linhas da própria lista.
       //
       // **O `Registrar` continua só na Hoje**, agora à esquerda. Nas outras abas a ação
       // principal já está na tela (fotografar, gerar dieta), e um botão repetindo-a esconderia
@@ -141,7 +171,7 @@ class HomePage extends ConsumerWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Nas outras três abas a ponta esquerda fica vazia, e o `spaceBetween` empurra
+              // Nas outras abas a ponta esquerda fica vazia, e o `spaceBetween` empurra
               // o coach para a direita do mesmo jeito — é o que mantém o canto dele estável.
               if (tab == HomeTab.today)
                 FloatingActionButton.extended(
@@ -152,7 +182,10 @@ class HomePage extends ConsumerWidget {
                 )
               else
                 const SizedBox.shrink(),
-              const CoachFab(),
+              if (tab == HomeTab.account)
+                const SizedBox.shrink()
+              else
+                const CoachFab(),
             ],
           ),
         ),
@@ -163,15 +196,15 @@ class HomePage extends ConsumerWidget {
 
 /// Um `IndexedStack` que só constrói a aba depois de a pessoa ter ido nela.
 ///
-/// **O `IndexedStack` puro constrói os quatro filhos no primeiro quadro** — é assim que ele
-/// preserva o estado das abas que não estão à vista. Enquanto as quatro eram telas passivas
+/// **O `IndexedStack` puro constrói os cinco filhos no primeiro quadro** — é assim que ele
+/// preserva o estado das abas que não estão à vista. Enquanto elas eram telas passivas
 /// isso custava só trabalho adiantado. Deixou de ser quando o Progresso entrou na barra: ele
 /// carrega a comemoração das conquistas, e ela **marca como vista** a novidade no primeiro
 /// quadro em que aparece. Montado junto com o shell, ele apagava o aviso de conquista nova da
 /// Hoje antes de o usuário ter visto conquista nenhuma — o prêmio era consumido pelo app.
 ///
 /// Guardando quais abas já foram abertas resolve o caso e ainda paga outra conta: no arranque
-/// o app dispara as chamadas de uma aba, não de quatro. E o que o `IndexedStack` garante
+/// o app dispara as chamadas de uma aba, não de cinco. E o que o `IndexedStack` garante
 /// continua valendo, porque só vale para aba que já existiu.
 class _LazyIndexedStack extends StatefulWidget {
   const _LazyIndexedStack({required this.index, required this.children});

@@ -9,7 +9,7 @@ import 'home_page.dart';
 /// A moldura de baixo, em todas as telas de quem tem sessão.
 ///
 /// **A barra saiu da home e virou o chão do app.** Enquanto ela morava dentro da tela das
-/// quatro abas, sair para qualquer outra — o plano de treino, o coach, a assinatura — deixava
+/// cinco abas, sair para qualquer outra — o plano de treino, o coach, a assinatura — deixava
 /// a pessoa sem nenhum ponto de referência: o único caminho de volta era a seta do canto, e
 /// com duas telas empilhadas ela vira um caminho às cegas. Com a barra sempre presente, ir
 /// para o coach ler uma resposta e voltar para a Nutrição é um toque, e o app deixa de ter
@@ -21,7 +21,7 @@ import 'home_page.dart';
 /// login é pior que destino nenhum.
 ///
 /// **A aba acesa continua sendo a do provider, mesmo numa tela empilhada.** É a aba de onde a
-/// pessoa saiu, e é para onde o toque na barra a devolve — apagar as quatro enquanto o coach
+/// pessoa saiu, e é para onde o toque na barra a devolve — apagar as cinco enquanto o coach
 /// está aberto faria a barra parecer desligada justamente quando ela é o caminho de volta.
 class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.location, required this.child});

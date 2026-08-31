@@ -46,6 +46,35 @@ class Env {
 
   static bool get isGoogleSignInConfigured => googleServerClientId.isNotEmpty;
 
+  /// Onde a aba Conta manda quem precisa de ajuda ou de ler os termos.
+  ///
+  /// **O e-mail é o único que funciona sem nada publicado**, e por isso é o que a tela oferece
+  /// primeiro: a mensagem já sai com a versão do app e o aparelho no corpo, que é o que a
+  /// primeira resposta do suporte pediria de volta. Os dois endereços de página vivem sob o
+  /// mesmo domínio dos links de e-mail (`deep_links.dart`); as lojas exigem os dois de
+  /// qualquer forma, e apontá-los para outro domínio é o tipo de divergência que só aparece na
+  /// revisão.
+  static const String supportEmail = String.fromEnvironment(
+    'MYOTRACK_SUPPORT_EMAIL',
+    defaultValue: 'suporte@myotrack.app',
+  );
+
+  static const String termsUrl = 'https://myotrack.app/termos';
+  static const String privacyUrl = 'https://myotrack.app/privacidade';
+
+  /// Ficha do app na App Store, para o link de avaliação.
+  ///
+  /// Vazia por enquanto, e é de propósito: o app ainda não foi publicado, e a Apple só emite
+  /// esse número na criação da ficha. Enquanto ela estiver vazia a linha "Avaliar o app"
+  /// **não aparece no iOS** — link que abre uma página de erro é pior que linha nenhuma. No
+  /// Android não há equivalente a preencher: o `market://` usa o nome do pacote, que o app já
+  /// sabe de si mesmo.
+  static const String appStoreId = String.fromEnvironment(
+    'MYOTRACK_APP_STORE_ID',
+  );
+
+  static bool get isAppStoreListed => appStoreId.isNotEmpty;
+
   /// Quanto o cliente espera por uma resposta comum da API.
   static const Duration connectTimeout = Duration(seconds: 15);
   static const Duration receiveTimeout = Duration(seconds: 30);

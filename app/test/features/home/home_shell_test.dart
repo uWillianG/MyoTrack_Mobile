@@ -7,6 +7,7 @@ import 'package:myotrack/core/sync/sync_queue.dart';
 import 'package:myotrack/core/theme.dart';
 import 'package:myotrack/core/router.dart';
 import 'package:myotrack/core/widgets/glass_segmented.dart';
+import 'package:myotrack/features/account/account_hub_page.dart';
 import 'package:myotrack/features/analysis/analysis_page.dart';
 import 'package:myotrack/features/coach/coach_fab.dart';
 import 'package:myotrack/features/coach/coach_page.dart';
@@ -23,7 +24,7 @@ import 'home_test_harness.dart';
 
 class _MockLoggingRepository extends Mock implements LoggingRepository {}
 
-/// O shell é a primeira tela do app e a única que carrega quatro telas ao mesmo tempo. Estes
+/// O shell é a primeira tela do app e a única que carrega cinco telas ao mesmo tempo. Estes
 /// testes rodam na largura de um celular pequeno para que um estouro de layout em qualquer
 /// uma das abas falhe aqui, e não no aparelho.
 void main() {
@@ -85,7 +86,7 @@ void main() {
   }
 
   for (final brightness in Brightness.values) {
-    testWidgets('as quatro abas renderizam sem estouro (${brightness.name})', (
+    testWidgets('as cinco abas renderizam sem estouro (${brightness.name})', (
       tester,
     ) async {
       final container = await pump(tester, brightness: brightness);
@@ -172,13 +173,18 @@ void main() {
     );
   });
 
-  testWidgets('o botão do coach acompanha as quatro abas', (tester) async {
+  testWidgets('o botão do coach acompanha as quatro primeiras abas', (
+    tester,
+  ) async {
     // Ele é o contrário do `Registrar`: a dúvida que o coach responde nasce olhando qualquer
-    // aba, e antes dele o único caminho até a conversa era a folha do avatar — dois toques e
-    // um item no meio de seis, para o recurso que mais distingue o produto.
+    // uma delas, e antes dele o único caminho até a conversa era a folha do avatar — dois
+    // toques e um item no meio de seis, para o recurso que mais distingue o produto.
     final container = await pump(tester);
 
     for (final tab in HomeTab.values) {
+      if (tab == HomeTab.account) {
+        continue;
+      }
       container.read(homeTabProvider.notifier).state = tab;
       await tester.pumpAndSettle();
 
@@ -202,6 +208,30 @@ void main() {
         reason: 'aba ${tab.label}',
       );
     }
+  });
+
+  testWidgets('na Conta o coach sai da frente', (tester) async {
+    // A regra acima para justamente aqui. Na Conta a dúvida não é sobre treino nem sobre
+    // comida — é sobre cobrança, dados e sair —, e o balão flutuaria bem sobre a linha de
+    // excluir a conta. A conversa continua a um toque: ela é uma das linhas da lista, e é
+    // por isso que o teste rola até achá-la em vez de só conferir que o botão sumiu.
+    final container = await pump(tester);
+    container.read(homeTabProvider.notifier).state = HomeTab.account;
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CoachFab), findsNothing);
+
+    await tester.scrollUntilVisible(
+      find.text('Coach'),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byType(AccountHubView),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    expect(find.text('Coach'), findsOne);
   });
 
   testWidgets('tocar no botão do coach abre a conversa', (tester) async {

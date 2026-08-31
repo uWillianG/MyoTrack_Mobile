@@ -530,6 +530,29 @@ void main() {
       await shoot(tester, 'conta-$mode');
     });
 
+    // A aba Conta, nos dois planos. Ela é a única aba que não é sobre o corpo, e a captura
+    // existe por causa da ordem: identidade, plano, mapa, suporte, sair. No gratuito o bloco do
+    // plano é um convite; no Pro é uma data — e é a diferença entre as duas que diz se o
+    // convite está no tom certo para uma tela que também guarda a exclusão da conta.
+    testWidgets('conta — aba ($mode)', (tester) async {
+      final container = await pump(tester, brightness, const HomePage());
+      container.read(homeTabProvider.notifier).state = HomeTab.account;
+      await tester.pumpAndSettle();
+      await shoot(tester, 'conta-aba-$mode');
+    });
+
+    testWidgets('conta — aba no Pro ($mode)', (tester) async {
+      final container = await pump(
+        tester,
+        brightness,
+        const HomePage(),
+        extra: [...homeOverrides(subscription: assinaturaPro)],
+      );
+      container.read(homeTabProvider.notifier).state = HomeTab.account;
+      await tester.pumpAndSettle();
+      await shoot(tester, 'conta-aba-pro-$mode');
+    });
+
     // As duas caras do perfil. O cadastro é o que só quem chega vê, e a razão de a galeria
     // capturá-lo é a mesma do primeiro acesso da Hoje.
     testWidgets('perfil ($mode)', (tester) async {
