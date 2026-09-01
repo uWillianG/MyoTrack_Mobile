@@ -88,12 +88,12 @@ final authStateProvider = FutureProvider<bool>(
   (ref) => ref.watch(tokenStoreProvider).isAuthenticated,
 );
 
-/// Papéis do usuário atual — decide se o item de revisão aparece no menu.
+/// Papéis do usuário atual — decide se o item de revisão aparece na lista da aba Conta.
 final userRolesProvider = FutureProvider<List<String>>(
   (ref) => ref.watch(tokenStoreProvider).roles(),
 );
 
-/// E-mail do usuário atual. Alimenta as iniciais do avatar da barra superior.
+/// E-mail do usuário atual. Alimenta o cabeçalho da aba Conta e as iniciais dele.
 final userEmailProvider = FutureProvider<String?>(
   (ref) => ref.watch(tokenStoreProvider).email(),
 );

@@ -264,8 +264,8 @@ void main() {
   testWidgets('sem o cartão do plano, a linha de assinatura volta', (
     tester,
   ) async {
-    // Sem as duas, a assinatura ficaria inalcançável daqui e a folha do avatar viraria o
-    // único caminho até ela.
+    // Esta tela é o único caminho até a assinatura: sem o cartão e sem a linha, ela ficaria
+    // inalcançável pela navegação.
     await pump(
       tester,
       extraOverrides: [

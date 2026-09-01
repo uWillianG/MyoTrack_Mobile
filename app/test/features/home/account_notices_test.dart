@@ -4,16 +4,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:myotrack/core/db/local_database.dart';
+import 'package:myotrack/core/design/materials.dart';
 import 'package:myotrack/core/providers.dart';
 import 'package:myotrack/core/theme.dart';
-import 'package:myotrack/features/home/account_sheet.dart';
-import 'package:myotrack/features/reviews/review_controller.dart';
+import 'package:myotrack/features/home/account_notices.dart';
 
-/// A folha da conta é onde o app conta o que deu errado longe da tela.
+/// Os avisos da conta são onde o app conta o que deu errado longe da tela.
 ///
 /// O aviso de escrita recusada é a única coisa que separa "o servidor não aceitou seu treino"
 /// de o registro simplesmente sumir. Estes testes fixam que ele aparece, que diz o suficiente
 /// para a pessoa refazer o registro, e que só some quando ela dispensa.
+///
+/// **Montam a função, e não a tela que a hospeda.** Eles chegavam pela folha do avatar, que
+/// saiu do app quando a Conta virou aba; a única casa dos avisos hoje é essa aba, que exige
+/// meia dúzia de providers de assinatura e suporte para existir — nenhum deles com relação
+/// nenhuma com o que aqui se testa. O que interessa é o bloco, e é ele que estes testes montam.
 ///
 /// Aqui o `discardedWritesProvider` **não** é substituído: ele lê o banco em memória de
 /// verdade. Um valor fixo no lugar dele deixaria o teste do "dispensar" sempre verde — o
@@ -46,12 +51,8 @@ void main() {
         overrides: [
           localDatabaseProvider.overrideWithValue(db),
           pendingWritesProvider.overrideWith((ref) => Stream.value(0)),
-          reviewableKindsProvider.overrideWith((ref) async => const []),
         ],
-        child: MaterialApp(
-          theme: AppTheme.light(),
-          home: const Scaffold(body: AccountSheet()),
-        ),
+        child: MaterialApp(theme: AppTheme.light(), home: const _Host()),
       ),
     );
     await tester.pumpAndSettle();
@@ -62,7 +63,9 @@ void main() {
 
     // Um cartão vermelho permanente ensinaria a ignorar a cor justamente quando ela importa.
     expect(find.textContaining('recusado'), findsNothing);
-    expect(find.text('Meu perfil'), findsOne);
+    // E não sobra painel nenhum: quem chama intercala espaçamento entre os blocos da tela, e um
+    // aviso que se resolvesse num widget vazio deixaria um respiro solto no meio da aba.
+    expect(find.byType(GlassPanel), findsNothing);
   });
 
   testWidgets('o aviso diz o que se perdeu, não o endpoint', (tester) async {
@@ -105,4 +108,22 @@ void main() {
     // E some do banco: o payload existia só para poder ser mostrado esta vez.
     expect(await db.discarded(), isEmpty);
   });
+}
+
+/// Os avisos numa lista rolável, como a aba Conta os intercala entre os próprios blocos.
+class _Host extends ConsumerWidget {
+  const _Host();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Scaffold(
+      body: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: accountNotices(ref, padding: const EdgeInsets.all(16)),
+        ),
+      ),
+    );
+  }
 }

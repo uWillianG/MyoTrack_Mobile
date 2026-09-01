@@ -21,8 +21,8 @@ import '../providers.dart';
 /// 3. **Apagar o banco local**, pelo motivo descrito em [LocalDatabase.wipe].
 /// 4. **Invalidar os providers que leem o token**, e não só o de autenticação. Eles são
 ///    `FutureProvider` sem `autoDispose`: sem invalidar, o e-mail e os papéis da pessoa
-///    anterior sobrevivem à troca de conta em memória, e o avatar da barra superior abre a
-///    sessão nova com as iniciais de quem saiu.
+///    anterior sobrevivem à troca de conta em memória, e o cabeçalho da aba Conta abre a
+///    sessão nova com o e-mail e as iniciais de quem saiu.
 class SessionCloser {
   SessionCloser(this._ref);
 

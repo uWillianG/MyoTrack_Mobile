@@ -160,8 +160,8 @@ void main() {
 
     await container.read(sessionCloserProvider).close();
 
-    // O avatar da barra superior desenha as iniciais a partir daqui: sem invalidar, a sessão
-    // seguinte abriria com as iniciais de quem saiu.
+    // O cabeçalho da aba Conta escreve o e-mail e desenha as iniciais a partir daqui: sem
+    // invalidar, a sessão seguinte abriria com a conta de quem saiu.
     expect(await container.read(userEmailProvider.future), isNull);
   });
 

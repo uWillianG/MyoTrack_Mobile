@@ -14,7 +14,6 @@ import 'package:myotrack/features/coach/coach_page.dart';
 import 'package:myotrack/features/home/app_shell.dart';
 import 'package:myotrack/features/home/home_page.dart';
 import 'package:myotrack/features/home/account_destinations.dart';
-import 'package:myotrack/features/home/account_sheet.dart';
 import 'package:myotrack/features/logging/data/logging_models.dart';
 import 'package:myotrack/features/logging/data/logging_repository.dart';
 import 'package:myotrack/features/logging/logging_controller.dart';
@@ -177,8 +176,8 @@ void main() {
     tester,
   ) async {
     // Ele é o contrário do `Registrar`: a dúvida que o coach responde nasce olhando qualquer
-    // uma delas, e antes dele o único caminho até a conversa era a folha do avatar — dois
-    // toques e um item no meio de seis, para o recurso que mais distingue o produto.
+    // uma delas, e sem ele o único caminho até a conversa seria trocar de aba e achar um item
+    // no meio da lista da Conta — para o recurso que mais distingue o produto.
     final container = await pump(tester);
 
     for (final tab in HomeTab.values) {
@@ -331,62 +330,40 @@ void main() {
     expect(captured.weightKg, closeTo(83.1, 0.001));
   });
 
-  testWidgets('o avatar guarda os destinos que saíram da home', (tester) async {
-    // A home virou hub e deixou de listar tudo, e as quatro abas não comportam o resto. Se
-    // algum destino sumir junto, o usuário perde o único caminho até ele — inclusive a
-    // exclusão de conta, que as lojas exigem que seja fácil de achar.
-    await pump(tester);
+  testWidgets('nenhuma aba leva mais o avatar da conta no canto', (
+    tester,
+  ) async {
+    // O avatar abria uma folha com exatamente a lista que a aba Conta mostra: o mesmo destino
+    // por dois caminhos, um deles escondido atrás de duas letras no canto de cima. Este teste
+    // é o que impede o atalho de voltar por distração — as iniciais existem numa tela só.
+    final container = await pump(tester);
 
-    await tester.tap(find.byType(CircleAvatar));
-    await tester.pumpAndSettle();
+    for (final tab in HomeTab.values) {
+      if (tab == HomeTab.account) {
+        continue;
+      }
+      container.read(homeTabProvider.notifier).state = tab;
+      await tester.pumpAndSettle();
 
-    final sheet = find.byType(AccountSheet);
-    expect(sheet, findsOne);
-
-    for (final title in [
-      // O Perfil trocou de lugar com o Progresso: saiu da barra de abas e entrou aqui.
-      'Meu perfil',
-      'Meu treino',
-      'Coach',
-      'Assinatura',
-      'Conta e privacidade',
-    ]) {
-      final item = find.descendant(of: sheet, matching: find.text(title));
-      await tester.scrollUntilVisible(
-        item,
-        120,
-        // A folha tem a própria rolagem, e a árvore inteira tem várias — sem dizer qual, o
-        // `scrollUntilVisible` não sabe em qual rolar.
-        scrollable: find
-            .descendant(of: sheet, matching: find.byType(Scrollable))
-            .first,
-      );
-      expect(item, findsOne, reason: title);
+      final aba = 'aba ${tab.label}';
+      expect(find.byType(CircleAvatar), findsNothing, reason: aba);
+      expect(find.byTooltip('Conta e mais'), findsNothing, reason: aba);
+      expect(find.text('RS'), findsNothing, reason: aba);
     }
   });
 
-  testWidgets('as iniciais do avatar saem do e-mail da sessão', (tester) async {
-    await pump(tester);
-
-    expect(find.text('RS'), findsOne);
-  });
-
-  testWidgets('sem papel de revisor, Revisão não aparece na folha da conta', (
+  testWidgets('o caminho até a conta é a aba, e as iniciais estão nela', (
     tester,
   ) async {
-    // Levaria o aluno a uma tela que o servidor recusa com 403.
-    await pump(tester);
-
-    await tester.tap(find.byType(CircleAvatar));
+    // A contrapartida do teste acima: tirar as iniciais do canto de cima só é aceitável porque
+    // a quinta aba diz de que conta se trata, a um toque de qualquer tela. Os destinos que
+    // moravam na folha continuam lá — quem os guarda é o teste da própria aba.
+    final container = await pump(tester);
+    container.read(homeTabProvider.notifier).state = HomeTab.account;
     await tester.pumpAndSettle();
 
-    expect(
-      find.descendant(
-        of: find.byType(AccountSheet),
-        matching: find.text('Revisão'),
-      ),
-      findsNothing,
-    );
+    expect(find.text('RS'), findsOne);
+    expect(find.text('rafael.souza@myotrack.dev'), findsOne);
   });
 
   testWidgets('a aba Progresso abre a evolução, e não o perfil', (
@@ -399,8 +376,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Progresso'), findsWidgets);
-    // E o Perfil continua alcançável: ele desceu para a folha do avatar, que é onde todo app
-    // põe conta e configuração.
+    // E o Perfil continua alcançável: ele desceu para a lista da aba Conta, e é o primeiro item
+    // dela — que é onde todo app põe conta e configuração.
     expect(accountDestinations.first.route, Routes.profile);
   });
 }

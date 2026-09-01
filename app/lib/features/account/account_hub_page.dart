@@ -12,7 +12,6 @@ import '../../core/router.dart';
 import '../../core/widgets/blocks.dart';
 import '../billing/billing_controller.dart';
 import '../billing/data/billing_models.dart';
-import '../home/account_avatar.dart';
 import '../home/account_destinations.dart';
 import '../home/account_notices.dart';
 import '../home/today_controller.dart' show nowProvider;
@@ -28,11 +27,12 @@ import 'url_opener.dart';
 /// evoluindo. Esta é a casa da pessoa dentro do app: de quem é esta conta, o que ela paga, o
 /// que o app sabe dela e como ir embora.
 ///
-/// **Não é uma gaveta com uma lista dentro.** A folha do avatar já era isso, e continua sendo,
-/// para quem quer o atalho. O que uma aba acrescenta é o que só cabe numa tela inteira: o plano
-/// atual visível sem procurar — o app cobra assinatura, e um paywall que só se encontra em três
-/// toques é um paywall que ninguém encontra —, e a exclusão de conta a uma rolagem do primeiro
-/// quadro, que é onde a revisão das lojas procura.
+/// **Não é uma gaveta com uma lista dentro.** A folha que o avatar da barra superior abria já
+/// era isso, e foi por isso que ela saiu do app: o que uma aba acrescenta é o que só cabe numa
+/// tela inteira — o plano atual visível sem procurar (o app cobra assinatura, e um paywall que
+/// só se encontra em três toques é um paywall que ninguém encontra) e a exclusão de conta a uma
+/// rolagem do primeiro quadro, que é onde a revisão das lojas procura. Uma folha oferecendo a
+/// mesma lista a partir do canto de cima seria só um segundo caminho para cá.
 ///
 /// **Sem herói, e é a mesma decisão da tela de conta e privacidade.** O herói do sistema é o
 /// assunto do momento com um número grande; aqui não há número que seja o assunto, e promover
@@ -58,7 +58,7 @@ class AccountHubView extends ConsumerWidget {
     // assinatura, já diz o plano em vigor e já leva à mesma tela; repetida logo abaixo, a linha
     // sugeriria um segundo destino — foi por isso que o Progresso saiu desta lista ao virar aba.
     // Quando o cartão não carrega, ela volta: sem os dois, a assinatura ficaria inalcançável
-    // daqui, e a folha do avatar viraria o único caminho.
+    // pela navegação — esta tela é o único caminho até ela.
     final destinations = [
       for (final destination in accountDestinations)
         if (status == null || destination.route != Routes.billing) destination,
@@ -112,10 +112,14 @@ class AccountHubView extends ConsumerWidget {
 
 /// As iniciais, o e-mail e desde quando.
 ///
-/// Iniciais e não foto porque não há upload de avatar em lugar nenhum — ver [AccountAvatar],
-/// de onde sai o cálculo. O e-mail do JWT é o plano B do resumo do servidor, e chega sem rede:
-/// a aba diz de que conta se trata mesmo com a API fora do ar, que é quando alguém mais precisa
-/// ter certeza antes de mexer em alguma coisa.
+/// Iniciais e não foto porque não há upload de avatar em lugar nenhum — um espaço reservado
+/// para uma foto que nunca chega fica pior que a inicial. O cálculo é o de [initialsFrom], logo
+/// abaixo; ele veio do avatar da barra superior, que era o outro lugar que desenhava estas duas
+/// letras e saiu do app quando esta aba passou a oferecer a mesma lista que a folha dele.
+///
+/// O e-mail do JWT é o plano B do resumo do servidor, e chega sem rede: a aba diz de que conta
+/// se trata mesmo com a API fora do ar, que é quando alguém mais precisa ter certeza antes de
+/// mexer em alguma coisa.
 class _Identity extends ConsumerWidget {
   const _Identity();
 
@@ -166,6 +170,31 @@ class _Identity extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Até duas letras a partir do e-mail: `rafael.souza@x.com` vira "RS", `willian@x.com` vira
+/// "WI". Sem e-mail — sessão ainda carregando — fica o traço, que não parece nome de outra
+/// pessoa.
+///
+/// **Mora aqui porque só o cabeçalho acima a chama.** Ela morava com o avatar da barra
+/// superior, que desenhava as mesmas iniciais; quando o avatar saiu, deixar a função no
+/// arquivo dele seria manter de pé um arquivo chamado "avatar" sem avatar nenhum dentro.
+/// Função de topo e não método privado porque é cálculo puro sobre uma string, e é isso que a
+/// torna testável sem montar tela.
+String initialsFrom(String? email) {
+  final local = (email ?? '').split('@').first.trim();
+  if (local.isEmpty) {
+    return '—';
+  }
+
+  final parts = local
+      .split(RegExp(r'[._\-+\s]+'))
+      .where((p) => p.isNotEmpty)
+      .toList();
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return local.substring(0, local.length >= 2 ? 2 : 1).toUpperCase();
 }
 
 // ---------------------------------------------------------------------------------------

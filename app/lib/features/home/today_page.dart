@@ -18,7 +18,6 @@ import '../dashboard/dashboard_controller.dart';
 import '../diary/data/diary_models.dart';
 import '../diary/diary_controller.dart';
 import '../profile/onboarding_controller.dart';
-import 'account_avatar.dart';
 import 'today_ring.dart';
 import 'today_controller.dart';
 
@@ -143,7 +142,7 @@ class _TodayViewState extends ConsumerState<TodayView> {
 /// A altura da tira de título, abaixo do recorte do sistema.
 const double _headerBar = 46;
 
-/// O cabeçalho da Hoje: o nome da aba, o anel em miniatura e o avatar.
+/// O cabeçalho da Hoje: o nome da aba e o anel em miniatura.
 ///
 /// **Ele chega com a rolagem.** No topo da lista não há nada por baixo dele para borrar, e uma
 /// barra já materializada ali só desenharia uma divisão onde a tela é contínua. Conforme o
@@ -185,11 +184,12 @@ class _TodayHeader extends StatelessWidget {
                     Expanded(
                       child: Text('Hoje', style: theme.textTheme.titleLarge),
                     ),
-                    if (compact > 0) ...[
+                    // Sem espaçamento depois dele: o anel era o penúltimo desta linha, e o
+                    // respiro que vinha aqui separava-o do avatar da conta. Sem o avatar, o
+                    // que fecha a direita é a margem do `Padding` — e um `SizedBox` sobrando
+                    // empurraria o anel para dentro sem nada do outro lado.
+                    if (compact > 0)
                       Opacity(opacity: compact, child: const _CompactRing()),
-                      const SizedBox(width: Space.xs),
-                    ],
-                    const AccountAvatar(),
                   ],
                 ),
               ),

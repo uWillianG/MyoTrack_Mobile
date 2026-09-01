@@ -4,10 +4,10 @@ import '../../core/router.dart';
 
 /// Em que parte da aba Conta um destino aparece.
 ///
-/// Os grupos existem para a aba, não para a folha: cinco linhas seguidas sem cabeçalho são uma
-/// lista para ler inteira, e o que se procura numa tela de conta ("onde mudo o plano?") se acha
-/// pelo título do grupo antes de pelo título da linha. A folha continua mostrando tudo em fila
-/// — nela são cinco itens numa gaveta que já se abriu com um objetivo em mente.
+/// Os grupos nasceram com a aba, e para ela: cinco linhas seguidas sem cabeçalho são uma lista
+/// para ler inteira, e o que se procura numa tela de conta ("onde mudo o plano?") se acha pelo
+/// título do grupo antes de pelo título da linha. A folha que o avatar abria mostrava os mesmos
+/// destinos em fila e ignorava os grupos — e foi ela que saiu, não eles.
 enum AccountGroup {
   /// Quem é você aqui, quanto você paga, e como sair ou apagar tudo.
   conta('Conta', Icons.badge_outlined),
@@ -47,14 +47,14 @@ class AccountDestination {
 
 /// Os destinos que não cabem na barra inferior.
 ///
-/// **Mora em arquivo próprio porque é o mapa do app, e não o desenho de uma folha.** A tela de
+/// **Mora em arquivo próprio porque é o mapa do app, e não o desenho de uma tela.** A tela de
 /// perfil já repetiu esta mesma lista, e a repetição custava caro dos dois lados: quem abria o
 /// perfil para mudar o objetivo encontrava um índice do app inteiro embaixo das próprias
 /// medidas, e a lista escrita à mão em dois lugares divergiria na primeira tela nova.
 ///
-/// **Hoje quem a mostra são dois lugares, e é por isso que ela importa mais do que antes**: a
-/// aba Conta, agrupada por [AccountGroup], e a folha do avatar, em fila. Nenhum dos dois escreve
-/// destino nenhum à mão — é o que garante que a aba e a folha nunca ofereçam coisas diferentes.
+/// **Hoje quem a mostra é a aba Conta**, agrupada por [AccountGroup] — e é o único lugar, desde
+/// que a folha do avatar da barra superior saiu por oferecer exatamente esta mesma lista. A aba
+/// não escreve destino nenhum à mão: uma tela nova entra aqui e aparece lá.
 ///
 /// A exclusão de conta, em particular, precisa ser fácil de achar ou a revisão das lojas
 /// recusa o app.

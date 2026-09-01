@@ -8,11 +8,11 @@ import '../../core/sync/discarded_write_summary.dart';
 
 /// O que a fila de escrita offline precisa contar, e em que ordem.
 ///
-/// **Mora em arquivo próprio porque agora aparece em dois lugares**: na folha do avatar e na
-/// aba Conta. São os dois lugares que a pessoa abre sem estar no meio de outra coisa, que é
-/// justamente quando dá para ler um aviso — e um deles tem botão que apaga o estado. Duas
-/// cópias divergiriam na primeira vez que alguém mexesse só numa; pior, a que ficasse para
-/// trás continuaria mostrando um registro que a outra já dispensou.
+/// **Mora na aba Conta**, que é o lugar que a pessoa abre sem estar no meio de outra coisa —
+/// justamente quando dá para ler um aviso e tocar num botão que apaga estado. Já apareceu
+/// também na folha do avatar da barra superior, e continua em arquivo próprio por isso: é um
+/// bloco fechado, com regra de ordem própria, que não é o desenho de nenhuma tela em
+/// particular.
 ///
 /// Devolve zero, um ou dois widgets, e é por isso que é função e não widget: quem chama
 /// intercala espaçamento entre os blocos da própria tela, e um widget que se resolve em nada

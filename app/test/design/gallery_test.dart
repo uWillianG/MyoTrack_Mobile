@@ -109,7 +109,7 @@ void main() {
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp.router(
-          // Como no `main`: a faixa de debug cobriria justamente o avatar da barra superior.
+          // Como no `main`: a faixa de debug cobriria justamente o canto de cima das telas.
           debugShowCheckedModeBanner: false,
           locale: const Locale('pt', 'BR'),
           // Sem família fixada: o tema já traz a Manrope, que é a fonte do app e vem
@@ -557,7 +557,7 @@ void main() {
     // capturá-lo é a mesma do primeiro acesso da Hoje.
     testWidgets('perfil ($mode)', (tester) async {
       // Pela rota, e não pela barra: o Perfil deixou de ser aba quando o Progresso tomou a
-      // quarta vaga, e agora se chega nele pelo avatar.
+      // quarta vaga, e agora se chega nele pela lista da aba Conta.
       await pump(tester, brightness, const ProfilePage());
       await shoot(tester, 'perfil-$mode');
     });

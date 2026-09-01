@@ -79,8 +79,9 @@ class _AccountSection extends ConsumerWidget {
     final summary = ref.watch(accountSummaryProvider).valueOrNull;
 
     // O e-mail do JWT é o plano B, e chega sem rede: o token já o carrega, e é dele que saem
-    // as iniciais do avatar. Com ele, a tela diz de que conta se trata mesmo com o servidor
-    // fora do ar — que é quando alguém mais precisa ter certeza antes de apagar alguma coisa.
+    // as iniciais do cabeçalho da aba Conta. Com ele, a tela diz de que conta se trata mesmo
+    // com o servidor fora do ar — que é quando alguém mais precisa ter certeza antes de apagar
+    // alguma coisa.
     final email = summary?.email ?? ref.watch(userEmailProvider).valueOrNull;
     final createdAt = summary?.createdAt;
 

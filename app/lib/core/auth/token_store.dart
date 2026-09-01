@@ -81,9 +81,9 @@ class TokenStore {
 
   /// E-mail do usuário atual, tirado do JWT. Null quando não há sessão.
   ///
-  /// Vem do token e não de `/api/profile` porque o uso é decorativo — as iniciais no avatar
-  /// da barra superior — e uma chamada de rede para desenhar duas letras deixaria o avatar
-  /// piscando vazio a cada abertura.
+  /// Vem do token e não de `/api/profile` porque é o plano B do resumo do servidor no
+  /// cabeçalho da aba Conta — e porque dele saem as iniciais, que são decorativas: uma chamada
+  /// de rede para desenhar duas letras deixaria o círculo piscando vazio a cada abertura.
   Future<String?> email() async {
     final tokens = await read();
     return tokens == null ? null : emailFromAccessToken(tokens.accessToken);

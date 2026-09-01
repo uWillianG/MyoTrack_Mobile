@@ -7,14 +7,15 @@ import '../../core/router.dart';
 
 /// O botão do coach, flutuando no canto de todas as abas.
 ///
-/// **Por que ele flutua.** Até aqui só se chegava na conversa abrindo a folha do avatar e
-/// achando um item no meio de seis — dois toques para o recurso que mais distingue o produto.
-/// E a dúvida que ele responde ("posso trocar esse exercício?", "isso cabe na minha meta de
-/// hoje?") nasce olhando qualquer uma das abas em que ele aparece, não uma delas em particular.
+/// **Por que ele flutua.** O outro caminho até a conversa é trocar de aba e achar um item no
+/// meio da lista da Conta — dois toques e uma lista para percorrer, para o recurso que mais
+/// distingue o produto. E a dúvida que ele responde ("posso trocar esse exercício?", "isso cabe
+/// na minha meta de hoje?") nasce olhando qualquer uma das abas em que ele aparece, não uma
+/// delas em particular.
 ///
-/// **O mesmo balão da folha da conta**, e não um segundo desenho para a mesma coisa: dois
-/// caminhos até um recurso com vocabulários diferentes é o que faz o usuário achar que são
-/// dois recursos.
+/// **O mesmo balão da linha "Coach" da aba Conta**, e não um segundo desenho para a mesma
+/// coisa: dois caminhos até um recurso com vocabulários diferentes é o que faz o usuário achar
+/// que são dois recursos.
 ///
 /// **Por que não é esmeralda cheio.** Na Hoje ele divide a tira de baixo com o `Registrar`,
 /// que é a ação principal da tela e já ocupa a cor cheia (§4 do design system: a coisa mais

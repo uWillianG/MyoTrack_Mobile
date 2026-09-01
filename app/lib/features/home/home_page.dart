@@ -9,7 +9,6 @@ import '../checkin/weigh_in.dart';
 import '../coach/coach_fab.dart';
 import '../dashboard/progress_page.dart';
 import '../nutrition/nutrition_page.dart';
-import 'account_avatar.dart';
 import 'today_page.dart';
 
 /// As cinco abas do app.
@@ -25,13 +24,18 @@ import 'today_page.dart';
 /// **A Conta é de outra natureza, e voltou à barra assim mesmo.** O argumento contra ela era
 /// bom e continua valendo pela metade: objetivo, medidas e exclusão de dados são coisas que se
 /// mexe uma vez, e por isso a barra as ignorou por um tempo. O que o argumento não pesava é que
-/// este app **cobra assinatura** — e um plano que só se vê depois de tocar no avatar, abrir uma
-/// folha e escolher o quarto item é um plano que ninguém vê. A quinta aba existe para o estado
-/// da conta ser visível sem procurar, e para a exclusão ficar a uma rolagem do primeiro quadro,
-/// que é onde a revisão das lojas procura.
+/// este app **cobra assinatura** — e um plano que só se via depois de tocar num avatar, abrir
+/// uma folha e escolher o quarto item era um plano que ninguém via. A quinta aba existe para o
+/// estado da conta ser visível sem procurar, e para a exclusão ficar a uma rolagem do primeiro
+/// quadro, que é onde a revisão das lojas procura.
 ///
-/// A folha do avatar não foi embora com isso: ela virou o atalho, ver [showAccountSheet]. As
-/// duas leem a mesma lista, e nenhuma escreve destino à mão.
+/// **E o avatar da barra superior saiu junto com ela.** Enquanto a conta se escondia, aquelas
+/// duas letras no canto eram o único caminho até ela; com a aba na barra de baixo, a folha que
+/// o avatar abria passou a oferecer exatamente a lista que a aba já mostra a um toque. Dois
+/// caminhos para o mesmo lugar, um deles atrás de um ícone que não diz o que é: o atalho virou
+/// ruído duplicado, e quem ficou foi a aba. As iniciais continuam no app — quem as desenha
+/// agora é o cabeçalho da própria aba Conta, onde elas dizem de quem é a conta em vez de
+/// esconder um menu.
 enum HomeTab {
   /// Sem título: a Hoje desenha o próprio cabeçalho — ele materializa com a rolagem e leva o
   /// anel em miniatura quando o grande sai de cena. Uma barra escrevendo "MyoTrack" acima
@@ -99,28 +103,13 @@ class HomePage extends ConsumerWidget {
     final title = tab.title;
 
     return Scaffold(
-      // A Hoje abre com o painel do dia, que sangra até o topo da tela e leva o avatar no
-      // próprio canto. As outras quatro continuam com a barra do Material: elas são destinos,
-      // e destino precisa dizer o nome.
-      appBar: title == null
-          ? null
-          : AppBar(
-              title: Text(title),
-              // **O avatar não aparece na própria aba Conta.** Ele é a porta para a folha, e
-              // a folha oferece exatamente a lista que já está aberta logo abaixo dele — um
-              // atalho para onde a pessoa já chegou. As iniciais continuam na tela: quem as
-              // mostra ali é o cabeçalho do hub.
-              //
-              // A margem da direita é a mesma do conteúdo (`Space.gutter`) menos o respiro
-              // que o próprio `IconButton` já reserva: sem ela o avatar encosta na borda da
-              // tela e some pela metade no recorte da câmera.
-              actions: tab == HomeTab.account
-                  ? null
-                  : const [
-                      AccountAvatar(),
-                      SizedBox(width: Space.gutter - Space.sm),
-                    ],
-            ),
+      // A Hoje abre com o painel do dia, que sangra até o topo da tela e desenha o próprio
+      // cabeçalho. As outras quatro continuam com a barra do Material: elas são destinos, e
+      // destino precisa dizer o nome.
+      //
+      // Só o título, e mais nada à direita: a barra não guarda ação nenhuma desde que o avatar
+      // saiu dela.
+      appBar: title == null ? null : AppBar(title: Text(title)),
       // `IndexedStack` e não uma troca de filho: o diário rolado, a foto em análise e a
       // conversa pela metade sobrevivem à ida e volta entre abas. Refazer esse estado a cada
       // toque é o que faz um app parecer que esqueceu o que a pessoa fazia.
@@ -141,10 +130,10 @@ class HomePage extends ConsumerWidget {
       //
       // **O coach fica nas quatro primeiras abas, sempre à direita.** A pergunta que ele
       // responde ("posso trocar esse exercício?", "isso cabe na minha meta de hoje?") nasce
-      // olhando qualquer uma delas, e até aqui o único caminho até a conversa era a folha do
-      // avatar — dois toques e um item no meio de seis. À direita porque é o canto onde o
-      // polegar chega sem a mão sair do lugar, e porque é o mesmo canto nas quatro: botão que
-      // muda de lado conforme a aba obriga a procurá-lo toda vez.
+      // olhando qualquer uma delas, e o outro caminho até a conversa é um item no meio da
+      // lista da aba Conta — trocar de aba e percorrer uma lista. À direita porque é o canto
+      // onde o polegar chega sem a mão sair do lugar, e porque é o mesmo canto nas quatro:
+      // botão que muda de lado conforme a aba obriga a procurá-lo toda vez.
       //
       // **Na Conta ele não aparece.** Ali a dúvida não é sobre treino nem sobre comida — é
       // sobre cobrança, dados e sair —, e um balão de conversa flutuando sobre a linha de
