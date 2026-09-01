@@ -8,6 +8,7 @@ import '../../core/design/blocks.dart';
 import '../../core/design/materials.dart';
 import '../../core/design/format.dart';
 import '../../core/design/tokens.dart';
+import '../../core/jobs/generation_listener.dart';
 import '../../core/jobs/job_status.dart';
 import '../../core/widgets/blocks.dart';
 import '../../core/widgets/empty_state.dart';
@@ -113,13 +114,13 @@ class _CoachPageState extends ConsumerState<CoachPage> {
         ref.watch(coachConversationsProvider).valueOrNull ?? const [];
     final current = conversations.where((c) => c.id == open).firstOrNull;
 
+    listenGenerationState(
+      ref,
+      context,
+      coachProvider,
+      dismiss: ref.read(coachProvider.notifier).dismissError,
+    );
     ref.listen(coachProvider, (previous, next) {
-      if (next.error != null && next.error != previous?.error) {
-        ScaffoldMessenger.of(context)
-          ..clearSnackBars()
-          ..showSnackBar(SnackBar(content: Text(next.error!)));
-        ref.read(coachProvider.notifier).dismissError();
-      }
       // Resposta chegou: a lista cresceu e a última mensagem precisa ficar visível.
       if (previous?.running == true && !next.running) {
         _toBottom();

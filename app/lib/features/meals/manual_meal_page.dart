@@ -9,6 +9,7 @@ import '../../core/design/format.dart';
 import '../../core/design/tokens.dart';
 import '../../core/design/typography.dart';
 import '../../core/jobs/generation_controller.dart';
+import '../../core/jobs/generation_listener.dart';
 import '../../core/widgets/blocks.dart';
 import '../home/today_controller.dart' show nowProvider;
 import 'data/meal_models.dart';
@@ -67,12 +68,12 @@ class _ManualMealPageState extends ConsumerState<ManualMealPage> {
     final items = ref.watch(manualMealDraftProvider);
     final estimate = ref.watch(manualMealEstimateProvider);
 
-    ref.listen(manualMealEstimateProvider, (previous, next) {
-      if (next.error != null && next.error != previous?.error) {
-        _snack(next.error!);
-        ref.read(manualMealEstimateProvider.notifier).dismissError();
-      }
-    });
+    listenGenerationState(
+      ref,
+      context,
+      manualMealEstimateProvider,
+      dismiss: ref.read(manualMealEstimateProvider.notifier).dismissError,
+    );
 
     return Scaffold(
       appBar: AppBar(title: Text(_title())),

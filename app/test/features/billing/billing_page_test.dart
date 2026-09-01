@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:myotrack/core/theme.dart';
 import 'package:myotrack/features/billing/billing_controller.dart';
 import 'package:myotrack/features/billing/billing_page.dart';
+import 'package:myotrack/features/billing/data/billing_models.dart';
 import 'package:myotrack/features/home/today_controller.dart';
 
 import '../home/home_test_harness.dart';
@@ -120,5 +121,97 @@ void main() {
     );
 
     expect(find.text('Renova em 14 de março de 2027'), findsOne);
+  });
+
+  // A tela não comparava os planos porque o servidor só dizia os limites do próprio usuário, e
+  // escrever "50" aqui seria inventar um número que a configuração do ambiente desmente. Agora
+  // os dois lados vêm de lá, e é isso que estes três testes protegem.
+  testWidgets('no plano gratuito, cada cota mostra hoje e o Pro', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      billingOverrides(
+        status: const SubscriptionStatus(
+          maxMealAnalysesPerDay: 3,
+          maxVideoAnalysesPerDay: 1,
+          maxCoachMessagesPerDay: 5,
+          pro: PlanLimits(
+            maxMealAnalysesPerDay: 30,
+            maxVideoAnalysesPerDay: 12,
+            maxCoachMessagesPerDay: 40,
+          ),
+        ),
+      ),
+    );
+
+    await scrollTo(tester, find.text('Hoje e com o Pro'));
+    expect(find.text('30'), findsOne);
+    expect(find.text('12'), findsOne);
+    expect(find.text('40'), findsOne);
+    expect(find.text('→'), findsExactly(3));
+  });
+
+  // Um app novo contra um servidor antigo mostra menos, e não uma linha inventada.
+  testWidgets('sem o bloco do Pro na resposta, a tela volta ao que era', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      billingOverrides(
+        status: const SubscriptionStatus(
+          maxMealAnalysesPerDay: 3,
+          maxVideoAnalysesPerDay: 1,
+          maxCoachMessagesPerDay: 5,
+        ),
+      ),
+    );
+
+    await scrollTo(tester, find.text('O que você tem hoje'));
+    expect(find.text('→'), findsNothing);
+  });
+
+  testWidgets('para quem já é Pro, não há comparação a fazer', (tester) async {
+    await pump(
+      tester,
+      billingOverrides(
+        status: assinaturaPro.copyWith(
+          pro: const PlanLimits(
+            maxMealAnalysesPerDay: 30,
+            maxVideoAnalysesPerDay: 12,
+            maxCoachMessagesPerDay: 40,
+          ),
+        ),
+      ),
+    );
+
+    await scrollTo(tester, find.text('Seus limites diários'));
+    // "30 → 30" seria ruído, e oferecer a um assinante o que ele já paga é o que o servidor
+    // evita na própria mensagem de limite.
+    expect(find.text('→'), findsNothing);
+  });
+
+  // O Pro por constância é Pro de verdade e acaba numa data. A tela escondia a compra de todo
+  // mundo que "é Pro", e com isso tirava a venda justamente de quem ia perder o acesso — que
+  // caía no plano gratuito em silêncio sem nunca ter tido como pagar.
+  testWidgets('com o Pro por constância, ainda dá para assinar', (
+    tester,
+  ) async {
+    await pump(tester, billingOverrides(status: assinaturaPorConstancia));
+
+    expect(find.text('MyoTrack Pro'), findsOne);
+    expect(find.text('Assinar por R\$ 24,90'), findsOne);
+    // A letra miúda da loja volta junto com o botão: quem pode tocar precisa lê-la antes.
+    expect(find.textContaining('renova sozinha'), findsOne);
+  });
+
+  testWidgets('o prêmio diz até quando vale, e não que renova', (tester) async {
+    await pump(tester, billingOverrides(status: assinaturaPorConstancia));
+
+    expect(find.text('Prêmio por constância, até 7 de setembro'), findsOne);
+    // Não há cobrança nenhuma por trás: prometer renovação seria prometer o que não vai
+    // acontecer, e é o que a tela dizia.
+    expect(find.textContaining('Renova em'), findsNothing);
+    expect(find.textContaining('voltam aos do plano gratuito'), findsOne);
   });
 }

@@ -76,6 +76,16 @@ public class BillingController {
                 subscription.map(UserSubscription::getProvider).orElse(null);
         body.put("provider", provider == null ? null : provider.getWireName());
 
+        // **De onde veio o Pro.** Quem ganhou por constância não tem cobrança nenhuma, e a tela
+        // precisa saber disso por dois motivos: dizer quando o prêmio acaba, em vez de "Renova
+        // em" uma data que não existe, e **continuar oferecendo a assinatura**. Sem isto o
+        // botão de comprar sumia enquanto a concessão durasse — quem quisesse pagar não tinha
+        // como, e caía no plano gratuito em silêncio quando o prazo vencia.
+        body.put("isGranted", entitlement.isGranted());
+        body.put("grantExpiresAt", entitlement.isGranted()
+                ? entitlements.grantExpiry(userId).orElse(null)
+                : null);
+
         // Aviso de falha de cobrança enquanto o acesso ainda vale.
         body.put("paymentPastDue", subscription
                 .map(s -> SubscriptionEntitlement.isInGracePeriod(s.getProvider(), s.getProviderStatus()))
@@ -84,6 +94,15 @@ public class BillingController {
         // Assinatura de loja é cancelada nos ajustes do aparelho, não por aqui — a tela precisa
         // saber disso para mostrar a instrução certa em vez de um botão que não funciona.
         body.put("managedByStore", provider != null && provider.isManagedByStore());
+
+        // O outro lado da comparação. Vai sempre, inclusive para quem já é Pro: é configuração
+        // do servidor e não estado do usuário, e quem decide se vale mostrar é a tela. Sem isto
+        // quem está no plano gratuito lê "10 por dia" e nunca descobre que o Pro são 50.
+        final LimitsProperties.PlanLimits pro = entitlements.proLimits();
+        body.put("pro", Map.of(
+                "maxMealAnalysesPerDay", pro.maxMealAnalysesPerDay(),
+                "maxVideoAnalysesPerDay", pro.maxVideoAnalysesPerDay(),
+                "maxCoachMessagesPerDay", pro.maxCoachMessagesPerDay()));
 
         return body;
     }

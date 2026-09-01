@@ -104,8 +104,9 @@ class _Body extends ConsumerWidget {
         _Limits(status: status, colors: colors),
 
         // A loja não respondeu com o produto: sem isto o bloco ficaria sem ação e sem
-        // explicação, que é a forma mais rápida de alguém achar que o app quebrou.
-        if (!status.isPro &&
+        // explicação, que é a forma mais rápida de alguém achar que o app quebrou. Vale também
+        // para quem está com o prêmio, que agora tem botão e portanto pode ficar sem ele.
+        if (!status.isPaidPro &&
             !billing.loadingStore &&
             !billing.storeAvailable) ...[
           const SizedBox(height: Space.sm),
@@ -118,8 +119,10 @@ class _Body extends ConsumerWidget {
         ],
 
         // Assinatura de loja não se cancela pelo app — a instrução certa evita o botão que
-        // não funciona e o suporte que vem atrás dele.
-        if (status.isPro && status.managedByStore) ...[
+        // não funciona e o suporte que vem atrás dele. `isPaidPro` e não `isPro`: quem está com
+        // o prêmio e tem uma assinatura antiga e inativa na tabela leria "sua assinatura é
+        // gerenciada pela loja" sobre uma assinatura que não existe mais.
+        if (status.isPaidPro && status.managedByStore) ...[
           const SizedBox(height: Space.sm),
           BlockNotice(
             colors: colors,
@@ -158,6 +161,11 @@ class _Body extends ConsumerWidget {
 /// **O preço mora na ação.** Ele é a única coisa que o usuário precisa saber para decidir, e
 /// separá-lo do botão — como "Assine o Pro" acima e "Assinar" abaixo — obriga a juntar as duas
 /// metades na leitura. Vem da loja já com moeda e imposto da região: o app nunca o monta.
+///
+/// **Quem tem Pro por constância continua vendo o botão**, e é a correção de um defeito real:
+/// esconder a compra de todo mundo que "é Pro" tirava a venda justamente de quem está usando o
+/// Pro e vai perdê-lo numa data marcada. Ele acabava caindo no plano gratuito em silêncio, sem
+/// nunca ter tido como pagar. O prêmio é uma amostra; a amostra existe para virar assinatura.
 class _PlanHero extends StatelessWidget {
   const _PlanHero({
     required this.status,
@@ -176,7 +184,13 @@ class _PlanHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final renewal = _renewal(status.currentPeriodEnd, now);
+    // A data do prêmio no lugar da de renovação quando o Pro veio de constância: não há
+    // cobrança por trás dele, e uma assinatura antiga e inativa na tabela faria "Renova em"
+    // anunciar uma data que já passou.
+    final renewal = _renewal(
+      status.isGranted ? status.grantExpiresAt : status.currentPeriodEnd,
+      now,
+    );
 
     return HeroBlock(
       colors: colors,
@@ -184,7 +198,7 @@ class _PlanHero extends StatelessWidget {
       icon: status.isPro
           ? Icons.workspace_premium_outlined
           : Icons.person_outline,
-      action: status.isPro ? null : _buyAction(),
+      action: status.isPaidPro ? null : _buyAction(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -195,7 +209,11 @@ class _PlanHero extends StatelessWidget {
           if (renewal != null) ...[
             const SizedBox(height: Space.xs),
             Text(
-              status.isPro ? 'Renova em $renewal' : 'Válido até $renewal',
+              status.isGranted
+                  ? 'Prêmio por constância, até $renewal'
+                  : status.isPro
+                  ? 'Renova em $renewal'
+                  : 'Válido até $renewal',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colors.onGlass.withValues(alpha: 0.85),
               ),
@@ -210,11 +228,22 @@ class _PlanHero extends StatelessWidget {
             _PastDue(colors: colors),
           ],
 
-          if (!status.isPro) ...[
+          if (!status.isPaidPro) ...[
             const SizedBox(height: Space.md),
+            // Curto porque a seção abaixo agora traz os números. Enquanto ela só dizia os
+            // limites de hoje, esta frase era o único lugar que contava o que mudava; repetir
+            // em palavras o que as linhas dizem em algarismos gastaria o herói, que existe
+            // para carregar o preço.
+            //
+            // Para quem está com o prêmio, o assunto é outro: ele já tem os números, e o que
+            // precisa saber é que eles têm prazo. Dizer isso agora é o oposto de apressar a
+            // venda — é evitar a queda em silêncio que acontecia quando o prazo vencia.
             Text(
-              'O Pro amplia os três limites diários: mais análises de refeição, mais '
-              'análises de execução e mais conversa com o coach.',
+              status.isGranted
+                  ? 'Quando o prêmio acabar, os limites voltam aos do plano '
+                        'gratuito. Assinar mantém o Pro sem prazo.'
+                  : 'O que muda no Pro são os três limites diários de IA — os '
+                        'números estão logo abaixo.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colors.onGlass.withValues(alpha: 0.85),
               ),
@@ -307,12 +336,17 @@ class _PastDue extends StatelessWidget {
   }
 }
 
-/// O que o plano libera por dia.
+/// O que o plano libera por dia — e, para quem não é Pro, o que ele passaria a liberar.
 ///
 /// **Os números vêm do servidor e não do app**: os limites são configuráveis por ambiente, e um
-/// valor fixo aqui mentiria no dia em que forem ajustados. É também por isso que a tela não
-/// compara com o outro plano — o servidor só devolve os **seus** limites, e inventar os do Pro
-/// para montar uma tabela de comparação seria escrever um preço que ninguém garante.
+/// valor fixo aqui mentiria no dia em que forem ajustados. Isso valia contra a comparação
+/// enquanto o servidor só devolvia os **seus** limites — inventar os do Pro para montar a
+/// tabela seria escrever um número que ninguém garante. A conclusão era do DTO, não da tela:
+/// agora `GET /api/billing` manda os dois lados, e a comparação continua sendo palavra do
+/// servidor.
+///
+/// Sem o bloco `pro` na resposta, a tela volta ao que era. Um app novo contra um servidor
+/// antigo mostra menos, e não uma linha errada.
 class _Limits extends StatelessWidget {
   const _Limits({required this.status, required this.colors});
 
@@ -321,11 +355,19 @@ class _Limits extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Só quem não é Pro tem o que comparar. Mostrar "50 → 50" a um assinante seria ruído, e
+    // oferecer-lhe o que ele já paga é o que o servidor evita na própria mensagem de limite.
+    final upgrade = status.isPro ? null : status.pro;
+
     return BlockSection(
       colors: colors,
       // No plano gratuito esta seção é o argumento da venda, e o rótulo diz isso: ela conta o
-      // que a pessoa tem hoje, ao lado de um bloco que oferece mais.
-      label: status.isPro ? 'Seus limites diários' : 'O que você tem hoje',
+      // que a pessoa tem hoje, ao lado do que o Pro entrega.
+      label: status.isPro
+          ? 'Seus limites diários'
+          : upgrade == null
+          ? 'O que você tem hoje'
+          : 'Hoje e com o Pro',
       icon: Icons.speed_outlined,
       padding: EdgeInsets.zero,
       child: Column(
@@ -335,16 +377,19 @@ class _Limits extends StatelessWidget {
               Icons.photo_camera_outlined,
               'Análises de refeição',
               status.maxMealAnalysesPerDay,
+              upgrade?.maxMealAnalysesPerDay,
             ),
             (
               Icons.videocam_outlined,
               'Análises de execução',
               status.maxVideoAnalysesPerDay,
+              upgrade?.maxVideoAnalysesPerDay,
             ),
             (
               Icons.forum_outlined,
               'Mensagens do coach',
               status.maxCoachMessagesPerDay,
+              upgrade?.maxCoachMessagesPerDay,
             ),
           ]) ...[
             if (limit.$1 != Icons.photo_camera_outlined)
@@ -358,6 +403,7 @@ class _Limits extends StatelessWidget {
               icon: limit.$1,
               label: limit.$2,
               value: limit.$3,
+              proValue: limit.$4,
               colors: colors,
             ),
           ],
@@ -367,22 +413,36 @@ class _Limits extends StatelessWidget {
   }
 }
 
+/// Uma cota: o número de hoje e, quando há para onde subir, o do Pro depois de uma seta.
+///
+/// **O número de hoje perde a cor quando há comparação.** Com os dois na linha, o que a pessoa
+/// precisa ler é o segundo; deixar os dois em [BlockColors.ink] faria a linha ter dois pesos
+/// iguais e nenhum destino. A seta é "→" e não "vs": não é uma tabela de planos, é o mesmo
+/// número subindo.
 class _LimitRow extends StatelessWidget {
   const _LimitRow({
     required this.icon,
     required this.label,
     required this.value,
     required this.colors,
+    this.proValue,
   });
 
   final IconData icon;
   final String label;
   final int value;
+
+  /// O mesmo limite no Pro, ou null quando não há o que comparar — porque a pessoa já é Pro,
+  /// ou porque o servidor não mandou o bloco.
+  final int? proValue;
+
   final BlockColors colors;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
+    final comparing = proValue != null;
 
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -399,14 +459,27 @@ class _LimitRow extends StatelessWidget {
           const SizedBox(width: Space.xs),
           Text(
             '$value',
-            style: AppTypography.numeric(size: 22, color: colors.ink),
+            style: AppTypography.numeric(
+              size: 22,
+              color: comparing ? muted : colors.ink,
+            ),
           ),
+          if (comparing) ...[
+            const SizedBox(width: Space.xs),
+            Text(
+              '→',
+              style: theme.textTheme.bodyMedium?.copyWith(color: muted),
+            ),
+            const SizedBox(width: Space.xs),
+            Text(
+              '$proValue',
+              style: AppTypography.numeric(size: 22, color: colors.ink),
+            ),
+          ],
           const SizedBox(width: 3),
           Text(
             'por dia',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            style: theme.textTheme.bodySmall?.copyWith(color: muted),
           ),
         ],
       ),

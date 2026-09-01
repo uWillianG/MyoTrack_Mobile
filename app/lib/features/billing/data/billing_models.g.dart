@@ -19,6 +19,11 @@ _SubscriptionStatus _$SubscriptionStatusFromJson(Map<String, dynamic> json) =>
       provider: json['provider'] as String?,
       paymentPastDue: json['paymentPastDue'] as bool? ?? false,
       managedByStore: json['managedByStore'] as bool? ?? false,
+      isGranted: json['isGranted'] as bool? ?? false,
+      grantExpiresAt: json['grantExpiresAt'] as String?,
+      pro: json['pro'] == null
+          ? null
+          : PlanLimits.fromJson(json['pro'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$SubscriptionStatusToJson(_SubscriptionStatus instance) =>
@@ -31,4 +36,22 @@ Map<String, dynamic> _$SubscriptionStatusToJson(_SubscriptionStatus instance) =>
       'provider': instance.provider,
       'paymentPastDue': instance.paymentPastDue,
       'managedByStore': instance.managedByStore,
+      'isGranted': instance.isGranted,
+      'grantExpiresAt': instance.grantExpiresAt,
+      'pro': instance.pro,
+    };
+
+_PlanLimits _$PlanLimitsFromJson(Map<String, dynamic> json) => _PlanLimits(
+  maxMealAnalysesPerDay: (json['maxMealAnalysesPerDay'] as num?)?.toInt() ?? 0,
+  maxVideoAnalysesPerDay:
+      (json['maxVideoAnalysesPerDay'] as num?)?.toInt() ?? 0,
+  maxCoachMessagesPerDay:
+      (json['maxCoachMessagesPerDay'] as num?)?.toInt() ?? 0,
+);
+
+Map<String, dynamic> _$PlanLimitsToJson(_PlanLimits instance) =>
+    <String, dynamic>{
+      'maxMealAnalysesPerDay': instance.maxMealAnalysesPerDay,
+      'maxVideoAnalysesPerDay': instance.maxVideoAnalysesPerDay,
+      'maxCoachMessagesPerDay': instance.maxCoachMessagesPerDay,
     };

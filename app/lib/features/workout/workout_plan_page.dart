@@ -7,6 +7,7 @@ import '../../core/design/blocks.dart';
 import '../../core/design/format.dart';
 import '../../core/design/tokens.dart';
 import '../../core/jobs/generation_controller.dart';
+import '../../core/jobs/generation_listener.dart';
 import '../../core/router.dart';
 import '../../core/widgets/blocks.dart';
 import '../../core/widgets/empty_state.dart';
@@ -33,15 +34,14 @@ class WorkoutPlanPage extends ConsumerWidget {
     final planAsync = ref.watch(activeWorkoutPlanProvider);
 
     // O erro vira snackbar em vez de ocupar espaço fixo: a mensagem é passageira e a tela
-    // continua útil (o plano anterior segue lá).
-    ref.listen(workoutGenerationProvider, (previous, next) {
-      if (next.error != null && next.error != previous?.error) {
-        ScaffoldMessenger.of(context)
-          ..clearSnackBars()
-          ..showSnackBar(SnackBar(content: Text(next.error!)));
-        ref.read(workoutGenerationProvider.notifier).dismissError();
-      }
-    });
+    // continua útil (o plano anterior segue lá). A cota do dia é a exceção, e quem a separa é
+    // [listenGenerationState] — ali há uma saída a oferecer, e ela não cabe num aviso que some.
+    listenGenerationState(
+      ref,
+      context,
+      workoutGenerationProvider,
+      dismiss: ref.read(workoutGenerationProvider.notifier).dismissError,
+    );
 
     return Scaffold(
       appBar: AppBar(title: Text(planAsync.valueOrNull?.name ?? 'Seu treino')),

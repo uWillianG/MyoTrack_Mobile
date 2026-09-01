@@ -537,10 +537,18 @@ const filaDeRevisao = [
 /// é um stream que nunca responde: sobrescrevê-lo inteiro é a única forma de a tela existir
 /// fora de um celular com conta de loja configurada.
 List<Override> billingOverrides({
+  /// O plano gratuito **com** o bloco do Pro, que é o que o servidor devolve hoje. Um fixture
+  /// sem ele descreveria um servidor antigo, e a tela de assinatura seria julgada sem a
+  /// comparação que é o argumento dela — quem quiser esse caso passa o status à mão.
   SubscriptionStatus status = const SubscriptionStatus(
     maxMealAnalysesPerDay: 3,
     maxVideoAnalysesPerDay: 1,
     maxCoachMessagesPerDay: 5,
+    pro: PlanLimits(
+      maxMealAnalysesPerDay: 15,
+      maxVideoAnalysesPerDay: 4,
+      maxCoachMessagesPerDay: 25,
+    ),
   ),
   // `ProductDetails` não tem construtor const, então o padrão é montado no corpo.
   BillingState? state,
@@ -570,6 +578,19 @@ BillingState lojaComProduto() => BillingState(
 );
 
 /// O plano pago, renovando no fim do mês e gerenciado pela loja.
+/// O Pro que veio de constância, e não de pagamento.
+///
+/// Sem `provider` nem `currentPeriodEnd` de propósito: é exatamente isso que a concessão é —
+/// Pro de verdade, sem nenhuma cobrança por trás. O prazo mora em `grantExpiresAt`.
+const assinaturaPorConstancia = SubscriptionStatus(
+  plan: 'Pro',
+  maxMealAnalysesPerDay: 15,
+  maxVideoAnalysesPerDay: 4,
+  maxCoachMessagesPerDay: 25,
+  isGranted: true,
+  grantExpiresAt: '2026-09-07T12:00:00',
+);
+
 const assinaturaPro = SubscriptionStatus(
   plan: 'Pro',
   maxMealAnalysesPerDay: 20,

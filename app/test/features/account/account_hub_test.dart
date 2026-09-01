@@ -159,6 +159,25 @@ void main() {
     expect(find.text('Renova em 28 de agosto'), findsOne);
   });
 
+  testWidgets('o Pro por constância diz que é prêmio, e até quando', (
+    tester,
+  ) async {
+    // Ele dizia "Assinatura ativa", como qualquer outro Pro — e não há assinatura nenhuma. O
+    // lugar onde se vai conferir o que se paga era justamente o que não avisava do prazo.
+    await pump(
+      tester,
+      extraOverrides: [
+        subscriptionStatusProvider.overrideWith(
+          (ref) async => assinaturaPorConstancia,
+        ),
+      ],
+    );
+
+    expect(find.text('MyoTrack Pro'), findsOne);
+    expect(find.text('Prêmio por constância até 7 de setembro'), findsOne);
+    expect(find.textContaining('Renova em'), findsNothing);
+  });
+
   testWidgets('a renovação de outro ano vem com o ano escrito', (tester) async {
     // Uma assinatura anual vence no ano que vem, e a data sem o ano seria a mais confusa
     // possível numa linha sobre dinheiro.

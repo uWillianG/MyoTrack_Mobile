@@ -14,6 +14,7 @@ class GenerationState {
     this.step,
     this.phase,
     this.error,
+    this.limitReached = false,
   });
 
   final bool running;
@@ -31,6 +32,17 @@ class GenerationState {
   final JobState? phase;
 
   final String? error;
+
+  /// O erro é a cota diária de IA, e não uma falha.
+  ///
+  /// Existe ao lado de [error] pela mesma razão que [phase] existe ao lado de [step]: **rótulo
+  /// é para ler, condição é para decidir.** A frase vem pronta do servidor — é ele quem sabe o
+  /// limite configurado no ambiente — e procurar "Assine o Pro" dentro dela para descobrir que
+  /// foi cota quebraria na primeira vez que alguém reescrevesse o texto lá.
+  ///
+  /// O que a tela faz com isto é oferecer o caminho da assinatura em vez de um aviso que some
+  /// sozinho: o servidor nomeia um destino, e até aqui nenhuma tela o oferecia.
+  final bool limitReached;
 
   static const idle = GenerationState();
 }
@@ -128,7 +140,13 @@ abstract class JobGenerationController extends Notifier<GenerationState> {
       state = GenerationState.idle;
     } on ApiException catch (e) {
       if (identical(_run, run)) {
-        state = GenerationState(error: e.message);
+        // 429 é a cota do dia, e é a única recusa desta base que tem uma saída a oferecer.
+        // Marcá-la aqui vale para os seis fluxos de IA de uma vez — nenhum controller precisa
+        // saber que a assinatura existe.
+        state = GenerationState(
+          error: e.message,
+          limitReached: e.isRateLimited,
+        );
       }
     } catch (_) {
       if (identical(_run, run)) {

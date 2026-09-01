@@ -9,6 +9,7 @@ import '../../core/day_groups.dart';
 import '../../core/design/blocks.dart';
 import '../../core/design/format.dart';
 import '../../core/design/tokens.dart';
+import '../../core/jobs/generation_listener.dart';
 import '../../core/widgets/blocks.dart';
 import '../../core/widgets/glass_segmented.dart';
 import '../../core/widgets/empty_state.dart';
@@ -85,14 +86,12 @@ class _MealAnalysisViewState extends ConsumerState<MealAnalysisView> {
     final controller = ref.read(mealAnalysisProvider.notifier);
     final history = ref.watch(mealHistoryProvider);
 
-    ref.listen(mealAnalysisProvider, (previous, next) {
-      if (next.error != null && next.error != previous?.error) {
-        ScaffoldMessenger.of(context)
-          ..clearSnackBars()
-          ..showSnackBar(SnackBar(content: Text(next.error!)));
-        ref.read(mealAnalysisProvider.notifier).dismissError();
-      }
-    });
+    listenGenerationState(
+      ref,
+      context,
+      mealAnalysisProvider,
+      dismiss: controller.dismissError,
+    );
 
     return RefreshIndicator(
       onRefresh: () async {

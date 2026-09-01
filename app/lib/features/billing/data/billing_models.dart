@@ -28,6 +28,25 @@ abstract class SubscriptionStatus with _$SubscriptionStatus {
 
     /// Assinatura gerenciada pela loja: cancelar é nos ajustes do aparelho, não aqui.
     @Default(false) bool managedByStore,
+
+    /// O Pro veio de constância, e não de pagamento.
+    ///
+    /// **Muda o que a tela oferece, e não só o que ela escreve.** Quem ganhou o prêmio não tem
+    /// cobrança nenhuma: não há data de renovação a mostrar, e a assinatura precisa continuar
+    /// à venda — é justamente quem está usando o Pro e vai perdê-lo na data abaixo.
+    @Default(false) bool isGranted,
+
+    /// Quando o prêmio acaba. Null em quem não tem concessão valendo.
+    String? grantExpiresAt,
+
+    /// Os limites do Pro, para a tela poder comparar com os de cima.
+    ///
+    /// **Nulável e sem `@Default`, de propósito.** Um valor padrão aqui seria o app afirmando
+    /// quanto o Pro entrega — exatamente o que a tela de assinatura se recusou a fazer quando
+    /// só havia os limites do próprio usuário. Sem esta resposta do servidor não há
+    /// comparação a mostrar, e a tela volta a mostrar só o que a pessoa tem hoje: um app novo
+    /// contra um servidor antigo continua funcionando.
+    PlanLimits? pro,
   }) = _SubscriptionStatus;
 
   const SubscriptionStatus._();
@@ -36,4 +55,27 @@ abstract class SubscriptionStatus with _$SubscriptionStatus {
       _$SubscriptionStatusFromJson(json);
 
   bool get isPro => plan == 'Pro';
+
+  /// Há uma assinatura paga por trás deste Pro?
+  ///
+  /// É o que separa "renova" de "vence": o prêmio por constância dá Pro de verdade e acaba na
+  /// data marcada, sem nada para renovar.
+  bool get isPaidPro => isPro && !isGranted;
+}
+
+/// Os três tetos diários de um plano.
+///
+/// Existe para carregar o **outro** plano ao lado do seu. Os campos do plano em vigor
+/// continuam soltos em [SubscriptionStatus] porque é assim que a API sempre os mandou, e
+/// mudar isso quebraria o app antigo contra o servidor novo sem necessidade nenhuma.
+@freezed
+abstract class PlanLimits with _$PlanLimits {
+  const factory PlanLimits({
+    @Default(0) int maxMealAnalysesPerDay,
+    @Default(0) int maxVideoAnalysesPerDay,
+    @Default(0) int maxCoachMessagesPerDay,
+  }) = _PlanLimits;
+
+  factory PlanLimits.fromJson(Map<String, dynamic> json) =>
+      _$PlanLimitsFromJson(json);
 }

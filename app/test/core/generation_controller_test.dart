@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:myotrack/core/jobs/generation_controller.dart';
 import 'package:myotrack/core/jobs/job_status.dart';
 import 'package:myotrack/core/jobs/job_watcher.dart';
+import 'package:myotrack/core/network/api_exception.dart';
 import 'package:myotrack/core/providers.dart';
 
 /// A base que conduz os seis jobs de IA do app, vista pelo lado de quem espera.
@@ -70,9 +71,15 @@ class _FakeController extends JobGenerationController {
   @override
   Duration get deadline => const Duration(seconds: 42);
 
+  /// O que o servidor responde ao enfileirar, quando não é um id.
+  ApiException? recusa;
+
   @override
   Future<String> enqueue() async {
     enfileirou++;
+    if (recusa case final erro?) {
+      throw erro;
+    }
     return 'j1';
   }
 
@@ -177,5 +184,38 @@ void main() {
     expect(controller().recarregou, 1);
     expect(state().running, isFalse);
     expect(state().error, isNull);
+  });
+
+  // A cota do dia é a única recusa desta base que tem uma saída a oferecer, e é aqui que ela
+  // se separa das outras. A separação é por status e não pelo texto: a frase vem pronta do
+  // servidor, e procurar "Assine o Pro" dentro dela quebraria na primeira reescrita lá.
+  test('o 429 marca cota atingida e preserva a frase do servidor', () async {
+    controller().recusa = ApiException(
+      'Limite diário de 10 análises de refeição atingido. Assine o Pro para '
+      'ampliar.',
+      statusCode: 429,
+    );
+
+    await controller().start();
+
+    expect(state().limitReached, isTrue);
+    expect(
+      state().error,
+      contains('Assine o Pro'),
+      reason: 'quem sabe o limite configurado no ambiente é o servidor',
+    );
+    expect(state().running, isFalse);
+  });
+
+  test('a falha do servidor não vira oferta de assinatura', () async {
+    controller().recusa = ApiException(
+      'O servidor falhou. Tente de novo em instantes.',
+      statusCode: 500,
+    );
+
+    await controller().start();
+
+    expect(state().limitReached, isFalse);
+    expect(state().error, isNotNull);
   });
 }

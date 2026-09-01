@@ -278,14 +278,23 @@ class _PlanSection extends ConsumerWidget {
   /// "28 de agosto", com o ano só quando não é o corrente — a mesma conta da tela de
   /// assinatura, e pelo mesmo motivo: uma assinatura anual vence no ano que vem, e a data sem
   /// o ano ali seria a mais confusa possível.
+  ///
+  /// **O Pro por constância tem linha própria.** Ele dizia "Assinatura ativa" como qualquer
+  /// outro, e não há assinatura nenhuma: o prêmio vence numa data e ninguém era avisado disso
+  /// no lugar onde se vai justamente conferir o que se paga.
   String _detail(DateTime now) {
     if (!status.isPro) {
       return 'Toque para conhecer o Pro e ampliar os limites do dia.';
     }
 
-    final iso = status.currentPeriodEnd;
+    final iso = status.isGranted
+        ? status.grantExpiresAt
+        : status.currentPeriodEnd;
     final at = iso == null ? null : DateTime.tryParse(iso)?.toLocal();
     if (at == null) {
+      if (status.isGranted) {
+        return 'Pro por constância, sem cobrança.';
+      }
       return status.managedByStore
           ? 'Assinatura gerenciada pela loja do aparelho.'
           : 'Assinatura ativa.';
@@ -294,7 +303,9 @@ class _PlanSection extends ConsumerWidget {
     final when = at.year == now.year
         ? Fmt.dayMonth(at)
         : '${Fmt.dayMonth(at)} de ${at.year}';
-    return 'Renova em $when';
+    return status.isGranted
+        ? 'Prêmio por constância até $when'
+        : 'Renova em $when';
   }
 }
 

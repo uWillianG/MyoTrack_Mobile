@@ -9,6 +9,7 @@ import '../../core/day_groups.dart';
 import '../../core/design/blocks.dart';
 import '../../core/design/format.dart';
 import '../../core/design/tokens.dart';
+import '../../core/jobs/generation_listener.dart';
 import '../../core/widgets/blocks.dart';
 import '../../core/widgets/empty_state.dart';
 // O relógio do app, injetável: sem ele o bloco "Hoje" do histórico mudaria de valor entre a
@@ -93,14 +94,12 @@ class VideoAnalysisView extends ConsumerWidget {
     final controller = ref.read(videoAnalysisProvider.notifier);
     final history = ref.watch(videoHistoryProvider);
 
-    ref.listen(videoAnalysisProvider, (previous, next) {
-      if (next.error != null && next.error != previous?.error) {
-        ScaffoldMessenger.of(context)
-          ..clearSnackBars()
-          ..showSnackBar(SnackBar(content: Text(next.error!)));
-        ref.read(videoAnalysisProvider.notifier).dismissError();
-      }
-    });
+    listenGenerationState(
+      ref,
+      context,
+      videoAnalysisProvider,
+      dismiss: controller.dismissError,
+    );
 
     return RefreshIndicator(
       onRefresh: () async {

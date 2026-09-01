@@ -1,10 +1,12 @@
 package com.myotrack.api.billing;
 
 import com.myotrack.domain.SubscriptionPlanType;
+import com.myotrack.domain.entity.ProGrant;
 import com.myotrack.infrastructure.repository.ProGrantRepository;
 import com.myotrack.infrastructure.repository.UserSubscriptionRepository;
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -62,6 +64,36 @@ public class EntitlementService {
                 plan.maxVideoAnalysesPerDay(),
                 plan.maxCoachMessagesPerDay(),
                 granted && !paid);
+    }
+
+    /**
+     * Quando o Pro por constância acaba, ou vazio quando não há concessão valendo.
+     *
+     * <p>Fora de {@link #get(UUID)} de propósito: aquele roda em toda checagem de limite de IA
+     * e responde com um {@code exists}, que é barato. Esta pergunta é da tela de assinatura,
+     * que precisa da data para dizer até quando — e é a única que a faz.
+     */
+    @Transactional(readOnly = true)
+    public Optional<OffsetDateTime> grantExpiry(UUID userId) {
+        return grants
+                .findFirstByUserIdAndExpiresAtAfterOrderByExpiresAtDesc(
+                        userId, OffsetDateTime.now(clock))
+                .map(ProGrant::getExpiresAt);
+    }
+
+    /**
+     * Os limites do Pro, valha ele para este usuário ou não.
+     *
+     * <p>Existe para a tela de assinatura poder comparar. Ela não montava a comparação porque
+     * o servidor só dizia os limites <b>do usuário</b>, e escrever "50" no app seria inventar
+     * um número que a configuração do ambiente pode desmentir — o mesmo defeito que
+     * {@link LimitsProperties} existe para evitar. Agora a comparação é palavra do servidor.
+     *
+     * <p>Fica aqui, e não no controller, para que continue havendo um dono só da pergunta
+     * "quanto cabe em cada plano".
+     */
+    public LimitsProperties.PlanLimits proLimits() {
+        return limits.pro();
     }
 
     public record Entitlements(

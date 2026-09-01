@@ -6,6 +6,7 @@ import '../../core/design/blocks.dart';
 import '../../core/design/format.dart';
 import '../../core/design/tokens.dart';
 import '../../core/jobs/generation_controller.dart';
+import '../../core/jobs/generation_listener.dart';
 import '../../core/router.dart';
 import '../../core/widgets/blocks.dart';
 import '../../core/widgets/empty_state.dart';
@@ -51,14 +52,12 @@ class DietPlanView extends ConsumerWidget {
     final generation = ref.watch(dietGenerationProvider);
     final colors = Blocks.nutrition(Theme.of(context).brightness);
 
-    ref.listen(dietGenerationProvider, (previous, next) {
-      if (next.error != null && next.error != previous?.error) {
-        ScaffoldMessenger.of(context)
-          ..clearSnackBars()
-          ..showSnackBar(SnackBar(content: Text(next.error!)));
-        ref.read(dietGenerationProvider.notifier).dismissError();
-      }
-    });
+    listenGenerationState(
+      ref,
+      context,
+      dietGenerationProvider,
+      dismiss: ref.read(dietGenerationProvider.notifier).dismissError,
+    );
 
     return RefreshIndicator(
       onRefresh: () async {
