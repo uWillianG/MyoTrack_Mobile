@@ -75,14 +75,17 @@ myotrack:
       audiences: ${MYOTRACK_APPLE_AUDIENCES:}
 
   limits:
+    # O gratuito é amostra, não uso diário: dá para provar cada recurso no mesmo dia e sentir
+    # onde ele acaba. O Pro é o que sustenta o uso de verdade — e é o número que a tela de
+    # assinatura compara, porque vem daqui e não de uma constante escrita no app.
     free:
+      max-meal-analyses-per-day: 3
+      max-video-analyses-per-day: 1
+      max-coach-messages-per-day: 5
+    pro:
       max-meal-analyses-per-day: 10
       max-video-analyses-per-day: 5
       max-coach-messages-per-day: 10
-    pro:
-      max-meal-analyses-per-day: 50
-      max-video-analyses-per-day: 20
-      max-coach-messages-per-day: 50
 
   billing:
     # Sem secret-key os pagamentos ficam desabilitados e todos usam o plano gratuito.

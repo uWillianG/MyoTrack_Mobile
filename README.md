@@ -307,7 +307,7 @@ falso põe em dúvida todos os verdadeiros.
 ### O prêmio: Pro por prazo
 
 Duas marcas de constância rendem plano Pro de verdade — **quatro semanas seguidas dão 7 dias,
-doze semanas dão 30**. Enquanto vale, os limites diários de IA sobem de 10/5/10 para 50/20/50.
+doze semanas dão 30**. Enquanto vale, os limites diários de IA sobem de 3/1/5 para 10/5/10.
 
 Isso muda quem calcula. **A sequência de semanas saiu do app e foi para o domínio do backend**
 (`TrainingStreak`, ao lado de `TrainingWeek`, que existe pelo mesmo motivo: uma definição só).
